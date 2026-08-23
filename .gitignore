@@ -1,7 +1,14 @@
+# Generated pages — built from content/*.json by build.py.
+# Not committed on purpose: the admin commits JSON only, so a committed copy
+# of these would go stale the moment anyone edits content. Cloudflare Pages
+# renders them at deploy time; run `python build.py` for a local copy.
+/index.html
+/zh/index.html
+/dist/
+
 # asset pipeline scratch (regenerate with tools/*.py)
 /images/
 /web/
-*.ink_raw.png
 ink_raw.png
 ink_preview.png
 

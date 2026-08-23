@@ -1,0 +1,205 @@
+{
+  "$comment": "Structure and media shared by both locales. Strings live in en.json / zh.json, keyed by the ids here. Order in these arrays is the order on the page.",
+  "contactEmail": "zhangmin9@hotmail.com",
+  "copyrightYear": "2025",
+  "images": {
+    "hero": "img/hero-portrait.webp",
+    "ink": "img/ink-overthinking.webp",
+    "aboutTop": "img/portrait-golden.webp",
+    "aboutWide": "img/live-hardrock.webp",
+    "aboutBottom": "img/portrait-dark.webp"
+  },
+  "releases": [
+    {
+      "id": "overthinking",
+      "art": "img/album-overthinking.webp",
+      "badge": true
+    },
+    {
+      "id": "saturn",
+      "art": "img/album-saturn.webp",
+      "badge": false
+    },
+    {
+      "id": "singles",
+      "art": "img/portrait-orange.webp",
+      "badge": false
+    }
+  ],
+  "videos": [
+    {
+      "id": "overthinking",
+      "yt": "WemMShRTg6E",
+      "bv": "",
+      "poster": "img/video/WemMShRTg6E.webp",
+      "feature": true
+    },
+    {
+      "id": "look-in-the-mirror",
+      "yt": "Z-EP0Qwl2xw",
+      "bv": "",
+      "poster": "img/video/Z-EP0Qwl2xw.webp",
+      "feature": false
+    },
+    {
+      "id": "her",
+      "yt": "NwpjbcHqua4",
+      "bv": "",
+      "poster": "img/video/NwpjbcHqua4.webp",
+      "feature": false
+    },
+    {
+      "id": "i-do",
+      "yt": "4BrMzNiupXQ",
+      "bv": "",
+      "poster": "img/video/4BrMzNiupXQ.webp",
+      "feature": false
+    },
+    {
+      "id": "its-raining",
+      "yt": "R5OQh-loln4",
+      "bv": "",
+      "poster": "img/video/R5OQh-loln4.webp",
+      "feature": false
+    },
+    {
+      "id": "curiosity",
+      "yt": "_KBXlZYRx8E",
+      "bv": "",
+      "poster": "img/video/_KBXlZYRx8E.webp",
+      "feature": false
+    },
+    {
+      "id": "if-its-true",
+      "yt": "VeyHXexUB8Y",
+      "bv": "",
+      "poster": "img/video/VeyHXexUB8Y.webp",
+      "feature": false
+    },
+    {
+      "id": "time-will-speak",
+      "yt": "xOxKN4OKFsw",
+      "bv": "",
+      "poster": "img/video/xOxKN4OKFsw.webp",
+      "feature": false
+    },
+    {
+      "id": "saturn-diary",
+      "yt": "VSP5IlXHq8E",
+      "bv": "",
+      "poster": "img/video/VSP5IlXHq8E.webp",
+      "feature": false
+    },
+    {
+      "id": "how-it-feels-like",
+      "yt": "foud-nkltS8",
+      "bv": "",
+      "poster": "img/video/foud-nkltS8.webp",
+      "feature": false
+    },
+    {
+      "id": "oh-mother",
+      "yt": "f55cIm9AYd4",
+      "bv": "",
+      "poster": "img/video/f55cIm9AYd4.webp",
+      "feature": false
+    },
+    {
+      "id": "one-day",
+      "yt": "CiVWFo4Mlbg",
+      "bv": "",
+      "poster": "img/video/CiVWFo4Mlbg.webp",
+      "feature": false
+    },
+    {
+      "id": "be-mine",
+      "yt": "5qcaCLkbfys",
+      "bv": "",
+      "poster": "img/video/5qcaCLkbfys.webp",
+      "feature": false
+    }
+  ],
+  "milestones": [
+    {
+      "year": "2021",
+      "current": false,
+      "items": [
+        "be-mine",
+        "its-raining",
+        "uksc-five-star",
+        "one-day"
+      ]
+    },
+    {
+      "year": "2022",
+      "current": false,
+      "items": [
+        "how-it-feels-like",
+        "oh-mother",
+        "isc-finalist",
+        "masc-gasc-finalist",
+        "uksc-semi"
+      ]
+    },
+    {
+      "year": "2023",
+      "current": false,
+      "items": [
+        "saturn-diary",
+        "time-will-speak",
+        "ode-to-joy"
+      ]
+    },
+    {
+      "year": "2024",
+      "current": false,
+      "items": [
+        "look-in-the-mirror",
+        "iama-third",
+        "qq-2m",
+        "her",
+        "netease-1m",
+        "if-its-true"
+      ]
+    },
+    {
+      "year": "2025",
+      "current": true,
+      "items": [
+        "umpg",
+        "i-do",
+        "overthinking"
+      ]
+    }
+  ],
+  "press": [
+    {
+      "id": "umpg-signing",
+      "url": "https://weibo.com/6500843556/5171711167171346"
+    },
+    {
+      "id": "umg-china",
+      "url": "https://m.weibo.cn/status/5222705983127872"
+    },
+    {
+      "id": "umg-teaser",
+      "url": "https://weibo.com/7483769457/5221981236232680"
+    },
+    {
+      "id": "comment-1",
+      "url": "https://weibo.com/1730317584/5116894815983612"
+    },
+    {
+      "id": "comment-2",
+      "url": "https://weibo.com/2231403227/5116603901676631"
+    },
+    {
+      "id": "comment-3",
+      "url": "https://weibo.com/3995233655/5116588036981807"
+    },
+    {
+      "id": "comment-4",
+      "url": "https://weibo.com/1876131803/5222411744314014"
+    }
+  ]
+}

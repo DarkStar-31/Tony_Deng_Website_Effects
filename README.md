@@ -1,6 +1,7 @@
 # Tony D — website
 
-Bilingual artist site. Vanilla HTML/CSS/JS, no build step.
+Bilingual artist site. Vanilla HTML/CSS/JS, rendered from JSON by a
+dependency-free build script.
 
 | Page | Language | Video source |
 |---|---|---|
@@ -10,11 +11,59 @@ Bilingual artist site. Vanilla HTML/CSS/JS, no build step.
 Two full documents rather than one page with a JS string swap: Baidu
 indexes static HTML far more reliably than JS-rendered content, and the
 two versions genuinely differ in substance — the Chinese page leads with
-NetEase and QQ Music, and embeds Bilibili instead of YouTube. They share
-`css/`, `js/`, `img/` and `fonts/`, so only the copy is duplicated.
+NetEase and QQ Music, and embeds Bilibili instead of YouTube.
 
-**Edit both pages when changing shared content.** There is no build step
-tying them together.
+## Where the content lives
+
+Both pages are **generated** and are not committed:
+
+```
+content/shared.json   ids, order, media paths, which video is the feature
+content/en.json       every English string, keyed by those ids
+content/zh.json       every Chinese string, keyed by the same ids
+       │
+       ▼  build.py
+index.html   zh/index.html
+```
+
+The spine lives once in `shared.json`, so adding a video or a milestone is
+one entry rather than two, and the English and Chinese wordings for the
+same item sit next to each other in the admin. What stays separate is
+everything that genuinely differs: each locale keeps its own link lists,
+its own ordering, and its own locale-only blocks (the Bilibili notice box
+exists only on the Chinese page).
+
+Edit the JSON directly, or use the admin — see [docs/admin-setup.md](docs/admin-setup.md).
+
+```
+python build.py            # render both pages locally
+python build.py --check    # are the rendered pages in sync with content/?
+python build.py --dist     # assemble dist/ — what Cloudflare Pages serves
+```
+
+Strings in the JSON are authored HTML, not escaped text: `<em>`, `<b>`,
+`<span lang="zh">` and entities all pass through, because the real copy
+needs them. Attribute values (URLs, alt text) are escaped by `build.py`.
+
+## Admin
+
+`/admin/` is a browser editor for every field on both pages: text, images,
+videos, releases, milestones, press, contact, and the raw JSON as a fallback.
+
+- **Auth is Cloudflare Access** (email one-time code). No passwords in this
+  codebase, and no GitHub account needed to edit.
+- **The browser never talks to GitHub.** It posts to a Worker
+  (`workers/admin/`) that holds a fine-grained token server-side and commits
+  on the editor's behalf — which is what makes the admin usable from
+  mainland China, where `api.github.com` is unreliable.
+- **Saves go to a `draft` branch**, which Pages builds to a preview URL.
+  Publishing merges `draft` into `main`, and is limited to the emails in
+  `PUBLISHERS`. Everyone else gets edit-and-preview.
+- Every save is a normal git commit, attributed and revertable.
+
+Setup is one-time and documented in [docs/admin-setup.md](docs/admin-setup.md).
+Note the ordering warning at the top of it: the Pages build settings have to
+change before this is deployed, or the live site 404s.
 
 ## Sections
 
@@ -36,11 +85,15 @@ and it is a full personal press kit); it lives alongside the working copy.
 ## Run it
 
 ```
-python -m http.server 5502
+python tools/devserver.py
 ```
 
-Then open <http://localhost:5502>. (VS Code Live Server works too — the
-reference project used port 5501.)
+Builds the pages, serves them at <http://localhost:5502>, and runs a local
+stand-in for the admin at <http://localhost:5502/admin/> that writes
+straight to `content/*.json`. No authentication — localhost only.
+
+For the site alone, `python build.py && python -m http.server 5502` works
+too, as does VS Code Live Server once the pages are built.
 
 It must be served over HTTP, not opened as a `file://` path: the audio
 probe and WebP loading both need a real origin.
@@ -143,7 +196,8 @@ python tools/assets.py      # -> img/*.webp
 ```
 
 Run them from the repo root. `extract.py` has the PDF's absolute path at
-the top — point it at your own copy.
+the top — point it at your own copy. Day to day you do not need these:
+the admin uploads images straight into `img/`.
 
 These are compressed copies pulled out of a PDF. **Replace them with the
 photographer's originals when available** — especially `hero-portrait.webp`.
@@ -177,15 +231,16 @@ a Bilibili page is deliberately **left as a plain outbound link** — it gets
 `.vid--pending`, loses its play badge, and shows a "B 站即将上线" flag
 rather than becoming a player that could never load in China.
 
-Once the videos are uploaded, fill in the BV id — that is the only change
-needed:
+Once the videos are uploaded, fill in the BV id in the admin's Videos tab
+(or `content/shared.json`) — that is the only change needed:
 
-```html
-<a class="vid" data-bv="BV1xx411c7mD" data-yt="Z-EP0Qwl2xw" ...>
+```json
+{ "id": "look-in-the-mirror", "yt": "Z-EP0Qwl2xw", "bv": "BV1xx411c7mD", ... }
 ```
 
-Then drop the `vid__flag` span from that tile, and the notice box above the
-grid once they are all done.
+The `vid__flag` marker disappears from that tile automatically once `bv` is
+non-empty. Remove the notice box above the grid — the admin has a button
+for it under *Hero & nav* — once every tile has an id.
 
 ## Reaching mainland China
 
@@ -210,10 +265,16 @@ Re-run this check after editing either page:
 grep -ohE 'https?://[a-zA-Z0-9._-]+' index.html zh/index.html | sort | uniq -c
 ```
 
-**Still unsolved: hosting.** Even with every blocked asset removed, a site
-served from outside China is slow and unreliable there. The real fix is a
-mainland CDN, which requires an ICP filing (备案) and therefore a Chinese
+**Still unsolved: hosting.** The site is on Cloudflare Pages, which solves
+hosting everywhere except the audience this work was done for: Cloudflare's
+free plan has no mainland China points of presence, and `*.pages.dev` is
+frequently unreachable from inside the GFW. A proxied custom domain is
+reachable but slow. The real fix is a mainland CDN or Cloudflare's China
+Network, both of which require an ICP filing (备案) and therefore a Chinese
 entity or ID. Worth settling before investing further in the CN page.
+
+Note that this applies to `/admin/` too: Tony can reach it on a custom
+domain, but it will not feel fast.
 
 ## Known gaps
 
@@ -229,8 +290,8 @@ entity or ID. Worth settling before investing further in the CN page.
   is the right public-facing address before the site goes live.
 - `《if you》` from the resume is a Weibo-only video, so it is not in the
   grid — there is no YouTube ID for it.
-- **No Bilibili channel yet.** All 13 `data-bv` slots in `zh/index.html`
-  are empty; see *Adding the Bilibili ids* above.
+- **No Bilibili channel yet.** All 13 `bv` fields in
+  `content/shared.json` are empty; see *Adding the Bilibili ids* above.
 - The Chinese copy is my translation, not Tony's own wording. Competition
   names use the common Chinese renderings where those are established and
   stay in English otherwise. Have a native speaker read it before launch —
