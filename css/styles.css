@@ -1,0 +1,812 @@
+/* =========================================================
+   Tony D — "Ink & Late Night"
+   Palette sampled from the Overthinking / HER artwork.
+   ========================================================= */
+
+/* =========================================================
+   Self-hosted webfonts.
+
+   These were served from fonts.googleapis.com, which is blocked in
+   mainland China — a large part of Tony's audience. Loading them from
+   our own origin keeps the typography intact there (and removes a
+   third-party request everywhere else).
+
+   Latin subsets only: neither family has CJK glyphs, so Chinese text
+   falls through to --f-cjk below.
+   ========================================================= */
+
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url(../fonts/instrument-serif-400-italic-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url(../fonts/instrument-serif-400-italic-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(../fonts/instrument-serif-400-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(../fonts/instrument-serif-400-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(../fonts/inter-400-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(../fonts/inter-400-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(../fonts/inter-600-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(../fonts/inter-600-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(../fonts/inter-700-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(../fonts/inter-700-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root{
+  --ink:        #0B0A0C;   /* base, from album cover #1D0C16 */
+  --ink-2:      #131114;   /* raised surface */
+  --bone:       #EDE6DC;   /* warm off-white text */
+  --bone-dim:   #9A938C;
+  --magenta:    #FA279F;   /* signature accent (HER artwork) */
+  --orange:     #B25A16;   /* warm mid (editorial portrait) */
+  --acid:       #05F93B;   /* rare 2nd accent — once per page, max */
+  --line:       rgba(237,230,220,.14);
+
+  /* Inter and Instrument Serif carry no CJK glyphs, so Chinese characters
+     fall past them to the first family below that has the glyph. Keeping
+     the CJK faces in the same stack means one token works on both pages
+     and mixed-script lines (想太多 / Overthinking) stay consistent.
+     These are system faces — a real CJK webfont is several MB unsubset. */
+  --f-sans: 'Inter', system-ui, -apple-system, 'Segoe UI',
+            'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+            'Noto Sans CJK SC', sans-serif;
+  --f-serif:'Instrument Serif', Georgia,
+            'Songti SC', 'Noto Serif CJK SC', 'SimSun', serif;
+
+  --pad: clamp(1.25rem, 4vw, 4.5rem);
+  --ease: cubic-bezier(.22,.61,.36,1);
+}
+
+*,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
+
+html{ scroll-behavior:smooth; }
+
+body{
+  background:var(--ink);
+  color:var(--bone);
+  font-family:var(--f-sans);
+  font-size:16px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+
+img{ display:block; max-width:100%; }
+
+.sr-only{
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;
+}
+
+/* keyboard users shouldn't have to tab the whole nav to reach content */
+.skip{
+  position:fixed; top:.6rem; left:.6rem; z-index:200;
+  transform:translateY(-200%);
+  background:var(--bone); color:var(--ink);
+  padding:.6rem 1rem; border-radius:8px;
+  font-size:.8rem; font-weight:600; text-decoration:none;
+}
+.skip:focus-visible{ transform:none; }
+
+:where(a,button,summary,[tabindex]):focus-visible{
+  outline:2px solid var(--magenta);
+  outline-offset:3px;
+  border-radius:4px;
+}
+
+/* ---------- film grain: the cheapest "designed" cue there is ---------- */
+.grain{
+  position:fixed; inset:-50%;
+  z-index:9999; pointer-events:none;
+  opacity:.055;
+  background-image:url("grain.svg");
+  background-repeat:repeat;
+  animation:grain-shift 700ms steps(3) infinite;
+}
+@keyframes grain-shift{
+  0%  { transform:translate(0,0) }
+  33% { transform:translate(-2%,1.5%) }
+  66% { transform:translate(1.5%,-1%) }
+  100%{ transform:translate(0,0) }
+}
+
+/* ================= NAV ================= */
+.nav{
+  position:fixed; top:0; left:0; right:0; z-index:80;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:1.15rem var(--pad);
+  background:linear-gradient(to bottom, rgba(11,10,12,.85), transparent);
+  backdrop-filter:blur(6px);
+}
+.nav__mark{
+  font-weight:700; letter-spacing:.22em; font-size:.82rem;
+  color:var(--bone); text-decoration:none;
+}
+.nav__links{ display:flex; gap:1.9rem; align-items:center; }
+.nav__links a{
+  color:var(--bone-dim); text-decoration:none;
+  font-size:.8rem; letter-spacing:.09em; text-transform:uppercase;
+  transition:color .25s var(--ease);
+}
+.nav__links a:hover{ color:var(--bone); }
+.nav__cta{
+  color:var(--ink) !important; background:var(--bone);
+  padding:.5rem .95rem; border-radius:100px; font-weight:600;
+}
+.nav__cta:hover{ background:var(--magenta); color:#fff !important; }
+
+/* ---- language switch ---- */
+.nav__lang{
+  border:1px solid var(--line); border-radius:100px;
+  padding:.42rem .85rem;
+  letter-spacing:.06em !important; text-transform:none !important;
+}
+.nav__lang:hover{ border-color:var(--bone); }
+
+/* scroll-spy: the section you're actually in */
+.nav__links a.is-active:not(.nav__cta){ color:var(--bone); }
+.nav__links a.is-active:not(.nav__cta)::after{
+  content:""; display:block; height:1px; margin-top:4px;
+  background:var(--magenta);
+}
+
+/* ---- burger: only rendered under 900px (see responsive block) ---- */
+.nav__burger{
+  display:none;
+  width:38px; height:32px; padding:7px 6px;
+  background:none; border:0; cursor:pointer;
+}
+.nav__burger span{
+  display:block; height:1.5px; background:var(--bone); border-radius:2px;
+  transition:transform .3s var(--ease), opacity .2s var(--ease);
+}
+.nav__burger span + span{ margin-top:5px; }
+.nav__burger[aria-expanded="true"] span:nth-child(1){ transform:translateY(6.5px) rotate(45deg); }
+.nav__burger[aria-expanded="true"] span:nth-child(2){ opacity:0; }
+.nav__burger[aria-expanded="true"] span:nth-child(3){ transform:translateY(-6.5px) rotate(-45deg); }
+
+/* ================= HERO ================= */
+.hero{
+  position:relative;
+  min-height:100svh;
+  display:grid;
+  grid-template-columns:1.02fr .98fr;
+  align-items:end;
+  overflow:hidden;
+}
+
+/* portrait lives in its own column so the photo keeps its composition */
+.hero__media{
+  grid-column:2; grid-row:1;
+  position:relative; z-index:0;
+  height:100svh; align-self:start;
+  /* feather the left edge into the page — avoids a hard column seam */
+  -webkit-mask-image:linear-gradient(to right, transparent 0%, #000 26%);
+          mask-image:linear-gradient(to right, transparent 0%, #000 26%);
+}
+.hero__media img{
+  width:100%; height:100%; object-fit:cover;
+  object-position:50% 18%;
+  filter:grayscale(.22) contrast(1.05) brightness(.9);
+  transform:scale(1.02);
+  animation:hero-drift 26s ease-in-out infinite alternate;
+}
+@keyframes hero-drift{ to{ transform:scale(1.07) translateY(-1%); } }
+
+/* floor fade only — the horizontal blend is handled by the media mask */
+.hero__scrim{
+  grid-column:2; grid-row:1;
+  position:relative; z-index:1; height:100svh;
+  background:linear-gradient(to top, var(--ink) 0%, transparent 32%);
+}
+
+.hero__inner{
+  grid-column:1; grid-row:1;
+  position:relative; z-index:2;
+  padding:0 clamp(1rem,2vw,2.5rem) clamp(6.5rem,13vh,9rem) var(--pad);
+  max-width:40rem;
+}
+
+.hero__eyebrow{
+  display:inline-flex; align-items:center; gap:.6rem;
+  font-size:.72rem; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--bone-dim); margin-bottom:1.6rem;
+}
+.dot{
+  width:6px; height:6px; border-radius:50%;
+  background:var(--magenta);
+  box-shadow:0 0 0 0 rgba(250,39,159,.6);
+  animation:pip 2.4s ease-out infinite;
+}
+@keyframes pip{ 70%,100%{ box-shadow:0 0 0 9px rgba(250,39,159,0); } }
+
+/* ---- ink logo: his own handwriting, wiped on as if being drawn ---- */
+.hero__title{ margin:0 0 1.5rem; }
+/* resting state is VISIBLE; the keyframes supply the hidden start via
+   fill-mode `both`, so a skipped animation can never strand the logo. */
+.ink{
+  width:min(30rem, 74vw);
+  filter:drop-shadow(0 6px 26px rgba(0,0,0,.55));
+  animation:ink-draw 1.9s var(--ease) .35s both;
+}
+@keyframes ink-draw{
+  from{ clip-path:inset(0 100% 0 0); }
+  to  { clip-path:inset(0 -2% 0 0);  }
+}
+
+.hero__sub{
+  font-size:clamp(1rem,1.45vw,1.16rem);
+  color:#CFC8C0; max-width:34rem; margin-bottom:2.2rem;
+}
+.hero__sub em{ font-family:var(--f-serif); font-style:italic; color:var(--bone); }
+.hero__sub strong{ color:var(--bone); font-weight:600; }
+
+.hero__actions{ display:flex; gap:.85rem; flex-wrap:wrap; }
+
+.btn{
+  display:inline-flex; align-items:center; gap:.65rem;
+  padding:.9rem 1.5rem; border-radius:100px;
+  font:inherit; font-size:.86rem; font-weight:600; letter-spacing:.04em;
+  text-decoration:none; cursor:pointer; border:1px solid transparent;
+  transition:transform .25s var(--ease), background .25s var(--ease),
+             color .25s var(--ease), border-color .25s var(--ease);
+}
+.btn:hover{ transform:translateY(-2px); }
+.btn--play{ background:var(--magenta); color:#fff; }
+.btn--play:hover{ background:#ff45ad; }
+.btn--ghost{ background:transparent; color:var(--bone); border-color:var(--line); }
+.btn--ghost:hover{ border-color:var(--bone); }
+
+.btn__icon{ width:17px; height:17px; display:grid; place-items:center; }
+.btn__icon svg{ width:100%; height:100%; fill:currentColor; grid-area:1/1; }
+.i-pause{ display:none; }
+.btn--play[aria-pressed="true"] .i-play{ display:none; }
+.btn--play[aria-pressed="true"] .i-pause{ display:block; }
+
+/* ---- audio-reactive waveform ---- */
+.hero__wave{
+  position:absolute; left:0; right:0; bottom:0; z-index:2;
+  width:100%; height:130px;
+  pointer-events:none;
+}
+.hero__note{
+  position:absolute; right:var(--pad); bottom:1rem; z-index:3;
+  font-size:.68rem; letter-spacing:.08em; color:var(--bone-dim);
+}
+
+/* ================= TICKER ================= */
+.ticker{
+  border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+  background:var(--ink-2);
+  overflow:hidden; padding:.95rem 0;
+}
+.ticker__track{ display:flex; width:max-content; will-change:transform; }
+.ticker__set{
+  display:inline-flex; align-items:center; gap:.55rem;
+  padding-right:.55rem; white-space:nowrap;
+  font-size:.78rem; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--bone-dim);
+}
+.ticker__set b{ color:var(--bone); font-weight:700; }
+.ticker__set i{ color:var(--magenta); font-style:normal; padding:0 .5rem; }
+
+/* ================= SECTION ================= */
+.section{
+  padding:clamp(4.5rem,10vh,8rem) var(--pad);
+  scroll-margin-top:4.5rem;      /* the nav is fixed — don't hide the heading */
+}
+/* alternating band, so five stacked sections don't read as one slab */
+.section--alt{
+  background:var(--ink-2);
+  border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line);
+}
+.section__head{ max-width:38rem; margin-bottom:3.2rem; }
+.section__num{
+  font-size:.72rem; letter-spacing:.24em; color:var(--magenta);
+  display:block; margin-bottom:.9rem;
+}
+.section__title{
+  font-family:var(--f-serif); font-weight:400;
+  font-size:clamp(2.4rem,5.5vw,3.9rem); line-height:1.02;
+  letter-spacing:-.015em; margin-bottom:.85rem;
+}
+.section__desc{ color:var(--bone-dim); }
+
+/* ---- cards ---- */
+.cards{
+  display:grid; gap:1.6rem;
+  grid-template-columns:repeat(auto-fit,minmax(min(19rem,100%),1fr));
+}
+.card{
+  background:rgba(237,230,220,.035);
+  border:1px solid var(--line);
+  border-radius:14px; overflow:hidden;
+  transform-style:preserve-3d;
+  transition:border-color .35s var(--ease), background .35s var(--ease);
+}
+.card:hover{ border-color:rgba(237,230,220,.3); background:rgba(237,230,220,.06); }
+.card__art{ position:relative; aspect-ratio:1/1; overflow:hidden; background:var(--ink-2); }
+.card__art img{
+  width:100%; height:100%; object-fit:cover;
+  transition:transform .7s var(--ease), filter .5s var(--ease);
+  filter:saturate(.92);
+}
+.card:hover .card__art img{ transform:scale(1.05); filter:saturate(1.06); }
+.card__badge{
+  position:absolute; top:.85rem; left:.85rem;
+  background:var(--magenta); color:#fff;
+  font-size:.62rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase;
+  padding:.3rem .6rem; border-radius:100px;
+}
+.card__body{ padding:1.35rem 1.4rem 1.5rem; }
+.card__title{
+  font-size:1.22rem; font-weight:600; letter-spacing:-.01em; margin-bottom:.35rem;
+}
+.card__title span{ color:var(--bone-dim); font-weight:400; font-size:.92em; }
+.card__meta{
+  font-size:.7rem; letter-spacing:.13em; text-transform:uppercase;
+  color:var(--bone-dim); margin-bottom:.85rem;
+}
+.card__copy{ font-size:.9rem; color:#B9B2AB; margin-bottom:1.15rem; }
+.card__links{ display:flex; gap:1.15rem; flex-wrap:wrap; }
+.card__links a{
+  font-size:.79rem; font-weight:600; color:var(--bone);
+  text-decoration:none; padding-bottom:2px;
+  border-bottom:1px solid var(--magenta);
+  transition:color .25s var(--ease);
+}
+.card__links a:hover{ color:var(--magenta); }
+.card__links .is-missing{
+  color:var(--bone-dim); border-bottom-color:var(--line);
+}
+.card__links .is-missing::after{ content:" — link needed"; font-weight:400; font-size:.9em; }
+
+/* ================= VIDEOS =================
+   Click-to-load facade: a thumbnail + a real YouTube link. main.js swaps
+   the frame for an iframe on click, so nothing from youtube.com is
+   requested until the visitor asks for it. */
+/* standing note above a section — used for "Bilibili not up yet" */
+.notice{
+  max-width:44rem; margin:0 0 2.6rem;
+  padding:1.1rem 1.3rem;
+  background:rgba(250,39,159,.06);
+  border:1px solid rgba(250,39,159,.28);
+  border-radius:12px;
+  font-size:.9rem; color:#CFC8C0;
+}
+.notice__title{
+  font-size:.7rem; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--magenta); font-weight:600; margin-bottom:.45rem;
+}
+.notice a{ color:var(--bone); text-decoration:none; border-bottom:1px solid var(--magenta); }
+.notice a:hover{ color:var(--magenta); }
+
+.vids{
+  display:grid; gap:1.4rem 1.3rem;
+  grid-template-columns:repeat(auto-fill,minmax(min(17rem,100%),1fr));
+}
+.vid{ display:block; text-decoration:none; color:inherit; }
+.vid--feature{
+  display:block; max-width:64rem; margin:0 auto 3rem;
+}
+
+.vid__frame{
+  position:relative; display:block;
+  aspect-ratio:16/9; overflow:hidden;
+  border-radius:12px; background:var(--ink);
+  border:1px solid var(--line);
+  transition:border-color .35s var(--ease);
+}
+.vid__thumb{
+  width:100%; height:100%; object-fit:cover;
+  filter:saturate(.86) brightness(.82);
+  transition:transform .7s var(--ease), filter .5s var(--ease);
+}
+.vid:hover .vid__frame{ border-color:rgba(237,230,220,.3); }
+.vid:hover .vid__thumb{ transform:scale(1.04); filter:saturate(1) brightness(1); }
+
+.vid__play{
+  position:absolute; inset:0; margin:auto;
+  width:56px; height:56px; border-radius:50%;
+  display:grid; place-items:center;
+  background:rgba(11,10,12,.55); backdrop-filter:blur(4px);
+  border:1px solid rgba(237,230,220,.35);
+  transition:background .3s var(--ease), transform .3s var(--ease),
+             border-color .3s var(--ease);
+}
+.vid__play svg{ width:24px; height:24px; fill:var(--bone); margin-left:2px; }
+.vid:hover .vid__play{
+  background:var(--magenta); border-color:var(--magenta); transform:scale(1.08);
+}
+.vid:hover .vid__play svg{ fill:#fff; }
+.vid--feature .vid__play{ width:78px; height:78px; }
+.vid--feature .vid__play svg{ width:32px; height:32px; }
+
+/* the iframe main.js drops in keeps the frame's shape */
+.vid__frame iframe{
+  position:absolute; inset:0;
+  width:100%; height:100%; border:0; border-radius:12px;
+}
+
+/* A tile with no Bilibili id yet: still an outbound link, but it should
+   not pretend to be an inline player, so the play badge comes off. */
+.vid--pending .vid__play{ display:none; }
+.vid--pending .vid__thumb{ filter:saturate(.6) brightness(.6); }
+.vid--pending:hover .vid__thumb{ filter:saturate(.85) brightness(.8); }
+.vid__flag{
+  position:absolute; left:.7rem; bottom:.7rem;
+  background:rgba(11,10,12,.8); border:1px solid var(--line);
+  border-radius:100px; padding:.28rem .7rem;
+  font-size:.66rem; letter-spacing:.1em; color:var(--bone-dim);
+}
+
+.vid__meta{ display:block; padding:.85rem .15rem 0; }
+.vid__kicker{
+  display:block; font-size:.66rem; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--magenta); margin-bottom:.4rem;
+}
+.vid__title{
+  display:block; font-weight:600; font-size:.98rem; letter-spacing:-.01em;
+}
+.vid__title span{ color:var(--bone-dim); font-weight:400; }
+.vid--feature .vid__title{ font-size:1.5rem; }
+.vid__sub{
+  display:block; margin-top:.25rem;
+  font-size:.7rem; letter-spacing:.11em; text-transform:uppercase;
+  color:var(--bone-dim);
+}
+
+.playlists{
+  display:flex; flex-wrap:wrap; gap:.7rem;
+  margin-top:2.8rem; padding-top:2rem;
+  border-top:1px solid var(--line);
+}
+.playlists a{
+  padding:.55rem 1.05rem; border-radius:100px;
+  border:1px solid var(--line); color:var(--bone-dim);
+  font-size:.76rem; letter-spacing:.09em; text-transform:uppercase;
+  text-decoration:none;
+  transition:color .25s var(--ease), border-color .25s var(--ease);
+}
+.playlists a:hover{ color:var(--bone); border-color:var(--bone); }
+
+/* ================= ABOUT ================= */
+.about{
+  display:grid; gap:clamp(2rem,5vw,4rem);
+  grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);
+  align-items:start;
+}
+/* the photo column tracks the prose instead of running out early */
+.about__media{ position:sticky; top:5.5rem; display:grid; gap:1.1rem; }
+.about__shot{ margin:0; border-radius:12px; overflow:hidden; border:1px solid var(--line); }
+.about__shot img{
+  width:100%; aspect-ratio:4/5; object-fit:cover;
+  filter:grayscale(.15) contrast(1.03);
+}
+.about__shot--wide img{ aspect-ratio:16/10; }
+.about__shot figcaption{
+  padding:.6rem .85rem;
+  background:rgba(237,230,220,.035);
+  font-size:.68rem; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--bone-dim);
+}
+
+.about__prose p{ color:#B9B2AB; margin-bottom:1.15rem; max-width:44rem; }
+.about__prose strong{ color:var(--bone); font-weight:600; }
+.about__prose em{ font-family:var(--f-serif); font-style:italic; color:var(--bone); }
+
+.quote{
+  margin:2rem 0; padding:.4rem 0 .4rem 1.5rem;
+  border-left:2px solid var(--magenta);
+}
+.quote p{
+  font-family:var(--f-serif); font-style:italic;
+  font-size:clamp(1.35rem,2.6vw,1.85rem); line-height:1.25;
+  color:var(--bone) !important; margin:0 !important;
+}
+
+.about__sub{
+  margin:2.4rem 0 1rem;
+  font-size:.72rem; letter-spacing:.22em; text-transform:uppercase;
+  color:var(--magenta); font-weight:600;
+}
+
+.tags{ display:flex; flex-wrap:wrap; gap:.55rem; list-style:none; }
+.tags li{
+  padding:.4rem .85rem; border-radius:100px;
+  border:1px solid var(--line); background:rgba(237,230,220,.035);
+  font-size:.78rem; color:#CFC8C0;
+}
+
+.facts{ border-top:1px solid var(--line); }
+.facts > div{
+  display:grid; grid-template-columns:9rem 1fr; gap:1rem;
+  padding:.8rem 0; border-bottom:1px solid var(--line);
+}
+.facts dt{
+  font-size:.68rem; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--bone-dim); padding-top:.15rem;
+}
+.facts dd{ font-size:.92rem; color:#CFC8C0; }
+
+/* ================= TIMELINE ================= */
+.tl{ list-style:none; max-width:56rem; }
+.tl__row{
+  display:grid; grid-template-columns:8rem 1fr; gap:2rem;
+  padding:2rem 0; border-top:1px solid var(--line);
+}
+.tl__row:last-child{ border-bottom:1px solid var(--line); }
+.tl__year{
+  font-family:var(--f-serif); font-weight:400;
+  font-size:2.5rem; line-height:1; color:var(--bone-dim);
+  position:sticky; top:6rem; align-self:start;
+}
+/* the one acid accent on the page — the year it all landed */
+.tl__year--now{ color:var(--acid); }
+
+.tl__list{ list-style:none; display:grid; gap:.7rem; }
+.tl__list li{
+  position:relative; padding-left:1.35rem;
+  font-size:.93rem; color:#B9B2AB;
+}
+.tl__list li::before{
+  content:""; position:absolute; left:0; top:.62em;
+  width:5px; height:5px; border-radius:50%;
+  background:var(--magenta); opacity:.75;
+}
+.tl__list b{ color:var(--bone); font-weight:600; }
+
+/* ================= PRESS ================= */
+.press{
+  list-style:none;
+  display:grid; gap:1rem;
+  grid-template-columns:repeat(auto-fill,minmax(min(20rem,100%),1fr));
+}
+.press__item a{
+  display:grid; gap:.3rem; height:100%;
+  padding:1.25rem 1.35rem;
+  background:rgba(237,230,220,.035);
+  border:1px solid var(--line); border-radius:12px;
+  text-decoration:none; color:inherit;
+  transition:border-color .3s var(--ease), background .3s var(--ease),
+             transform .3s var(--ease);
+}
+.press__item a:hover{
+  border-color:rgba(237,230,220,.3);
+  background:rgba(237,230,220,.06);
+  transform:translateY(-3px);
+}
+.press__src{
+  font-size:.63rem; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--magenta);
+}
+.press__title{ font-size:1.02rem; font-weight:600; color:var(--bone); }
+.press__gloss{ font-size:.82rem; color:var(--bone-dim); }
+
+/* ================= CONTACT ================= */
+.contact{
+  display:grid; gap:clamp(2.5rem,6vw,5rem);
+  grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);
+  align-items:start;
+}
+.contact__lead .section__title{ margin-bottom:.85rem; }
+.contact__mail{ margin-top:1.8rem; word-break:break-all; }
+.contact__who{
+  margin-top:.9rem;
+  font-size:.7rem; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--bone-dim);
+}
+
+.contact__grid{
+  display:grid; gap:2rem;
+  grid-template-columns:repeat(auto-fit,minmax(min(11rem,100%),1fr));
+}
+.contact__col h3{
+  font-size:.7rem; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--magenta); font-weight:600; margin-bottom:1rem;
+  padding-bottom:.7rem; border-bottom:1px solid var(--line);
+}
+.contact__col ul{ list-style:none; display:grid; gap:.65rem; }
+.contact__col li{ font-size:.9rem; color:var(--bone-dim); }
+.contact__col a{
+  color:var(--bone); text-decoration:none;
+  transition:color .25s var(--ease);
+}
+.contact__col a:hover{ color:var(--magenta); }
+.muted{ color:var(--bone-dim); }
+
+/* ================= FOOT ================= */
+.foot{
+  border-top:1px solid var(--line);
+  padding:2rem var(--pad);
+  font-size:.75rem; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--bone-dim);
+}
+.foot p{ display:flex; justify-content:space-between; width:100%; gap:1rem; flex-wrap:wrap; }
+.foot a{ color:var(--bone-dim); text-decoration:none; transition:color .25s var(--ease); }
+.foot a:hover{ color:var(--bone); }
+
+/* ================= SCROLL REVEAL =================
+   Hidden state applies only when JS is running (html.js), so a script
+   failure degrades to plain visible content instead of a blank page. */
+.js .reveal{ opacity:0; transform:translateY(22px); }
+.js .reveal.is-in{
+  opacity:1; transform:none;
+  transition:opacity .9s var(--ease), transform .9s var(--ease);
+}
+
+/* ================= RESPONSIVE ================= */
+
+/* Short viewports (laptops, landscape phones): the hero stack is bottom
+   aligned inside 100svh, so when it outgrows the row it overflows upward
+   and the eyebrow disappears behind the fixed nav. Shrink the stack
+   rather than let it slide under. */
+@media (max-height:780px){
+  .ink{ width:min(23rem,60vw); }
+  .hero__eyebrow{ margin-bottom:1.1rem; }
+  .hero__title{ margin-bottom:1.1rem; }
+  .hero__sub{ margin-bottom:1.5rem; }
+  .hero__inner{ padding-bottom:clamp(4.5rem,9vh,6.5rem); }
+}
+@media (max-height:620px){
+  .ink{ width:min(17rem,48vw); }
+  .hero__sub{ font-size:.95rem; }
+  .hero__wave{ height:80px; }
+}
+
+/* the photo rail has nowhere useful to stick once the grid narrows */
+@media (max-width:1100px){
+  .about{ grid-template-columns:1fr; }
+  .about__media{
+    position:static;
+    grid-template-columns:repeat(auto-fit,minmax(min(14rem,100%),1fr));
+  }
+  .about__shot--wide{ grid-column:1/-1; }
+  .contact{ grid-template-columns:1fr; }
+}
+
+@media (max-width:900px){
+  /* the link row becomes a drop panel driven by the burger */
+  .nav__burger{ display:block; }
+  .nav__links{
+    position:fixed; inset:0 0 auto; top:0;
+    flex-direction:column; align-items:flex-start; justify-content:center;
+    gap:1.6rem;
+    min-height:100svh;
+    padding:6rem var(--pad) var(--pad);
+    /* opaque, and no backdrop-filter of its own: nesting one inside the
+       nav's own blur composites the panel far more transparently than its
+       alpha suggests, and the hero reads straight through the menu */
+    background:var(--ink);
+    transform:translateY(-100%);
+    visibility:hidden;
+    transition:transform .45s var(--ease), visibility .45s;
+  }
+  .nav--open .nav__links{ transform:none; visibility:visible; }
+  .nav__links a{ font-size:1.6rem; letter-spacing:.04em; text-transform:none; }
+  .nav__links a.is-active::after{ display:none; }
+  .nav__cta{ margin-top:.5rem; font-size:1rem; padding:.7rem 1.6rem; }
+  /* the burger has to sit above its own panel */
+  .nav__burger{ position:relative; z-index:2; }
+
+  /* stop the page scrolling behind an open menu */
+  body.is-locked{ overflow:hidden; }
+
+  /* stack: photo becomes a full-bleed backdrop behind the copy */
+  .hero{ grid-template-columns:1fr; }
+  .hero__media,
+  .hero__scrim{ grid-column:1; grid-row:1; }
+  .hero__media{
+    -webkit-mask-image:none;
+            mask-image:none;
+  }
+  .hero__media img{ object-position:56% 12%; filter:grayscale(.22) contrast(1.05) brightness(.72); }
+  /* copy sits over the photo here, so the floor has to carry real weight */
+  .hero__scrim{
+    background:
+      linear-gradient(to top,
+        var(--ink) 30%,
+        rgba(11,10,12,.92) 46%,
+        rgba(11,10,12,.55) 66%,
+        rgba(11,10,12,.45) 100%);
+  }
+  .hero__inner{
+    grid-column:1; grid-row:1;
+    padding:0 var(--pad) clamp(5rem,12vh,7rem);
+    max-width:none;
+  }
+  /* the eyebrow lands on the brightest part of the photo — lift it */
+  .hero__eyebrow{ color:#CFC8C0; text-shadow:0 1px 14px rgba(11,10,12,.95); }
+  .hero__wave{ height:96px; }
+
+  .nav__mark{ position:relative; z-index:2; }
+
+  /* year rail collapses above its list */
+  .tl__row{ grid-template-columns:1fr; gap:1.1rem; }
+  .tl__year{ position:static; font-size:2rem; }
+
+  .facts > div{ grid-template-columns:1fr; gap:.25rem; }
+  .vid--feature{ margin-bottom:2.2rem; }
+}
+
+/* ================= REDUCED MOTION ================= */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.001ms !important;
+    animation-delay:0s !important;          /* else fill-mode `both` strands
+                                               delayed elements in their
+                                               hidden `from` state */
+    animation-iteration-count:1 !important;
+    transition-duration:.001ms !important;
+    transition-delay:0s !important;
+    scroll-behavior:auto !important;
+  }
+  .ink{ animation:none !important; clip-path:none !important; }
+  .js .reveal{ opacity:1; transform:none; }
+  .grain{ animation:none; }
+}

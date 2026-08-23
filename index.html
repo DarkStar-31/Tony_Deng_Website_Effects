@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tony D — Singer-Songwriter</title>
+<meta name="description" content="Tony D (Yuetong Deng) — singer-songwriter and guitarist. Signed writer, Universal Music Publishing Group.">
+<!-- fonts are self-hosted: fonts.googleapis.com is blocked in mainland China -->
+<link rel="preload" href="fonts/inter-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/instrument-serif-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/styles.css">
+<link rel="alternate" hreflang="en" href="/index.html">
+<link rel="alternate" hreflang="zh-Hans" href="/zh/index.html">
+<link rel="alternate" hreflang="x-default" href="/index.html">
+<!-- scroll-reveal is a progressive enhancement: without JS the content
+     must still be visible, so opt in to the hidden state only when JS runs -->
+<script>document.documentElement.classList.add('js');</script>
+</head>
+<body>
+
+<!-- film grain overlay -->
+<div class="grain" aria-hidden="true"></div>
+
+<a class="skip" href="#music">Skip to content</a>
+
+<!-- nav -->
+<header class="nav" id="nav">
+  <a class="nav__mark" href="#top">TONY&nbsp;D</a>
+
+  <nav class="nav__links" id="navLinks" aria-label="Primary">
+    <a href="#music">Music</a>
+    <a href="#videos">Videos</a>
+    <a href="#about">About</a>
+    <a href="#press">Press</a>
+    <a href="#contact" class="nav__cta">Contact</a>
+    <a href="zh/index.html" class="nav__lang" lang="zh-Hans" hreflang="zh-Hans">中文</a>
+  </nav>
+
+  <!-- shown under 900px, where the link row collapses -->
+  <button class="nav__burger" id="navBurger" aria-expanded="false" aria-controls="navLinks" aria-label="Open menu">
+    <span></span><span></span><span></span>
+  </button>
+</header>
+
+<!-- ================= HERO ================= -->
+<section class="hero" id="top">
+  <div class="hero__media">
+    <img src="img/hero-portrait.webp" alt="Tony D seated with an acoustic guitar" fetchpriority="high">
+  </div>
+  <div class="hero__scrim" aria-hidden="true"></div>
+
+  <div class="hero__inner">
+    <p class="hero__eyebrow reveal">
+      <span class="dot" aria-hidden="true"></span>
+      Signed Writer &middot; Universal Music Publishing Group
+    </p>
+
+    <h1 class="hero__title">
+      <span class="sr-only">Tony D — Overthinking</span>
+      <img class="ink" src="img/ink-overthinking.webp" alt="" aria-hidden="true">
+    </h1>
+
+    <p class="hero__sub reveal">
+      Singer-songwriter and guitarist from Seattle.
+      <em>Indie rock, britpop, soul.</em>
+      Second album <strong>Overthinking</strong> out now via Universal Music Group.
+    </p>
+
+    <div class="hero__actions reveal">
+      <button class="btn btn--play" id="playBtn" aria-pressed="false">
+        <span class="btn__icon" aria-hidden="true">
+          <svg class="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>
+          <svg class="i-pause" viewBox="0 0 24 24"><rect x="7" y="5.5" width="3.4" height="13" rx="1"/><rect x="13.6" y="5.5" width="3.4" height="13" rx="1"/></svg>
+        </span>
+        <span class="btn__label">Play</span>
+      </button>
+      <a class="btn btn--ghost" href="#music">Listen everywhere</a>
+    </div>
+  </div>
+
+  <!-- audio-reactive waveform -->
+  <canvas class="hero__wave" id="wave" aria-hidden="true"></canvas>
+  <p class="hero__note" id="audioNote" hidden></p>
+</section>
+
+<!-- ================= TICKER ================= -->
+<div class="ticker" aria-label="Career highlights">
+  <div class="ticker__track" id="tickerTrack">
+    <span class="ticker__set">
+      <b>2M+</b> streams · QQ Music <i>·</i>
+      <b>UMPG</b> signed writer <i>·</i>
+      <b>IYMC</b> Champion 2024 <i>·</i>
+      <b>1st Place</b> American Songwriter 2025 <i>·</i>
+      <b>ISC</b> Finalist <i>·</i>
+      <b>JLSC</b> Weekly Winner <i>·</i>
+      <b>1M+</b> streams · NetEase <i>·</i>
+      <b>IAMA</b> 3rd Place AAA <i>·</i>
+    </span>
+  </div>
+</div>
+
+<!-- ================= 01 MUSIC ================= -->
+<section class="section" id="music">
+  <div class="section__head reveal">
+    <span class="section__num">01</span>
+    <h2 class="section__title">Releases</h2>
+    <p class="section__desc">Two albums. Every track written, composed and performed by Tony.</p>
+  </div>
+
+  <div class="cards">
+    <article class="card reveal" data-tilt>
+      <div class="card__art">
+        <img src="img/album-overthinking.webp" alt="Overthinking album cover" loading="lazy">
+        <span class="card__badge">New</span>
+      </div>
+      <div class="card__body">
+        <h3 class="card__title">Overthinking <span lang="zh">想太多</span></h3>
+        <p class="card__meta">Album · 2025 · Universal Music Group</p>
+        <p class="card__copy">Seven tracks — six English, one Mandarin. A more refined sound and layered arrangements.</p>
+        <div class="card__links">
+          <a href="https://open.spotify.com/album/4r9iJEZh7BkIUN273VB8yf" target="_blank" rel="noopener">Spotify</a>
+          <a href="https://music.apple.com/cn/album/1845805189" target="_blank" rel="noopener">Apple Music</a>
+        </div>
+      </div>
+    </article>
+
+    <article class="card reveal" data-tilt>
+      <div class="card__art">
+        <img src="img/album-saturn.webp" alt="Saturn Diary album cover" loading="lazy">
+      </div>
+      <div class="card__body">
+        <h3 class="card__title">Saturn Diary</h3>
+        <p class="card__meta">Album · 2023 · Independent</p>
+        <p class="card__copy">The debut record — written between the ages of thirteen and fifteen.</p>
+        <div class="card__links">
+          <a href="https://open.spotify.com/album/0ezKk1Hv90SU6R2ovezHKd" target="_blank" rel="noopener">Spotify</a>
+          <a href="#" class="is-missing">Apple Music</a>
+        </div>
+      </div>
+    </article>
+
+    <article class="card reveal" data-tilt>
+      <div class="card__art">
+        <img src="img/portrait-orange.webp" alt="Tony D portrait" loading="lazy">
+      </div>
+      <div class="card__body">
+        <h3 class="card__title">Singles</h3>
+        <p class="card__meta">2021 &ndash; 2025</p>
+        <p class="card__copy">HER · Look in the Mirror · I Do · Curiosity · If It&rsquo;s True · Time Will Speak · Oh, Mother</p>
+        <div class="card__links">
+          <a href="https://youtube.com/playlist?list=PLiczr0D8JT1-S0Gx_Xaki4b12jLffvy78" target="_blank" rel="noopener">All releases</a>
+        </div>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- ================= 02 VIDEOS ================= -->
+<section class="section section--alt" id="videos">
+  <div class="section__head reveal">
+    <span class="section__num">02</span>
+    <h2 class="section__title">Videos</h2>
+    <p class="section__desc">Original songs, shot and cut for the channel. Press one and the player loads in place — nothing from YouTube runs until you do.</p>
+  </div>
+
+  <!-- data-yt drives the click-to-load embed in js/main.js. Each tile is a
+       real link first, so with JS off it still reaches YouTube. Posters are
+       self-hosted rather than pulled from i.ytimg.com, which is blocked in
+       mainland China. The Chinese page uses data-bv (Bilibili) instead. -->
+  <a class="vid vid--feature reveal" data-yt="WemMShRTg6E"
+     href="https://youtu.be/WemMShRTg6E" target="_blank" rel="noopener">
+    <span class="vid__frame">
+      <img class="vid__thumb" src="img/video/WemMShRTg6E.webp" alt="" loading="lazy">
+      <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+    </span>
+    <span class="vid__meta">
+      <span class="vid__kicker">Title track</span>
+      <span class="vid__title">Overthinking</span>
+      <span class="vid__sub">2025 · Official video</span>
+    </span>
+  </a>
+
+  <div class="vids">
+    <a class="vid reveal" data-yt="Z-EP0Qwl2xw" href="https://youtu.be/Z-EP0Qwl2xw" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="img/video/Z-EP0Qwl2xw.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title">Look in the Mirror</span>
+        <span class="vid__sub">2024 · 2M+ streams</span>
+      </span>
+    </a>
+
+    <a class="vid reveal" data-yt="NwpjbcHqua4" href="https://youtu.be/NwpjbcHqua4" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="img/video/NwpjbcHqua4.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title">HER</span>
+        <span class="vid__sub">2024 · 1M+ streams</span>
+      </span>
+    </a>
+
+    <a class="vid reveal" data-yt="4BrMzNiupXQ" href="https://youtu.be/4BrMzNiupXQ" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="img/video/4BrMzNiupXQ.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title">I Do</span>
+        <span class="vid__sub">1st Place · American Songwriter 2025</span>
+      </span>
+    </a>
+
+    <a class="vid reveal" data-yt="R5OQh-loln4" href="https://youtu.be/R5OQh-loln4" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="img/video/R5OQh-loln4.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title">It&rsquo;s Raining</span>
+        <span class="vid__sub">2021 · NetEase Monthly Best Single</span>
+      </span>
+    </a>
+
+    <a class="vid reveal" data-yt="_KBXlZYRx8E" href="https://youtu.be/_KBXlZYRx8E" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="img/video/_KBXlZYRx8E.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title">Curiosity</span>
+        <span class="vid__sub">Original song</span>
+      </span>
+    </a>
+
+    <a class="vid reveal" data-yt="VeyHXexUB8Y" href="https://youtu.be/VeyHXexUB8Y" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="img/video/VeyHXexUB8Y.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title">If It&rsquo;s True</span>
+        <span class="vid__sub">2024 · ISC Semi-Finalist</span>
+      </span>
+    </a>
+
+    <a class="vid reveal" data-yt="xOxKN4OKFsw" href="https://youtu.be/xOxKN4OKFsw" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="img/video/xOxKN4OKFsw.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title">Time Will Speak</span>
+        <span class="vid__sub">2023</span>
+      </span>
+    </a>
+
+    <a class="vid reveal" data-yt="VSP5IlXHq8E" href="https://youtu.be/VSP5IlXHq8E" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="img/video/VSP5IlXHq8E.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title">Saturn Diary</span>
+        <span class="vid__sub">2023 · Debut album</span>
+      </span>
+    </a>
+
+    <a class="vid reveal" data-yt="foud-nkltS8" href="https://youtu.be/foud-nkltS8" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="img/video/foud-nkltS8.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title">How It Feels Like</span>
+        <span class="vid__sub">2022 · UKSC Special Mention</span>
+      </span>
+    </a>
+
+    <a class="vid reveal" data-yt="f55cIm9AYd4" href="https://youtu.be/f55cIm9AYd4" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="img/video/f55cIm9AYd4.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title">Oh, Mother</span>
+        <span class="vid__sub">2022 · JLSC Weekly Winner</span>
+      </span>
+    </a>
+
+    <a class="vid reveal" data-yt="CiVWFo4Mlbg" href="https://youtu.be/CiVWFo4Mlbg" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="img/video/CiVWFo4Mlbg.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title">One Day <span lang="zh">一天</span></span>
+        <span class="vid__sub">2021 · First Chinese single</span>
+      </span>
+    </a>
+
+    <a class="vid reveal" data-yt="5qcaCLkbfys" href="https://youtu.be/5qcaCLkbfys" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="img/video/5qcaCLkbfys.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title">Be Mine</span>
+        <span class="vid__sub">2021 · Debut single</span>
+      </span>
+    </a>
+  </div>
+
+  <div class="playlists reveal">
+    <a href="https://youtube.com/playlist?list=PLiczr0D8JT1-S0Gx_Xaki4b12jLffvy78" target="_blank" rel="noopener">Original songs</a>
+    <a href="https://youtube.com/playlist?list=PLiczr0D8JT18seBVlU1p5K7X79Z_dcZoU" target="_blank" rel="noopener">Cover songs</a>
+    <a href="https://youtube.com/playlist?list=PLiczr0D8JT1-9h7ZNM1pG4JY7ldO2ZorW" target="_blank" rel="noopener">Guitar sessions</a>
+    <a href="https://youtube.com/@tony-deng" target="_blank" rel="noopener">Channel</a>
+  </div>
+</section>
+
+<!-- ================= 03 ABOUT ================= -->
+<section class="section" id="about">
+  <div class="section__head reveal">
+    <span class="section__num">03</span>
+    <h2 class="section__title">About</h2>
+    <p class="section__desc">Jinan to Beijing to New York to Seattle — and a home studio the whole way through.</p>
+  </div>
+
+  <div class="about">
+    <div class="about__media">
+      <figure class="about__shot reveal">
+        <img src="img/portrait-golden.webp" alt="Tony D portrait" loading="lazy">
+      </figure>
+      <figure class="about__shot about__shot--wide reveal">
+        <img src="img/live-hardrock.webp" alt="Tony D performing live with a guitar" loading="lazy">
+        <figcaption>Lead guitarist, School of Rock House Band</figcaption>
+      </figure>
+      <figure class="about__shot reveal">
+        <img src="img/portrait-dark.webp" alt="Tony D portrait" loading="lazy">
+      </figure>
+    </div>
+
+    <div class="about__prose">
+      <p class="reveal"><strong>Tony Deng</strong> was born in Jinan, Shandong in 2007 and spent his early
+      childhood between Jinan and Beijing before moving to New York at nine. He now lives in Seattle,
+      and is in the Class of 2026 at Newport High School, Bellevue.</p>
+
+      <p class="reveal">He grew up inside a home studio built and run by his father — a producer, recording
+      and mixing engineer, and formerly a lead guitarist and songwriter himself. Instruments and
+      recording gear were simply what the house was made of. Tony studied piano, guzheng, violin and
+      cello, but guitar has always been the one. He has perfect pitch, which his father discovered
+      when Tony restrung a guitar and tuned it accurately without a tuner.</p>
+
+      <p class="reveal">He started writing in 2019, during the pandemic, when school stopped and there was
+      little to do but practise. On Mother&rsquo;s Day at thirteen he decided to write his mum a song;
+      two hours later the lyrics, the music and the demo were done. It was about her rules, his
+      frustrations, and a deal to trade the song for two pairs of basketball shoes. Most of his
+      songs start somewhere that ordinary.</p>
+
+      <blockquote class="quote reveal">
+        <p>Music is how I often express myself.</p>
+      </blockquote>
+
+      <p class="reveal">At thirteen he became lead guitarist of the House Band at School of Rock in the
+      Seattle area, playing venues including the Hard Rock Café, and was admitted to Berklee College
+      of Music&rsquo;s Guitar Summer Program as a middle school student — returning three years running.
+      In May 2025 he signed an exclusive global publishing deal with UMPG, and that October released
+      <em>Overthinking</em> worldwide through Universal Music Group.</p>
+
+      <h3 class="about__sub reveal">Influences</h3>
+      <ul class="tags reveal">
+        <li>The Beatles</li><li>Oasis</li><li>Coldplay</li>
+        <li>Amy Winehouse</li><li>Jeff Buckley</li><li>Daniel Caesar</li>
+      </ul>
+
+      <h3 class="about__sub reveal">Profile</h3>
+      <dl class="facts reveal">
+        <div><dt>Born</dt><dd>4 October 2007 · Jinan, Shandong</dd></div>
+        <div><dt>Based</dt><dd>Seattle, Washington</dd></div>
+        <div><dt>School</dt><dd>Newport High School, Bellevue — Class of 2026</dd></div>
+        <div><dt>Instruments</dt><dd>Guitar · piano · guzheng · violin · cello</dd></div>
+        <div><dt>Genres</dt><dd>Indie rock · britpop · jazz · soul · R&amp;B</dd></div>
+        <div><dt>Publishing</dt><dd>Universal Music Publishing Group, 2025</dd></div>
+        <div><dt>Off stage</dt><dd>Skiing, basketball, tennis — PSIA-certified snowboard instructor at 14</dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 04 MILESTONES ================= -->
+<section class="section section--alt" id="milestones">
+  <div class="section__head reveal">
+    <span class="section__num">04</span>
+    <h2 class="section__title">Milestones</h2>
+    <p class="section__desc">Five years, from a first single to a global release.</p>
+  </div>
+
+  <ol class="tl">
+    <li class="tl__row reveal">
+      <h3 class="tl__year">2021</h3>
+      <ul class="tl__list">
+        <li><b>Be Mine</b> — debut original single, March 2021</li>
+        <li><b>It&rsquo;s Raining</b> — Monthly Best Single, NetEase Cloud Music Hard Ground Indie Chart</li>
+        <li>★★★★★ rated work — UK Songwriting Contest</li>
+        <li><b>One Day</b> — first original Chinese single, October 2021</li>
+      </ul>
+    </li>
+
+    <li class="tl__row reveal">
+      <h3 class="tl__year">2022</h3>
+      <ul class="tl__list">
+        <li><b>How It Feels Like</b> — ★★★★★ Special Mention, UK Songwriting Contest</li>
+        <li><b>Oh, Mother</b> — Weekly Winner, John Lennon Songwriting Contest</li>
+        <li>Finalist — International Songwriting Competition</li>
+        <li>Finalist — Mid-Atlantic Song Contest · Great American Song Contest</li>
+        <li>Semi-Finalist — UK Songwriting Contest</li>
+      </ul>
+    </li>
+
+    <li class="tl__row reveal">
+      <h3 class="tl__year">2023</h3>
+      <ul class="tl__list">
+        <li><b>Saturn Diary</b> — debut album, May 2023</li>
+        <li><b>Time Will Speak</b> — Semi-Finalist, UK Songwriting Contest</li>
+        <li>Composed <b lang="zh">欢乐颂歌</b> (Ode to Joy) for the band <span lang="zh">折耳根</span> — officially released</li>
+      </ul>
+    </li>
+
+    <li class="tl__row reveal">
+      <h3 class="tl__year">2024</h3>
+      <ul class="tl__list">
+        <li><b>Look in the Mirror</b> — Champion, International Youth Music Competition</li>
+        <li>3rd Place, AAA/Alternative — International Acoustic Music Awards</li>
+        <li>2M+ streams on QQ Music · Rising, New Release, Pop Index (Top 10) and Hot Songs charts</li>
+        <li><b>HER</b> — Runner-up, International Youth Music Competition</li>
+        <li>1M+ streams on NetEase Cloud Music · Trending, New Release and Pop Index charts</li>
+        <li><b>If It&rsquo;s True</b> — Semi-Finalist, ISC and Unsigned Only</li>
+      </ul>
+    </li>
+
+    <li class="tl__row reveal">
+      <h3 class="tl__year tl__year--now">2025</h3>
+      <ul class="tl__list">
+        <li>Signed an exclusive global publishing agreement with <b>Universal Music Publishing Group</b>, May 2025</li>
+        <li><b>I Do</b> — 1st Place, Teen category, American Songwriter Song Contest</li>
+        <li><b>Overthinking</b> — second album, released globally by Universal Music Group, 15 October 2025</li>
+      </ul>
+    </li>
+  </ol>
+</section>
+
+<!-- ================= 05 PRESS ================= -->
+<section class="section" id="press">
+  <div class="section__head reveal">
+    <span class="section__num">05</span>
+    <h2 class="section__title">Press</h2>
+    <p class="section__desc">Coverage and commentary, mostly on Weibo and in Chinese.</p>
+  </div>
+
+  <ul class="press">
+    <li class="press__item reveal">
+      <a href="https://weibo.com/6500843556/5171711167171346" target="_blank" rel="noopener">
+        <span class="press__src">Weibo</span>
+        <span class="press__title" lang="zh">环球音乐版权签约速报</span>
+        <span class="press__gloss">UMPG publishing signing — news report</span>
+      </a>
+    </li>
+    <li class="press__item reveal">
+      <a href="https://m.weibo.cn/status/5222705983127872" target="_blank" rel="noopener">
+        <span class="press__src">Weibo</span>
+        <span class="press__title" lang="zh">环球音乐中国</span>
+        <span class="press__gloss">Universal Music China</span>
+      </a>
+    </li>
+    <li class="press__item reveal">
+      <a href="https://weibo.com/7483769457/5221981236232680" target="_blank" rel="noopener">
+        <span class="press__src">Weibo</span>
+        <span class="press__title" lang="zh">环球集团新歌预告</span>
+        <span class="press__gloss">UMG new release announcement</span>
+      </a>
+    </li>
+    <li class="press__item reveal">
+      <a href="https://weibo.com/1730317584/5116894815983612" target="_blank" rel="noopener">
+        <span class="press__src">Weibo</span>
+        <span class="press__title" lang="zh">微博热门评论</span>
+        <span class="press__gloss">Featured listener commentary</span>
+      </a>
+    </li>
+    <li class="press__item reveal">
+      <a href="https://weibo.com/2231403227/5116603901676631" target="_blank" rel="noopener">
+        <span class="press__src">Weibo</span>
+        <span class="press__title" lang="zh">微博热门评论</span>
+        <span class="press__gloss">Featured listener commentary</span>
+      </a>
+    </li>
+    <li class="press__item reveal">
+      <a href="https://weibo.com/3995233655/5116588036981807" target="_blank" rel="noopener">
+        <span class="press__src">Weibo</span>
+        <span class="press__title" lang="zh">微博热门评论</span>
+        <span class="press__gloss">Featured listener commentary</span>
+      </a>
+    </li>
+    <li class="press__item reveal">
+      <a href="https://weibo.com/1876131803/5222411744314014" target="_blank" rel="noopener">
+        <span class="press__src">Weibo</span>
+        <span class="press__title" lang="zh">微博热门评论</span>
+        <span class="press__gloss">Featured listener commentary</span>
+      </a>
+    </li>
+  </ul>
+</section>
+
+<!-- ================= 06 CONTACT ================= -->
+<section class="section section--alt" id="contact">
+  <div class="contact">
+    <div class="contact__lead reveal">
+      <span class="section__num">06</span>
+      <h2 class="section__title">Get in touch</h2>
+      <p class="section__desc">For inquiries, licensing and collaboration.</p>
+      <a class="btn btn--play contact__mail" href="mailto:zhangmin9@hotmail.com">zhangmin9@hotmail.com</a>
+      <p class="contact__who">Management — Ms. Zhang</p>
+    </div>
+
+    <div class="contact__grid reveal">
+      <div class="contact__col">
+        <h3>Streaming</h3>
+        <ul>
+          <li><a href="https://open.spotify.com/album/4r9iJEZh7BkIUN273VB8yf" target="_blank" rel="noopener">Spotify</a></li>
+          <li><a href="https://music.apple.com/cn/album/1845805189" target="_blank" rel="noopener">Apple Music</a></li>
+          <li><a href="https://y.music.163.com/m/user?id=1656858754" target="_blank" rel="noopener">NetEase Cloud Music</a></li>
+          <li><a href="https://c6.y.qq.com/base/fcgi-bin/u?__=lxOE5R4mtyYK" target="_blank" rel="noopener">QQ Music</a></li>
+        </ul>
+      </div>
+      <div class="contact__col">
+        <h3>Social</h3>
+        <ul>
+          <li><a href="https://youtube.com/@tony-deng" target="_blank" rel="noopener">YouTube</a></li>
+          <li><a href="https://v.douyin.com/i5y5K2vD" target="_blank" rel="noopener">Douyin</a></li>
+        </ul>
+      </div>
+      <div class="contact__col">
+        <h3>Publishing</h3>
+        <ul>
+          <li>Universal Music Publishing Group</li>
+          <li>Universal Music Group <span class="muted">— distribution</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="foot">
+  <p>
+    <span>&copy; <span id="year">2025</span> Tony D · <span lang="zh">邓乐潼</span></span>
+    <a href="#top">Back to top</a>
+  </p>
+</footer>
+
+<script src="js/main.js"></script>
+</body>
+</html>

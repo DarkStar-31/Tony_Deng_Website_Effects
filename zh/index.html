@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<!-- data-video="bilibili" tells VideoFacade to embed Bilibili rather than
+     YouTube on this page. Tiles whose data-bv is still empty stay ordinary
+     outbound links instead of becoming players that cannot load in China. -->
+<html lang="zh-Hans" data-video="bilibili">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tony D 邓乐潼 — 创作歌手</title>
+<meta name="description" content="Tony D（邓乐潼）——创作歌手、吉他手，环球音乐版权集团（UMPG）签约词曲作者。">
+<!-- 字体自托管：fonts.googleapis.com 在中国大陆无法访问 -->
+<link rel="preload" href="../fonts/inter-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../fonts/instrument-serif-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../css/styles.css">
+<link rel="alternate" hreflang="en" href="/index.html">
+<link rel="alternate" hreflang="zh-Hans" href="/zh/index.html">
+<link rel="alternate" hreflang="x-default" href="/index.html">
+<script>document.documentElement.classList.add('js');</script>
+</head>
+<body>
+
+<div class="grain" aria-hidden="true"></div>
+
+<a class="skip" href="#music">跳到主要内容</a>
+
+<header class="nav" id="nav">
+  <a class="nav__mark" href="#top">TONY&nbsp;D</a>
+
+  <nav class="nav__links" id="navLinks" aria-label="主导航">
+    <a href="#music">音乐</a>
+    <a href="#videos">影像</a>
+    <a href="#about">关于</a>
+    <a href="#press">媒体</a>
+    <a href="#contact" class="nav__cta">联系</a>
+    <a href="../index.html" class="nav__lang" lang="en" hreflang="en">EN</a>
+  </nav>
+
+  <button class="nav__burger" id="navBurger" aria-expanded="false" aria-controls="navLinks" aria-label="打开菜单">
+    <span></span><span></span><span></span>
+  </button>
+</header>
+
+<!-- ================= HERO ================= -->
+<section class="hero" id="top">
+  <div class="hero__media">
+    <img src="../img/hero-portrait.webp" alt="Tony D 抱着木吉他的肖像" fetchpriority="high">
+  </div>
+  <div class="hero__scrim" aria-hidden="true"></div>
+
+  <div class="hero__inner">
+    <p class="hero__eyebrow reveal">
+      <span class="dot" aria-hidden="true"></span>
+      环球音乐版权集团 &middot; 签约词曲作者
+    </p>
+
+    <h1 class="hero__title">
+      <span class="sr-only">Tony D — 想太多</span>
+      <img class="ink" src="../img/ink-overthinking.webp" alt="" aria-hidden="true">
+    </h1>
+
+    <p class="hero__sub reveal">
+      来自西雅图的创作歌手、吉他手。
+      <em>独立摇滚、英伦摇滚、灵魂乐。</em>
+      第二张专辑《<strong>想太多</strong>》由环球音乐集团全球发行。
+    </p>
+
+    <div class="hero__actions reveal">
+      <button class="btn btn--play" id="playBtn" aria-pressed="false">
+        <span class="btn__icon" aria-hidden="true">
+          <svg class="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>
+          <svg class="i-pause" viewBox="0 0 24 24"><rect x="7" y="5.5" width="3.4" height="13" rx="1"/><rect x="13.6" y="5.5" width="3.4" height="13" rx="1"/></svg>
+        </span>
+        <span class="btn__label">播放</span>
+      </button>
+      <a class="btn btn--ghost" href="#music">各平台收听</a>
+    </div>
+  </div>
+
+  <canvas class="hero__wave" id="wave" aria-hidden="true"></canvas>
+  <p class="hero__note" id="audioNote" hidden></p>
+</section>
+
+<!-- ================= TICKER ================= -->
+<div class="ticker" aria-label="重要成绩">
+  <div class="ticker__track" id="tickerTrack">
+    <span class="ticker__set">
+      QQ音乐播放量 <b>200万+</b> <i>·</i>
+      <b>UMPG</b> 签约词曲作者 <i>·</i>
+      <b>IYMC</b> 2024 冠军 <i>·</i>
+      American Songwriter 2025 <b>冠军</b> <i>·</i>
+      <b>ISC</b> 决赛入围 <i>·</i>
+      <b>JLSC</b> 周冠军 <i>·</i>
+      网易云播放量 <b>100万+</b> <i>·</i>
+      <b>IAMA</b> AAA 组第三名 <i>·</i>
+    </span>
+  </div>
+</div>
+
+<!-- ================= 01 音乐作品 ================= -->
+<section class="section" id="music">
+  <div class="section__head reveal">
+    <span class="section__num">01</span>
+    <h2 class="section__title">音乐作品</h2>
+    <p class="section__desc">两张专辑。全部作品均由 Tony 本人作词、作曲并演唱。</p>
+  </div>
+
+  <div class="cards">
+    <article class="card reveal" data-tilt>
+      <div class="card__art">
+        <img src="../img/album-overthinking.webp" alt="《想太多》专辑封面" loading="lazy">
+        <span class="card__badge">新专</span>
+      </div>
+      <div class="card__body">
+        <h3 class="card__title">想太多 <span lang="en">Overthinking</span></h3>
+        <p class="card__meta">专辑 · 2025 · 环球音乐集团</p>
+        <p class="card__copy">共七首作品，六首英文、一首中文。声音更加成熟，编曲层次更为丰富。</p>
+        <div class="card__links">
+          <a href="https://y.music.163.com/m/user?id=1656858754" target="_blank" rel="noopener">网易云音乐</a>
+          <a href="https://c6.y.qq.com/base/fcgi-bin/u?__=lxOE5R4mtyYK" target="_blank" rel="noopener">QQ音乐</a>
+          <a href="https://music.apple.com/cn/album/1845805189" target="_blank" rel="noopener">Apple Music</a>
+        </div>
+      </div>
+    </article>
+
+    <article class="card reveal" data-tilt>
+      <div class="card__art">
+        <img src="../img/album-saturn.webp" alt="《Saturn Diary》专辑封面" loading="lazy">
+      </div>
+      <div class="card__body">
+        <h3 class="card__title" lang="en">Saturn Diary</h3>
+        <p class="card__meta">专辑 · 2023 · 独立发行</p>
+        <p class="card__copy">首张个人专辑，创作于十三至十五岁之间。</p>
+        <div class="card__links">
+          <a href="https://y.music.163.com/m/user?id=1656858754" target="_blank" rel="noopener">网易云音乐</a>
+          <a href="https://c6.y.qq.com/base/fcgi-bin/u?__=lxOE5R4mtyYK" target="_blank" rel="noopener">QQ音乐</a>
+        </div>
+      </div>
+    </article>
+
+    <article class="card reveal" data-tilt>
+      <div class="card__art">
+        <img src="../img/portrait-orange.webp" alt="Tony D 肖像" loading="lazy">
+      </div>
+      <div class="card__body">
+        <h3 class="card__title">单曲</h3>
+        <p class="card__meta">2021 &ndash; 2025</p>
+        <p class="card__copy" lang="en">HER · Look in the Mirror · I Do · Curiosity · If It&rsquo;s True · Time Will Speak · Oh, Mother</p>
+        <div class="card__links">
+          <a href="https://y.music.163.com/m/user?id=1656858754" target="_blank" rel="noopener">全部作品</a>
+        </div>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- ================= 02 影像作品 ================= -->
+<section class="section section--alt" id="videos">
+  <div class="section__head reveal">
+    <span class="section__num">02</span>
+    <h2 class="section__title">影像作品</h2>
+    <p class="section__desc">原创歌曲的官方影像。哔哩哔哩版本上线后即可在本页直接播放。</p>
+  </div>
+
+  <div class="notice reveal">
+    <p class="notice__title">哔哩哔哩频道筹备中</p>
+    <p>下方作品的哔哩哔哩版本尚未上线。目前可前往
+      <a href="https://v.douyin.com/i5y5K2vD" target="_blank" rel="noopener">抖音</a> 或
+      <a href="https://weibo.com/6500843556/5171711167171346" target="_blank" rel="noopener">微博</a>
+      观看；海外用户也可通过下方封面跳转至 YouTube。</p>
+  </div>
+
+  <!-- 填入 data-bv 即可就地播放，无需改动其他代码。 -->
+  <a class="vid vid--feature reveal" data-bv="" data-yt="WemMShRTg6E"
+     href="https://youtu.be/WemMShRTg6E" target="_blank" rel="noopener">
+    <span class="vid__frame">
+      <img class="vid__thumb" src="../img/video/WemMShRTg6E.webp" alt="" loading="lazy">
+      <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+      <span class="vid__flag">B 站即将上线 · 现可于 YouTube 观看</span>
+    </span>
+    <span class="vid__meta">
+      <span class="vid__kicker">同名主打</span>
+      <span class="vid__title">想太多</span>
+      <span class="vid__sub">2025 · 官方影像</span>
+    </span>
+  </a>
+
+  <div class="vids">
+    <a class="vid reveal" data-bv="" data-yt="Z-EP0Qwl2xw" href="https://youtu.be/Z-EP0Qwl2xw" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="../img/video/Z-EP0Qwl2xw.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+        <span class="vid__flag">B 站即将上线</span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title" lang="en">Look in the Mirror</span>
+        <span class="vid__sub">2024 · 播放量 200万+</span>
+      </span>
+    </a>
+
+    <a class="vid reveal" data-bv="" data-yt="NwpjbcHqua4" href="https://youtu.be/NwpjbcHqua4" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="../img/video/NwpjbcHqua4.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+        <span class="vid__flag">B 站即将上线</span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title" lang="en">HER</span>
+        <span class="vid__sub">2024 · 播放量 100万+</span>
+      </span>
+    </a>
+
+    <a class="vid reveal" data-bv="" data-yt="4BrMzNiupXQ" href="https://youtu.be/4BrMzNiupXQ" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="../img/video/4BrMzNiupXQ.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+        <span class="vid__flag">B 站即将上线</span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title" lang="en">I Do</span>
+        <span class="vid__sub">American Songwriter 2025 冠军</span>
+      </span>
+    </a>
+
+    <a class="vid reveal" data-bv="" data-yt="R5OQh-loln4" href="https://youtu.be/R5OQh-loln4" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="../img/video/R5OQh-loln4.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+        <span class="vid__flag">B 站即将上线</span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title" lang="en">It&rsquo;s Raining</span>
+        <span class="vid__sub">2021 · 网易云当月最佳单曲</span>
+      </span>
+    </a>
+
+    <a class="vid reveal" data-bv="" data-yt="_KBXlZYRx8E" href="https://youtu.be/_KBXlZYRx8E" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="../img/video/_KBXlZYRx8E.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+        <span class="vid__flag">B 站即将上线</span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title" lang="en">Curiosity</span>
+        <span class="vid__sub">原创歌曲</span>
+      </span>
+    </a>
+
+    <a class="vid reveal" data-bv="" data-yt="VeyHXexUB8Y" href="https://youtu.be/VeyHXexUB8Y" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="../img/video/VeyHXexUB8Y.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+        <span class="vid__flag">B 站即将上线</span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title" lang="en">If It&rsquo;s True</span>
+        <span class="vid__sub">2024 · ISC 半决赛入围</span>
+      </span>
+    </a>
+
+    <a class="vid reveal" data-bv="" data-yt="xOxKN4OKFsw" href="https://youtu.be/xOxKN4OKFsw" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="../img/video/xOxKN4OKFsw.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+        <span class="vid__flag">B 站即将上线</span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title" lang="en">Time Will Speak</span>
+        <span class="vid__sub">2023</span>
+      </span>
+    </a>
+
+    <a class="vid reveal" data-bv="" data-yt="VSP5IlXHq8E" href="https://youtu.be/VSP5IlXHq8E" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="../img/video/VSP5IlXHq8E.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+        <span class="vid__flag">B 站即将上线</span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title" lang="en">Saturn Diary</span>
+        <span class="vid__sub">2023 · 首张专辑</span>
+      </span>
+    </a>
+
+    <a class="vid reveal" data-bv="" data-yt="foud-nkltS8" href="https://youtu.be/foud-nkltS8" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="../img/video/foud-nkltS8.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+        <span class="vid__flag">B 站即将上线</span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title" lang="en">How It Feels Like</span>
+        <span class="vid__sub">2022 · UKSC 特别提名</span>
+      </span>
+    </a>
+
+    <a class="vid reveal" data-bv="" data-yt="f55cIm9AYd4" href="https://youtu.be/f55cIm9AYd4" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="../img/video/f55cIm9AYd4.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+        <span class="vid__flag">B 站即将上线</span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title" lang="en">Oh, Mother</span>
+        <span class="vid__sub">2022 · JLSC 周冠军</span>
+      </span>
+    </a>
+
+    <a class="vid reveal" data-bv="" data-yt="CiVWFo4Mlbg" href="https://youtu.be/CiVWFo4Mlbg" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="../img/video/CiVWFo4Mlbg.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+        <span class="vid__flag">B 站即将上线</span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title">一天</span>
+        <span class="vid__sub">2021 · 首支中文单曲</span>
+      </span>
+    </a>
+
+    <a class="vid reveal" data-bv="" data-yt="5qcaCLkbfys" href="https://youtu.be/5qcaCLkbfys" target="_blank" rel="noopener">
+      <span class="vid__frame">
+        <img class="vid__thumb" src="../img/video/5qcaCLkbfys.webp" alt="" loading="lazy">
+        <span class="vid__play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+        <span class="vid__flag">B 站即将上线</span>
+      </span>
+      <span class="vid__meta">
+        <span class="vid__title" lang="en">Be Mine</span>
+        <span class="vid__sub">2021 · 首支原创单曲</span>
+      </span>
+    </a>
+  </div>
+
+  <div class="playlists reveal">
+    <a href="https://v.douyin.com/i5y5K2vD" target="_blank" rel="noopener">抖音</a>
+    <a href="https://weibo.com/6500843556/5171711167171346" target="_blank" rel="noopener">微博</a>
+    <a href="https://youtube.com/@tony-deng" target="_blank" rel="noopener">YouTube（海外）</a>
+  </div>
+</section>
+
+<!-- ================= 03 关于 ================= -->
+<section class="section" id="about">
+  <div class="section__head reveal">
+    <span class="section__num">03</span>
+    <h2 class="section__title">关于</h2>
+    <p class="section__desc">从济南到北京，再到纽约与西雅图——以及一路相伴的家庭录音棚。</p>
+  </div>
+
+  <div class="about">
+    <div class="about__media">
+      <figure class="about__shot reveal">
+        <img src="../img/portrait-golden.webp" alt="Tony D 肖像" loading="lazy">
+      </figure>
+      <figure class="about__shot about__shot--wide reveal">
+        <img src="../img/live-hardrock.webp" alt="Tony D 现场演出" loading="lazy">
+        <figcaption>School of Rock House Band 主音吉他手</figcaption>
+      </figure>
+      <figure class="about__shot reveal">
+        <img src="../img/portrait-dark.webp" alt="Tony D 肖像" loading="lazy">
+      </figure>
+    </div>
+
+    <div class="about__prose">
+      <p class="reveal"><strong>邓乐潼（Tony D）</strong>2007 年出生于山东济南，童年往返于济南与北京，
+      九岁随家人移居纽约，现居西雅图，就读于贝尔维尤 Newport High School，2026 届。</p>
+
+      <p class="reveal">他在父亲搭建并经营的家庭录音棚中长大——父亲是音乐制作人、录音与混音工程师，
+      早年也是乐队主音吉他手和创作歌手。乐器与录音设备就是这个家的一部分。
+      他学过钢琴、古筝、小提琴和大提琴，但吉他始终是他最钟爱的乐器。
+      他拥有绝对音感——父亲发现这一点，是在他换吉他弦时不借助调音器便准确调准了音高。</p>
+
+      <p class="reveal">2019 年疫情期间，学校停课，他开始写歌。十三岁那年的母亲节，
+      他决定为妈妈写一首歌，两个小时内完成了词、曲和小样。歌里写的是妈妈的规矩、
+      他自己的委屈，还有一个用歌换两双球鞋的约定。他的大部分作品，都始于这样平常的瞬间。</p>
+
+      <blockquote class="quote reveal">
+        <p>音乐是我表达自己的方式。</p>
+      </blockquote>
+
+      <p class="reveal">十三岁时，他成为西雅图地区 School of Rock House Band 的主音吉他手，
+      在 Hard Rock Café 等场地定期演出；同年以中学生身份被伯克利音乐学院吉他暑期项目破格录取，
+      并连续参加三年。2025 年 5 月，他与环球音乐版权集团（UMPG）签订全球独家词曲版权协议；
+      同年 10 月，第二张专辑《<em>想太多</em>》由环球音乐集团全球发行。</p>
+
+      <h3 class="about__sub reveal">音乐影响</h3>
+      <ul class="tags reveal">
+        <li>披头士 The Beatles</li><li>绿洲 Oasis</li><li>酷玩 Coldplay</li>
+        <li lang="en">Amy Winehouse</li><li lang="en">Jeff Buckley</li><li lang="en">Daniel Caesar</li>
+      </ul>
+
+      <h3 class="about__sub reveal">个人资料</h3>
+      <dl class="facts reveal">
+        <div><dt>出生</dt><dd>2007 年 10 月 4 日 · 山东济南</dd></div>
+        <div><dt>现居</dt><dd>美国华盛顿州西雅图</dd></div>
+        <div><dt>就读</dt><dd>贝尔维尤 Newport High School — 2026 届</dd></div>
+        <div><dt>乐器</dt><dd>吉他 · 钢琴 · 古筝 · 小提琴 · 大提琴</dd></div>
+        <div><dt>曲风</dt><dd>独立摇滚 · 英伦摇滚 · 爵士 · 灵魂乐 · R&amp;B</dd></div>
+        <div><dt>版权签约</dt><dd>环球音乐版权集团（UMPG），2025 年</dd></div>
+        <div><dt>音乐之外</dt><dd>滑雪、篮球、网球——十四岁取得北美 PSIA 单板滑雪教练认证</dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 04 历程 ================= -->
+<section class="section section--alt" id="milestones">
+  <div class="section__head reveal">
+    <span class="section__num">04</span>
+    <h2 class="section__title">创作历程</h2>
+    <p class="section__desc">五年时间，从第一支单曲到全球发行。</p>
+  </div>
+
+  <ol class="tl">
+    <li class="tl__row reveal">
+      <h3 class="tl__year">2021</h3>
+      <ul class="tl__list">
+        <li><b lang="en">Be Mine</b> — 首支原创单曲，2021 年 3 月</li>
+        <li><b lang="en">It&rsquo;s Raining</b> — 网易云音乐硬地原创榜「当月最佳单曲」</li>
+        <li>★★★★★ 评级作品 — 英国歌曲创作大赛（UKSC）</li>
+        <li><b>一天</b> — 首支原创中文单曲，2021 年 10 月</li>
+      </ul>
+    </li>
+
+    <li class="tl__row reveal">
+      <h3 class="tl__year">2022</h3>
+      <ul class="tl__list">
+        <li><b lang="en">How It Feels Like</b> — ★★★★★ 特别提名，英国歌曲创作大赛（UKSC）</li>
+        <li><b lang="en">Oh, Mother</b> — 约翰·列侬歌曲创作大赛（JLSC）周冠军</li>
+        <li>决赛入围 — 国际歌曲创作大赛（ISC）</li>
+        <li>决赛入围 — Mid-Atlantic Song Contest · Great American Song Contest</li>
+        <li>半决赛入围 — 英国歌曲创作大赛（UKSC）</li>
+      </ul>
+    </li>
+
+    <li class="tl__row reveal">
+      <h3 class="tl__year">2023</h3>
+      <ul class="tl__list">
+        <li><b lang="en">Saturn Diary</b> — 首张个人专辑，2023 年 5 月</li>
+        <li><b lang="en">Time Will Speak</b> — 半决赛入围，英国歌曲创作大赛（UKSC）</li>
+        <li>为乐队折耳根创作原创歌曲《欢乐颂歌》——正式发行</li>
+      </ul>
+    </li>
+
+    <li class="tl__row reveal">
+      <h3 class="tl__year">2024</h3>
+      <ul class="tl__list">
+        <li><b lang="en">Look in the Mirror</b> — 国际青少年音乐大赛（IYMC）冠军</li>
+        <li>国际原声音乐大奖（IAMA）AAA／另类组第三名</li>
+        <li>QQ音乐播放量 200 万+ · 登上飙升榜、新歌榜、流行指数榜（前十）及热歌榜</li>
+        <li><b lang="en">HER</b> — 国际青少年音乐大赛（IYMC）亚军</li>
+        <li>网易云音乐播放量 100 万+ · 登上热搜榜、新歌榜及流行指数榜</li>
+        <li><b lang="en">If It&rsquo;s True</b> — ISC 与 Unsigned Only 半决赛入围</li>
+      </ul>
+    </li>
+
+    <li class="tl__row reveal">
+      <h3 class="tl__year tl__year--now">2025</h3>
+      <ul class="tl__list">
+        <li>与<b>环球音乐版权集团（UMPG）</b>签订全球独家词曲版权协议，2025 年 5 月</li>
+        <li><b lang="en">I Do</b> — American Songwriter 歌曲大赛青少年组冠军</li>
+        <li><b>《想太多》</b> — 第二张专辑，由环球音乐集团全球发行，2025 年 10 月 15 日</li>
+      </ul>
+    </li>
+  </ol>
+</section>
+
+<!-- ================= 05 媒体报道 ================= -->
+<section class="section" id="press">
+  <div class="section__head reveal">
+    <span class="section__num">05</span>
+    <h2 class="section__title">媒体报道</h2>
+    <p class="section__desc">相关报道与乐评。</p>
+  </div>
+
+  <ul class="press">
+    <li class="press__item reveal">
+      <a href="https://weibo.com/6500843556/5171711167171346" target="_blank" rel="noopener">
+        <span class="press__src">微博</span>
+        <span class="press__title">环球音乐版权签约速报</span>
+        <span class="press__gloss">UMPG 签约报道</span>
+      </a>
+    </li>
+    <li class="press__item reveal">
+      <a href="https://m.weibo.cn/status/5222705983127872" target="_blank" rel="noopener">
+        <span class="press__src">微博</span>
+        <span class="press__title">环球音乐中国</span>
+        <span class="press__gloss">官方发布</span>
+      </a>
+    </li>
+    <li class="press__item reveal">
+      <a href="https://weibo.com/7483769457/5221981236232680" target="_blank" rel="noopener">
+        <span class="press__src">微博</span>
+        <span class="press__title">环球集团新歌预告</span>
+        <span class="press__gloss">新作预告</span>
+      </a>
+    </li>
+    <li class="press__item reveal">
+      <a href="https://weibo.com/1730317584/5116894815983612" target="_blank" rel="noopener">
+        <span class="press__src">微博</span>
+        <span class="press__title">微博热门评论</span>
+        <span class="press__gloss">听众评论</span>
+      </a>
+    </li>
+    <li class="press__item reveal">
+      <a href="https://weibo.com/2231403227/5116603901676631" target="_blank" rel="noopener">
+        <span class="press__src">微博</span>
+        <span class="press__title">微博热门评论</span>
+        <span class="press__gloss">听众评论</span>
+      </a>
+    </li>
+    <li class="press__item reveal">
+      <a href="https://weibo.com/3995233655/5116588036981807" target="_blank" rel="noopener">
+        <span class="press__src">微博</span>
+        <span class="press__title">微博热门评论</span>
+        <span class="press__gloss">听众评论</span>
+      </a>
+    </li>
+    <li class="press__item reveal">
+      <a href="https://weibo.com/1876131803/5222411744314014" target="_blank" rel="noopener">
+        <span class="press__src">微博</span>
+        <span class="press__title">微博热门评论</span>
+        <span class="press__gloss">听众评论</span>
+      </a>
+    </li>
+  </ul>
+</section>
+
+<!-- ================= 06 联系 ================= -->
+<section class="section section--alt" id="contact">
+  <div class="contact">
+    <div class="contact__lead reveal">
+      <span class="section__num">06</span>
+      <h2 class="section__title">联系方式</h2>
+      <p class="section__desc">合作、授权及其他事宜请联系：</p>
+      <a class="btn btn--play contact__mail" href="mailto:zhangmin9@hotmail.com">zhangmin9@hotmail.com</a>
+      <p class="contact__who">经纪事务 — 张女士</p>
+    </div>
+
+    <div class="contact__grid reveal">
+      <div class="contact__col">
+        <h3>音乐平台</h3>
+        <ul>
+          <li><a href="https://y.music.163.com/m/user?id=1656858754" target="_blank" rel="noopener">网易云音乐</a></li>
+          <li><a href="https://c6.y.qq.com/base/fcgi-bin/u?__=lxOE5R4mtyYK" target="_blank" rel="noopener">QQ音乐</a></li>
+          <li><a href="https://music.apple.com/cn/album/1845805189" target="_blank" rel="noopener">Apple Music</a></li>
+          <li><a href="https://open.spotify.com/album/4r9iJEZh7BkIUN273VB8yf" target="_blank" rel="noopener">Spotify</a> <span class="muted">（海外）</span></li>
+        </ul>
+      </div>
+      <div class="contact__col">
+        <h3>社交平台</h3>
+        <ul>
+          <li><a href="https://v.douyin.com/i5y5K2vD" target="_blank" rel="noopener">抖音</a></li>
+          <li><a href="https://weibo.com/6500843556/5171711167171346" target="_blank" rel="noopener">微博</a></li>
+          <li><a href="https://youtube.com/@tony-deng" target="_blank" rel="noopener">YouTube</a> <span class="muted">（海外）</span></li>
+        </ul>
+      </div>
+      <div class="contact__col">
+        <h3>版权与发行</h3>
+        <ul>
+          <li>环球音乐版权集团（UMPG）</li>
+          <li>环球音乐集团（UMG）<span class="muted">— 发行</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="foot">
+  <p>
+    <span>&copy; <span id="year">2025</span> Tony D · 邓乐潼</span>
+    <a href="#top">返回顶部</a>
+  </p>
+</footer>
+
+<script src="../js/main.js"></script>
+</body>
+</html>

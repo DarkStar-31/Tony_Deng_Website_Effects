@@ -1,0 +1,17 @@
+# asset pipeline scratch (regenerate with tools/*.py)
+/images/
+/web/
+*.ink_raw.png
+ink_raw.png
+ink_preview.png
+
+# audio masters are not committed — drop yours in audio/ locally
+/audio/*
+!/audio/README.md
+
+# OS / editor
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+__pycache__/
