@@ -148,14 +148,49 @@ def render_hero(loc: dict, shared: dict) -> list[str]:
         "        </span>",
         f'        <span class="btn__label">{hero["playLabel"]}</span>',
         "      </button>",
+        # Revealed by JS only once a real playlist has loaded — with the
+        # synth fallback there is nothing to skip to.
+        f'      <button class="btn btn--skip" id="skipBtn" aria-label="{attr(hero["nextLabel"])}" hidden>',
+        '        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5.5v13l9-6.5z"/><rect x="16" y="5.5" width="2.6" height="13" rx="1"/></svg>',
+        "      </button>",
         f'      <a class="btn btn--ghost" href="{attr(sec["href"])}">{sec["label"]}</a>',
         "    </div>",
         "  </div>",
         "",
-        "  <!-- audio-reactive waveform -->",
+        "  <!-- audio-reactive spectrum -->",
         '  <canvas class="hero__wave" id="wave" aria-hidden="true"></canvas>',
-        '  <p class="hero__note" id="audioNote" hidden></p>',
+        f'  <p class="hero__note" id="audioNote" data-now="{attr(hero["nowPlaying"])}" hidden></p>',
+        "",
+        *render_playlist(loc, shared),
         "</section>",
+    ]
+
+
+def render_playlist(loc: dict, shared: dict) -> list[str]:
+    """The hero player's queue, as inert JSON the page reads at boot.
+
+    Kept out of main.js on purpose: the file paths and the track titles are
+    content, they differ per locale, and the admin already round-trips
+    anything it finds in the JSON.
+    """
+    tracks = shared.get("tracks") or []
+    if not tracks:
+        return []
+
+    p = loc["assetPrefix"]
+    titles = loc.get("tracks", {})
+    queue = [
+        {
+            "id": t["id"],
+            "src": f'{p}{t["file"]}',
+            "title": titles.get(t["id"], {}).get("title", t["id"]),
+        }
+        for t in tracks
+    ]
+    # `<` escaped so a title can never close this script element early.
+    body = json.dumps(queue, ensure_ascii=False).replace("<", "\u003c")
+    return [
+        '  <script type="application/json" id="playlist">' + body + "</script>",
     ]
 
 
@@ -163,7 +198,7 @@ def render_ticker(loc: dict) -> list[str]:
     ticker = loc["ticker"]
     out = [
         "<!-- ================= TICKER ================= -->",
-        f'<div class="ticker" aria-label="{attr(ticker["aria"])}">',
+        f'<div class="ticker" id="ticker" aria-label="{attr(ticker["aria"])}">',
         '  <div class="ticker__track" id="tickerTrack">',
         '    <span class="ticker__set">',
     ]
@@ -211,7 +246,14 @@ def render_music(loc: dict, shared: dict) -> list[str]:
         out += [
             '    <article class="card reveal" data-tilt>',
             '      <div class="card__art">',
-            f'        <img src="{p}{rel["art"]}" alt="{attr(c["alt"])}" loading="lazy">',
+            # The record sits behind the sleeve and slides out on hover. It is
+            # drawn entirely in CSS — no extra request, which matters on a site
+            # that has to render inside the GFW.
+            '        <span class="card__disc" aria-hidden="true"><span class="card__disc-face"></span></span>',
+            # the sleeve carries its own clipping so the disc can escape .card__art
+            '        <span class="card__sleeve">',
+            f'          <img src="{p}{rel["art"]}" alt="{attr(c["alt"])}" loading="lazy">',
+            "        </span>",
         ]
         if rel.get("badge") and c.get("badge"):
             out.append(f'        <span class="card__badge">{c["badge"]}</span>')
@@ -220,9 +262,23 @@ def render_music(loc: dict, shared: dict) -> list[str]:
             '      <div class="card__body">',
             f'        <h3 class="card__title"{lang_attr(c.get("titleLang"))}>{c["title"]}</h3>',
             f'        <p class="card__meta">{c["meta"]}</p>',
-            f'        <p class="card__copy"{lang_attr(c.get("copyLang"))}>{c["copy"]}</p>',
-            '        <div class="card__links">',
         ]
+
+        # A release with named tracks gets them as real list items, so each one
+        # can be hovered on its own. Only the singles have names to list: the
+        # resume PDF gives no track order for either album, and it is the only
+        # source, so nothing is invented to fill the gap.
+        if c.get("trackList"):
+            out.append(f'        <ul class="card__tracks"{lang_attr(c.get("copyLang"))}>')
+            for name in c["trackList"]:
+                out.append(f"          <li>{name}</li>")
+            out.append("        </ul>")
+        else:
+            out.append(
+                f'        <p class="card__copy"{lang_attr(c.get("copyLang"))}>{c["copy"]}</p>'
+            )
+
+        out.append('        <div class="card__links">')
         out += render_links(c["links"], 10)
         out += ["        </div>", "      </div>", "    </article>"]
 
@@ -495,6 +551,8 @@ def render_page(loc: dict, shared: dict) -> str:
     for block in (
         render_nav(loc),
         render_hero(loc, shared),
+        # sits straight after the hero, and the hero is sized so this lands
+        # at the foot of the first screen rather than below it
         render_ticker(loc),
         render_music(loc, shared),
         render_videos(loc, shared),

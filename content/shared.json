@@ -9,6 +9,28 @@
     "aboutWide": "img/live-hardrock.webp",
     "aboutBottom": "img/portrait-dark.webp"
   },
+  "tracks": [
+    {
+      "id": "bluesky",
+      "file": "audio/bluesky.mp3"
+    },
+    {
+      "id": "pozhen",
+      "file": "audio/pozhen.mp3"
+    },
+    {
+      "id": "shiming",
+      "file": "audio/shiming.mp3"
+    },
+    {
+      "id": "tiankong",
+      "file": "audio/tiankong.mp3"
+    },
+    {
+      "id": "weifeng",
+      "file": "audio/weifeng.mp3"
+    }
+  ],
   "releases": [
     {
       "id": "overthinking",

@@ -119,6 +119,17 @@
 
   --pad: clamp(1.25rem, 4vw, 4.5rem);
   --ease: cubic-bezier(.22,.61,.36,1);
+
+  /* Measured at runtime by HeightVar in main.js; these are the values the
+     page uses before that runs, and if it never does. Anything that has to
+     clear the sticky nav, or fit beside the ticker, is expressed against
+     them rather than a hand-tuned guess per rule. */
+  --nav-h: 4.2rem;
+  --ticker-h: 2.2rem;
+
+  /* The hero gives up exactly the ticker's height, so the awards strip
+     lands at the foot of the first screen instead of just below it. */
+  --hero-h: calc(100svh - var(--nav-h) - var(--ticker-h));
 }
 
 *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
@@ -175,12 +186,16 @@ img{ display:block; max-width:100%; }
 }
 
 /* ================= NAV ================= */
+/* Sticky rather than fixed, so it takes real space and the page begins
+   below it instead of underneath it, and opaque rather than blurred — the
+   old backdrop-filter smeared whatever scrolled past and read as a fault
+   rather than as an effect. */
 .nav{
-  position:fixed; top:0; left:0; right:0; z-index:80;
+  position:sticky; top:0; z-index:80;
   display:flex; align-items:center; justify-content:space-between;
   padding:1.15rem var(--pad);
-  background:linear-gradient(to bottom, rgba(11,10,12,.85), transparent);
-  backdrop-filter:blur(6px);
+  background:var(--ink);
+  border-bottom:1px solid var(--line);
 }
 .nav__mark{
   font-weight:700; letter-spacing:.22em; font-size:.82rem;
@@ -232,7 +247,7 @@ img{ display:block; max-width:100%; }
 /* ================= HERO ================= */
 .hero{
   position:relative;
-  min-height:100svh;
+  min-height:var(--hero-h);
   display:grid;
   grid-template-columns:1.02fr .98fr;
   align-items:end;
@@ -243,7 +258,7 @@ img{ display:block; max-width:100%; }
 .hero__media{
   grid-column:2; grid-row:1;
   position:relative; z-index:0;
-  height:100svh; align-self:start;
+  height:var(--hero-h); align-self:start;
   /* feather the left edge into the page — avoids a hard column seam */
   -webkit-mask-image:linear-gradient(to right, transparent 0%, #000 26%);
           mask-image:linear-gradient(to right, transparent 0%, #000 26%);
@@ -260,7 +275,7 @@ img{ display:block; max-width:100%; }
 /* floor fade only — the horizontal blend is handled by the media mask */
 .hero__scrim{
   grid-column:2; grid-row:1;
-  position:relative; z-index:1; height:100svh;
+  position:relative; z-index:1; height:var(--hero-h);
   background:linear-gradient(to top, var(--ink) 0%, transparent 32%);
 }
 
@@ -291,11 +306,21 @@ img{ display:block; max-width:100%; }
 .ink{
   width:min(30rem, 74vw);
   filter:drop-shadow(0 6px 26px rgba(0,0,0,.55));
-  animation:ink-draw 1.9s var(--ease) .35s both;
+  /* 9.5s cycle: draws in over ~1.9s, rests ~6.6s, wipes off, redraws.
+     Percentages are scaled to hold the draw itself at ~1.9s — retune them
+     alongside the duration if you change it. */
+  animation:ink-draw 9.5s var(--ease) .35s infinite both;
 }
 @keyframes ink-draw{
-  from{ clip-path:inset(0 100% 0 0); }
-  to  { clip-path:inset(0 -2% 0 0);  }
+  /* draw on, left to right */
+  0%   { clip-path:inset(0 100% 0 0); }
+  20%  { clip-path:inset(0 -2% 0 0);  }
+  /* hold, fully visible, for the bulk of the cycle */
+  89%  { clip-path:inset(0 -2% 0 0);  }
+  /* wipe off in the same direction the pen travelled */
+  97%  { clip-path:inset(0 0 0 100%); }
+  /* both ends are zero-width, so the reset back to the start is invisible */
+  100% { clip-path:inset(0 100% 0 0); }
 }
 
 .hero__sub{
@@ -327,7 +352,17 @@ img{ display:block; max-width:100%; }
 .btn--play[aria-pressed="true"] .i-play{ display:none; }
 .btn--play[aria-pressed="true"] .i-pause{ display:block; }
 
-/* ---- audio-reactive waveform ---- */
+/* icon-only, so it stays subordinate to Play; hidden until the queue
+   actually has somewhere to skip to */
+.btn--skip{
+  padding:.9rem; line-height:0;
+  background:transparent; color:var(--bone); border-color:var(--line);
+}
+.btn--skip:hover{ border-color:var(--bone); }
+.btn--skip svg{ width:16px; height:16px; fill:currentColor; display:block; }
+.btn--skip[hidden]{ display:none; }
+
+/* ---- audio-reactive spectrum ---- */
 .hero__wave{
   position:absolute; left:0; right:0; bottom:0; z-index:2;
   width:100%; height:130px;
@@ -336,19 +371,27 @@ img{ display:block; max-width:100%; }
 .hero__note{
   position:absolute; right:var(--pad); bottom:1rem; z-index:3;
   font-size:.68rem; letter-spacing:.08em; color:var(--bone-dim);
+  /* a long title must not run under the hero copy on a narrow screen */
+  max-width:min(22rem,55vw); text-align:right;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 
 /* ================= TICKER ================= */
+/* Sits directly under the hero, which is sized to leave room for it, so the
+   awards are on screen the moment the page loads — at the foot of the first
+   view rather than a scroll away. Kept small and tight so the hero gives up
+   as little height as possible; the marquee, the caps and the magenta
+   separators are unchanged. */
 .ticker{
   border-top:1px solid var(--line); border-bottom:1px solid var(--line);
   background:var(--ink-2);
-  overflow:hidden; padding:.95rem 0;
+  overflow:hidden; padding:.5rem 0;
 }
 .ticker__track{ display:flex; width:max-content; will-change:transform; }
 .ticker__set{
   display:inline-flex; align-items:center; gap:.55rem;
   padding-right:.55rem; white-space:nowrap;
-  font-size:.78rem; letter-spacing:.16em; text-transform:uppercase;
+  font-size:.63rem; letter-spacing:.14em; text-transform:uppercase;
   color:var(--bone-dim);
 }
 .ticker__set b{ color:var(--bone); font-weight:700; }
@@ -357,7 +400,7 @@ img{ display:block; max-width:100%; }
 /* ================= SECTION ================= */
 .section{
   padding:clamp(4.5rem,10vh,8rem) var(--pad);
-  scroll-margin-top:4.5rem;      /* the nav is fixed — don't hide the heading */
+  scroll-margin-top:calc(var(--nav-h) + 1rem);   /* clear the sticky nav */
 }
 /* alternating band, so five stacked sections don't read as one slab */
 .section--alt{
@@ -383,14 +426,78 @@ img{ display:block; max-width:100%; }
   grid-template-columns:repeat(auto-fit,minmax(min(19rem,100%),1fr));
 }
 .card{
+  position:relative;
   background:rgba(237,230,220,.035);
   border:1px solid var(--line);
-  border-radius:14px; overflow:hidden;
+  border-radius:14px;
+  /* visible, not hidden: the record has to be able to leave the card.
+     The sleeve does its own clipping instead — see .card__sleeve. */
+  overflow:visible;
   transform-style:preserve-3d;
   transition:border-color .35s var(--ease), background .35s var(--ease);
 }
-.card:hover{ border-color:rgba(237,230,220,.3); background:rgba(237,230,220,.06); }
-.card__art{ position:relative; aspect-ratio:1/1; overflow:hidden; background:var(--ink-2); }
+.card:hover{
+  border-color:rgba(237,230,220,.3); background:rgba(237,230,220,.06);
+  z-index:2;                    /* the disc overlaps the next card, not under it */
+}
+.card__art{ position:relative; aspect-ratio:1/1; background:var(--ink-2);
+  border-radius:14px 14px 0 0; }
+
+/* ---- the record: pulled from the sleeve on hover, and spinning ----
+   Drawn from gradients rather than an image — one less request on a site
+   that has to render inside the GFW, and it scales to any card width. */
+.card__sleeve{
+  position:absolute; inset:0; z-index:1;
+  overflow:hidden;              /* the clipping .card gave up */
+  border-radius:inherit;
+}
+.card__disc{
+  position:absolute; z-index:0;
+  top:7%; bottom:7%; right:7%; aspect-ratio:1/1;
+  border-radius:50%;
+  /* a crisp lit rim, so the circle reads as a record against a dark card
+     rather than dissolving into it */
+  box-shadow:0 12px 34px rgba(0,0,0,.6),
+             inset 0 0 0 1px rgba(237,230,220,.16);
+  transform:translateX(0);        /* tucked fully behind the sleeve at rest */
+  transition:transform .55s var(--ease);
+}
+.card__disc-face{
+  position:absolute; inset:0; border-radius:50%;
+  /* First layer paints on top: spindle, label, specular sweep, grooves, body.
+
+     The sweep is doing the real work. Only a crescent of this disc ever
+     clears the sleeve, and both the grooves and the label are rotationally
+     symmetric — spun on their own they look completely still. A bright
+     directional streak passing through that crescent is what actually reads
+     as a spinning record, so it is deliberately far stronger than a
+     realistic sheen would be. */
+  background:
+    radial-gradient(circle at 50% 50%, var(--ink) 0 2.2%, transparent 2.4%),
+    radial-gradient(circle at 50% 50%, var(--magenta) 0 15%, transparent 15.4%),
+    conic-gradient(from 0deg,
+                   rgba(255,255,255,0)    0deg,
+                   rgba(255,255,255,.20) 26deg,
+                   rgba(255,255,255,0)   62deg,
+                   rgba(255,255,255,0)  170deg,
+                   rgba(255,255,255,.13) 200deg,
+                   rgba(255,255,255,0)  232deg,
+                   rgba(255,255,255,0)  360deg),
+    repeating-radial-gradient(circle at 50% 50%,
+                   rgba(255,255,255,.06) 0 1px, rgba(0,0,0,0) 1px 4px),
+    radial-gradient(circle at 50% 50%, #201d28 0 68%, #100e14 100%);
+  /* the spin lives on its own element so it cannot fight the slide-out
+     transform on the parent — one transform property, one owner each */
+  animation:disc-spin 3.4s linear infinite;
+  animation-play-state:paused;
+}
+@keyframes disc-spin{ to{ transform:rotate(360deg); } }
+
+/* far enough that a real slice of the record clears the sleeve; the hovered
+   card is raised above its neighbour so the overhang reads as depth */
+.card:hover .card__disc{ transform:translateX(34%); }
+/* paused rather than removed, so the record keeps the angle it stopped at */
+.card:hover .card__disc-face{ animation-play-state:running; }
 .card__art img{
   width:100%; height:100%; object-fit:cover;
   transition:transform .7s var(--ease), filter .5s var(--ease);
@@ -398,7 +505,9 @@ img{ display:block; max-width:100%; }
 }
 .card:hover .card__art img{ transform:scale(1.05); filter:saturate(1.06); }
 .card__badge{
-  position:absolute; top:.85rem; left:.85rem;
+  /* above the sleeve: the sleeve took a z-index so the record could sit
+     behind it, which otherwise drops this badge underneath the artwork */
+  position:absolute; z-index:2; top:.85rem; left:.85rem;
   background:var(--magenta); color:#fff;
   font-size:.62rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase;
   padding:.3rem .6rem; border-radius:100px;
@@ -413,14 +522,42 @@ img{ display:block; max-width:100%; }
   color:var(--bone-dim); margin-bottom:.85rem;
 }
 .card__copy{ font-size:.9rem; color:#B9B2AB; margin-bottom:1.15rem; }
+
+/* ---- track list: each name lifts on its own, and its neighbours step back
+   so the one under the cursor is the only thing in focus ---- */
+.card__tracks{
+  list-style:none; display:flex; flex-wrap:wrap; gap:.4rem;
+  margin-bottom:1.15rem;
+}
+.card__tracks li{
+  font-size:.82rem; color:#B9B2AB;
+  padding:.24rem .6rem; border-radius:100px;
+  border:1px solid transparent; background:rgba(237,230,220,.045);
+  cursor:default;
+  transition:transform .28s var(--ease), color .28s var(--ease),
+             opacity .28s var(--ease), background .28s var(--ease),
+             border-color .28s var(--ease), box-shadow .28s var(--ease);
+}
+.card__tracks:hover li{ opacity:.42; }        /* everything recedes... */
+.card__tracks li:hover{                        /* ...except this one */
+  opacity:1; color:var(--bone);
+  transform:translateY(-3px);
+  background:rgba(250,39,159,.14);
+  border-color:rgba(250,39,159,.5);
+  box-shadow:0 6px 16px rgba(250,39,159,.25);
+}
+
 .card__links{ display:flex; gap:1.15rem; flex-wrap:wrap; }
 .card__links a{
   font-size:.79rem; font-weight:600; color:var(--bone);
   text-decoration:none; padding-bottom:2px;
   border-bottom:1px solid var(--magenta);
-  transition:color .25s var(--ease);
+  transition:color .28s var(--ease), transform .28s var(--ease),
+             opacity .28s var(--ease);
 }
-.card__links a:hover{ color:var(--magenta); }
+/* same idea as the tracks: the hovered link steps forward, the rest back */
+.card__links:hover a{ opacity:.45; }
+.card__links a:hover{ color:var(--magenta); opacity:1; transform:translateY(-2px); }
 .card__links .is-missing{
   color:var(--bone-dim); border-bottom-color:var(--line);
 }
@@ -542,7 +679,7 @@ img{ display:block; max-width:100%; }
   align-items:start;
 }
 /* the photo column tracks the prose instead of running out early */
-.about__media{ position:sticky; top:5.5rem; display:grid; gap:1.1rem; }
+.about__media{ position:sticky; top:calc(var(--nav-h) + 1rem); display:grid; gap:1.1rem; }
 .about__shot{ margin:0; border-radius:12px; overflow:hidden; border:1px solid var(--line); }
 .about__shot img{
   width:100%; aspect-ratio:4/5; object-fit:cover;
@@ -604,7 +741,7 @@ img{ display:block; max-width:100%; }
 .tl__year{
   font-family:var(--f-serif); font-weight:400;
   font-size:2.5rem; line-height:1; color:var(--bone-dim);
-  position:sticky; top:6rem; align-self:start;
+  position:sticky; top:calc(var(--nav-h) + 1rem); align-self:start;
 }
 /* the one acid accent on the page — the year it all landed */
 .tl__year--now{ color:var(--acid); }
@@ -703,9 +840,9 @@ img{ display:block; max-width:100%; }
 /* ================= RESPONSIVE ================= */
 
 /* Short viewports (laptops, landscape phones): the hero stack is bottom
-   aligned inside 100svh, so when it outgrows the row it overflows upward
-   and the eyebrow disappears behind the fixed nav. Shrink the stack
-   rather than let it slide under. */
+   aligned inside its row, so when it outgrows it the stack overflows
+   upward and the eyebrow is clipped. Shrink the stack rather than let it
+   slide out of view. */
 @media (max-height:780px){
   .ink{ width:min(23rem,60vw); }
   .hero__eyebrow{ margin-bottom:1.1rem; }
@@ -739,9 +876,7 @@ img{ display:block; max-width:100%; }
     gap:1.6rem;
     min-height:100svh;
     padding:6rem var(--pad) var(--pad);
-    /* opaque, and no backdrop-filter of its own: nesting one inside the
-       nav's own blur composites the panel far more transparently than its
-       alpha suggests, and the hero reads straight through the menu */
+    /* fully opaque: the hero must not read through the open menu */
     background:var(--ink);
     transform:translateY(-100%);
     visibility:hidden;
@@ -807,6 +942,12 @@ img{ display:block; max-width:100%; }
     scroll-behavior:auto !important;
   }
   .ink{ animation:none !important; clip-path:none !important; }
+  /* a .001ms transition would make the record jump out rather than slide,
+     so it simply stays in the sleeve */
+  .card__disc{ transform:none !important; }
+  .card__disc-face{ animation:none !important; }
+  .card__tracks li:hover{ transform:none; }
+  .card__links a:hover{ transform:none; }
   .js .reveal{ opacity:1; transform:none; }
   .grain{ animation:none; }
 }

@@ -44,9 +44,28 @@
     "srTitle": "Tony D — Overthinking",
     "sub": "Singer-songwriter and guitarist from Seattle.\n      <em>Indie rock, britpop, soul.</em>\n      Second album <strong>Overthinking</strong> out now via Universal Music Group.",
     "playLabel": "Play",
+    "nextLabel": "Next track",
+    "nowPlaying": "Now playing",
     "secondary": {
       "href": "#music",
       "label": "Listen everywhere"
+    }
+  },
+  "tracks": {
+    "bluesky": {
+      "title": "bluesky"
+    },
+    "pozhen": {
+      "title": "pozhen"
+    },
+    "shiming": {
+      "title": "shiming"
+    },
+    "tiankong": {
+      "title": "tiankong"
+    },
+    "weifeng": {
+      "title": "weifeng"
     }
   },
   "ticker": {
@@ -133,7 +152,15 @@
       "alt": "Tony D portrait",
       "title": "Singles",
       "meta": "2021 &ndash; 2025",
-      "copy": "HER · Look in the Mirror · I Do · Curiosity · If It&rsquo;s True · Time Will Speak · Oh, Mother",
+      "trackList": [
+        "HER",
+        "Look in the Mirror",
+        "I Do",
+        "Curiosity",
+        "If It&rsquo;s True",
+        "Time Will Speak",
+        "Oh, Mother"
+      ],
       "links": [
         {
           "label": "All releases",

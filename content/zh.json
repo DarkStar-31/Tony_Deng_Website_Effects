@@ -44,9 +44,28 @@
     "srTitle": "Tony D — 想太多",
     "sub": "来自西雅图的创作歌手、吉他手。\n      <em>独立摇滚、英伦摇滚、灵魂乐。</em>\n      第二张专辑《<strong>想太多</strong>》由环球音乐集团全球发行。",
     "playLabel": "播放",
+    "nextLabel": "下一首",
+    "nowPlaying": "正在播放",
     "secondary": {
       "href": "#music",
       "label": "各平台收听"
+    }
+  },
+  "tracks": {
+    "bluesky": {
+      "title": "bluesky"
+    },
+    "pozhen": {
+      "title": "pozhen"
+    },
+    "shiming": {
+      "title": "shiming"
+    },
+    "tiankong": {
+      "title": "tiankong"
+    },
+    "weifeng": {
+      "title": "weifeng"
     }
   },
   "ticker": {
@@ -145,7 +164,15 @@
       "alt": "Tony D 肖像",
       "title": "单曲",
       "meta": "2021 &ndash; 2025",
-      "copy": "HER · Look in the Mirror · I Do · Curiosity · If It&rsquo;s True · Time Will Speak · Oh, Mother",
+      "trackList": [
+        "HER",
+        "Look in the Mirror",
+        "I Do",
+        "Curiosity",
+        "If It&rsquo;s True",
+        "Time Will Speak",
+        "Oh, Mother"
+      ],
       "copyLang": "en",
       "links": [
         {
