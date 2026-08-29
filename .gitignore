@@ -12,9 +12,12 @@
 ink_raw.png
 ink_preview.png
 
-# audio masters are not committed — drop yours in audio/ locally
+# The five web-encoded tracks the player streams are committed, so the
+# deployed site actually has them. Masters, stems and work files are not:
+# only .mp3 is un-ignored, and those stay local.
 /audio/*
 !/audio/README.md
+!/audio/*.mp3
 
 # OS / editor
 Thumbs.db
