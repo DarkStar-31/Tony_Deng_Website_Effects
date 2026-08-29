@@ -382,9 +382,20 @@ img{ display:block; max-width:100%; }
   /* Breathes with the low end while something is playing. --beat is 0 the
      rest of the time, so this is a plain scale(1) at rest. The animation
      above drives clip-path only, so there is nothing to fight over here. */
-  transform-origin:left center;
+  transform-origin:center;
   transform:scale(calc(1 + var(--beat,0) * .045));
 }
+/* While something is playing the draw-on cycle stands down and the wordmark
+   just stays put, breathing with the beat instead.
+
+   `animation:none` rather than `animation-play-state:paused`, on purpose:
+   pausing freezes clip-path wherever the cycle happened to be, and about a
+   second of every 9.5 is the wipe-off, so roughly one play in ten would
+   strand a half-erased logo for as long as the music ran. Dropping the
+   animation falls back to the resting state, which is fully drawn. The cost
+   is that pausing restarts the cycle rather than resuming it, so the
+   wordmark draws itself on again - which reads as the page waking back up. */
+.is-playing .ink{ animation:none; }
 @keyframes ink-draw{
   /* draw on, left to right */
   0%   { clip-path:inset(0 100% 0 0); }

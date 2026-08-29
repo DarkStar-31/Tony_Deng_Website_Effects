@@ -345,16 +345,14 @@ class Spectrum {
     this.upMax = Math.min(this.mid - 8, this.h * 0.55);
     this.dnMax = (this.h - this.mid) - 3;
 
-    /* Horizontal, not vertical. Height already carries loudness; running the
-       colour left to right makes it carry pitch as well, so a bassline and a
-       hi-hat are told apart at a glance instead of being the same pink. The
-       stops are the page's own accents: magenta low, the warm orange through
-       the upper mids, bone at the top end. */
-    const g = this.ctx.createLinearGradient(0, 0, this.w, 0);
-    g.addColorStop(0,    'rgba(250,39,159,1)');     // 32Hz — signature magenta
-    g.addColorStop(0.42, 'rgba(255,120,190,1)');    // mids
-    g.addColorStop(0.75, 'rgba(233,140,120,.97)');  // upper mids, toward orange
-    g.addColorStop(1,    'rgba(237,230,220,.92)');  // 14kHz — bone
+    /* Vertical, and all one colour: the row is the signature magenta,
+       lighter at the tips and dissolving at the roots. Colouring it left to
+       right by frequency was tried and read as a rainbow rather than as this
+       site. */
+    const g = this.ctx.createLinearGradient(0, this.mid - this.upMax, 0, this.mid);
+    g.addColorStop(0,   'rgba(255,150,210,.95)');   // hot tips
+    g.addColorStop(0.45,'rgba(250,39,159,1)');
+    g.addColorStop(1,   'rgba(250,39,159,.45)');    // roots dissolve into the scrim
     this.fill = g;
   }
 
