@@ -580,16 +580,30 @@ DEPLOY_DIRS = ("css", "js", "img", "fonts", "admin", "audio")
 
 def build_dist(shared: dict, pages: list[tuple[dict, str]]) -> None:
     """Assemble dist/ — what Pages uploads. Excludes sources by construction."""
+    import itertools
     import shutil
+    import stat
 
     dist = ROOT / "dist"
+
+    # OneDrive sets the read-only bit on the folders it syncs. rmtree then
+    # fails with WinError 5 and, because it is called with ignore_errors,
+    # fails silently — dist/ survives and the mkdir below is what raises.
+    # Clearing the bit first is what makes a local rebuild work twice; on
+    # Cloudflare the checkout is fresh and there is no dist/ to remove.
+    if dist.exists():
+        for p in itertools.chain([dist], dist.rglob("*")):
+            try:
+                p.chmod(p.stat().st_mode | stat.S_IWRITE)
+            except OSError:
+                pass
     shutil.rmtree(dist, ignore_errors=True)
-    dist.mkdir()
+    dist.mkdir(parents=True, exist_ok=True)
 
     for name in DEPLOY_DIRS:
         src = ROOT / name
         if src.is_dir():
-            shutil.copytree(src, dist / name)
+            shutil.copytree(src, dist / name, dirs_exist_ok=True)
 
     for loc, rel in pages:
         out = dist / rel
