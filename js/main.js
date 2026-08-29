@@ -6,6 +6,15 @@
 
 const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+/* One pointer position for the whole page. Several things need to know where
+   the cursor is, and each adding its own listener would mean several handlers
+   firing on every mouse move. -1,-1 means "not over the document". */
+const POINTER = { x: -1, y: -1 };
+addEventListener('pointermove', (e) => {
+  POINTER.x = e.clientX; POINTER.y = e.clientY;
+}, { passive: true });
+document.addEventListener('pointerleave', () => { POINTER.x = POINTER.y = -1; });
+
 /* The hero queue is emitted into the page by build.py, out of
    content/shared.json plus the locale file — paths and titles are content,
    not code, and the two locales can label the same file differently.
@@ -323,6 +332,8 @@ class Spectrum {
 
     this.peaks = new Array(this.n).fill(0);
     this.vel   = new Array(this.n).fill(0);
+    this.prevUp = new Array(this.n).fill(0); // last frame's height, per bar
+    this.hit    = new Array(this.n).fill(0); // transient flash, decaying
     this.edges = null;                       // band edges depend on n
 
     /* Axis sits low: the upward bars are the subject and the downward
@@ -334,10 +345,16 @@ class Spectrum {
     this.upMax = Math.min(this.mid - 8, this.h * 0.55);
     this.dnMax = (this.h - this.mid) - 3;
 
-    const g = this.ctx.createLinearGradient(0, this.mid - this.upMax, 0, this.mid);
-    g.addColorStop(0,   'rgba(255,150,210,.95)');   // hot tips
-    g.addColorStop(0.45,'rgba(250,39,159,1)');
-    g.addColorStop(1,   'rgba(250,39,159,.45)');    // roots dissolve into the scrim
+    /* Horizontal, not vertical. Height already carries loudness; running the
+       colour left to right makes it carry pitch as well, so a bassline and a
+       hi-hat are told apart at a glance instead of being the same pink. The
+       stops are the page's own accents: magenta low, the warm orange through
+       the upper mids, bone at the top end. */
+    const g = this.ctx.createLinearGradient(0, 0, this.w, 0);
+    g.addColorStop(0,    'rgba(250,39,159,1)');     // 32Hz — signature magenta
+    g.addColorStop(0.42, 'rgba(255,120,190,1)');    // mids
+    g.addColorStop(0.75, 'rgba(233,140,120,.97)');  // upper mids, toward orange
+    g.addColorStop(1,    'rgba(237,230,220,.92)');  // 14kHz — bone
     this.fill = g;
   }
 
@@ -366,7 +383,21 @@ class Spectrum {
     if (!this.visible || !this.w) return;
 
     const { ctx, w, h, mid } = this;
-    ctx.clearRect(0, 0, w, h);
+
+    /* Trails. This canvas sits over the portrait, so fading the previous
+       frame has to REMOVE alpha rather than paint over it — a translucent
+       black wash would build up into an opaque slab across the photograph
+       within a second. destination-out erases a share of what is already
+       there, so old bars decay toward transparent and leave a smear behind
+       the live ones. */
+    if (REDUCED) {
+      ctx.clearRect(0, 0, w, h);
+    } else {
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.fillStyle = 'rgba(0,0,0,.3)';
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalCompositeOperation = 'source-over';
+    }
     this.t += 0.02;
 
     const an   = this.engine.analyser;
@@ -450,6 +481,14 @@ class Spectrum {
       // caps latch onto a new high instantly, then fall under gravity
       if (up >= this.peaks[i]) { this.peaks[i] = up; this.vel[i] = 0; }
       else { this.vel[i] += 0.22; this.peaks[i] = Math.max(up, this.peaks[i] - this.vel[i]); }
+
+      /* A band that jumps hard in a single frame is a transient — a kick, a
+         snare, a pick attack. Flag it and let the flag decay, so the flash
+         punctuates rather than just tracking how loud that band is. */
+      this.hit[i] = (up - this.prevUp[i]) > this.upMax * 0.16
+        ? 1
+        : this.hit[i] * 0.86;
+      this.prevUp[i] = up;
     }
 
     /* Every bar goes into one path and one fill. The gradient is defined
@@ -478,12 +517,30 @@ class Spectrum {
     // peak caps, bone rather than magenta so they read as a separate mark.
     // They fade with the crossfade rather than appearing all at once.
     if (this.mix > 0.01) {
+      // the steady caps are one batched fill; the struck ones are drawn
+      // individually below, because each needs its own fading alpha and a
+      // canvas fill() uses whatever fillStyle is set when it runs
       ctx.fillStyle = 'rgba(237,230,220,' + (0.8 * this.mix).toFixed(3) + ')';
       ctx.beginPath();
       for (let i = 0; i < this.n; i++) {
+        if (this.hit[i] > 0.06) continue;
         this._bar(i * step + this.gap * 0.5, mid - this.peaks[i] - 4, this.bw, 2);
       }
       ctx.fill();
+
+      // struck bands get a brighter, taller cap that fades over a few frames
+      ctx.shadowColor = 'rgba(255,255,255,.85)';
+      ctx.shadowBlur  = 8;
+      for (let i = 0; i < this.n; i++) {
+        const f = this.hit[i];
+        if (f <= 0.06) continue;
+        ctx.fillStyle = 'rgba(255,255,255,' + (f * this.mix).toFixed(3) + ')';
+        ctx.beginPath();
+        this._bar(i * step + this.gap * 0.5,
+                  mid - this.peaks[i] - 4 - f * 3, this.bw, 2 + f * 2);
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
     }
 
     // baseline — the one thing carried over from the old line
@@ -594,10 +651,14 @@ class Reveal {
    Ticker — seamless marquee, duplicated to fill the width
    --------------------------------------------------------- */
 class Ticker {
-  constructor (trackSel, speed = 42) {
+  /* `pauseSel` names an ancestor of the track; while the pointer is inside
+     it the marquee coasts to a stop, so something scrolling past can still
+     be read and clicked, and winds back up once the pointer leaves. */
+  constructor (trackSel, speed = 42, setSel = '.ticker__set', pauseSel = null) {
     const track = document.querySelector(trackSel);
     if (!track) return;
-    const set = track.querySelector('.ticker__set');
+    const set = track.querySelector(setSel);
+    if (!set) return;
 
     // duplicate until we have at least 2x viewport, then one more for the wrap
     while (track.scrollWidth < innerWidth * 2) {
@@ -607,17 +668,208 @@ class Ticker {
 
     if (REDUCED) return;
 
-    const cycle = set.getBoundingClientRect().width;
+    let cycle = set.getBoundingClientRect().width;
     let x = 0, last = performance.now();
+    let factor = 1, held = false;
+
+    // A late webfont swap changes how wide a set is. Re-measure, or the wrap
+    // point drifts off the real width and opens a gap in the loop.
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => { cycle = set.getBoundingClientRect().width; });
+    }
+
+    const zone = pauseSel ? track.closest(pauseSel) : null;
+
+    /* Whether the row is held is worked out from geometry each frame, not
+       from enter/leave events.
+
+       Two ways events get this wrong. A card drifting under a pointer that
+       is not moving fires enter, stops the marquee, and then never fires
+       leave, because a stopped card never leaves the pointer. And scrolling
+       the row out from under a resting cursor does not reliably fire leave
+       either, so it stays frozen until the mouse is moved.
+
+       Comparing the live pointer position against the row's current
+       rectangle has neither problem: scroll away and the rectangle moves,
+       so the hold ends on its own. */
+    const overZone = () => {
+      if (!zone || POINTER.x < 0) return false;
+      const r = zone.getBoundingClientRect();
+      return POINTER.x >= r.left && POINTER.x <= r.right &&
+             POINTER.y >= r.top  && POINTER.y <= r.bottom;
+    };
 
     const step = (now) => {
-      const dt = (now - last) / 1000; last = now;
-      x -= speed * dt;
+      // clamped so a backgrounded tab doesn't resume with one enormous jump
+      const dt = Math.min((now - last) / 1000, 0.05); last = now;
+
+      held = overZone();
+
+      // ease toward a standstill rather than stopping dead
+      factor += ((held ? 0 : 1) - factor) * Math.min(1, dt * 3.5);
+
+      // and lean into the low end, so the row moves with the music
+      const swing = 1 + (Pulse.current ? Pulse.current.beat : 0) * 0.45;
+
+      x -= speed * factor * swing * dt;
       if (-x >= cycle) x += cycle;
       track.style.transform = `translate3d(${x}px,0,0)`;
       requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
+  }
+}
+
+
+/* ---------------------------------------------------------
+   Pulse — one read of the analyser per frame, published for
+   anything that wants to move with the music. Spectrum draws
+   its own bars off the same node; this is the cheap shared
+   signal for everything else.
+   --------------------------------------------------------- */
+class Pulse {
+  constructor (engine) {
+    this.engine = engine;
+    this.level = 0;          // 0..1, everything
+    this.beat  = 0;          // 0..1, the low end you actually feel
+    this.was   = false;
+    Pulse.current = this;
+    this.loop();
+  }
+
+  loop () {
+    requestAnimationFrame(() => this.loop());
+
+    const an = this.engine && this.engine.analyser;
+    const on = !!(an && this.engine.playing) && !REDUCED;
+
+    let level = 0, beat = 0;
+    if (on) {
+      const bins = an.frequencyBinCount;
+      if (!this.buf || this.buf.length !== bins) this.buf = new Uint8Array(bins);
+      an.getByteFrequencyData(this.buf);
+
+      /* Bass rather than overall loudness. Overall level tracks vocals and
+         cymbals too, which shimmers constantly; 20-150Hz tracks the kick,
+         which is what reads as a beat. */
+      const nyq = an.context.sampleRate / 2;
+      const lo  = Math.max(1, Math.round((20  / nyq) * bins));
+      const hi  = Math.max(lo + 1, Math.round((150 / nyq) * bins));
+      let b = 0;
+      for (let i = lo; i < hi; i++) b += this.buf[i];
+      beat = b / (hi - lo) / 255;
+
+      let t = 0;
+      for (let i = 0; i < bins; i++) t += this.buf[i];
+      level = t / bins / 255;
+    }
+
+    // eased, so it swells and settles instead of strobing
+    this.beat  += (beat  - this.beat)  * 0.20;
+    this.level += (level - this.level) * 0.12;
+
+    const root = document.documentElement;
+    root.style.setProperty('--beat',  this.beat.toFixed(3));
+    root.style.setProperty('--level', this.level.toFixed(3));
+
+    // one class toggle, not one per frame
+    if (on !== this.was) {
+      root.classList.toggle('is-playing', on);
+      this.was = on;
+    }
+  }
+}
+Pulse.current = null;
+
+
+/* ---------------------------------------------------------
+   PressStage — four items in view around the photograph;
+   the arrows step that window along, the photograph does not
+   move. Falls back to the plain grid of everything if there
+   is nothing to page through.
+   --------------------------------------------------------- */
+class PressStage {
+  constructor (sel) {
+    const stage = document.querySelector(sel);
+    if (!stage) return;
+
+    const items = [...stage.querySelectorAll('.press__item')];
+    const prev  = stage.querySelector('.press-arrow--prev');
+    const next  = stage.querySelector('.press-arrow--next');
+    const SHOWN = 4;
+
+    // with four or fewer there is no window to move: leave the fallback alone
+    if (items.length <= SHOWN || !prev || !next) return;
+
+    stage.classList.add('is-live');
+    let at = 0;
+
+    const paint = () => {
+      items.forEach(el => { el.hidden = true; delete el.dataset.slot; });
+      for (let k = 0; k < SHOWN; k++) {
+        const el = items[(at + k) % items.length];
+        el.hidden = false;                 // hidden, so it is skipped by AT too
+        el.dataset.slot = String(k);
+        // A hidden element never intersects, so Reveal would never mark it in
+        // and it would arrive at opacity:0. Anything on show is shown.
+        el.classList.add('is-in');
+      }
+    };
+
+    const step = (d) => {
+      at = (at + d + items.length) % items.length;
+      paint();
+    };
+
+    prev.addEventListener('click', () => step(-1));
+    next.addEventListener('click', () => step(1));
+    stage.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); step(-1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
+    });
+
+    paint();
+  }
+}
+
+
+/* ---------------------------------------------------------
+   CursorGlow — the same idea as NavGlow, across the whole
+   page and much fainter
+   --------------------------------------------------------- */
+class CursorGlow {
+  constructor (sel) {
+    const el = document.querySelector(sel);
+    if (!el || REDUCED || matchMedia('(hover: none)').matches) return;
+
+    // one write per frame off the shared pointer, not one per pointer event
+    const tick = () => {
+      requestAnimationFrame(tick);
+      if (POINTER.x < 0) return;
+      el.style.setProperty('--px', `${POINTER.x}px`);
+      el.style.setProperty('--py', `${POINTER.y}px`);
+    };
+    tick();
+
+    el.classList.add('is-on');
+  }
+}
+
+
+/* ---------------------------------------------------------
+   NavGlow — publishes the cursor's position along the bar so
+   the CSS can paint a faint light under it
+   --------------------------------------------------------- */
+class NavGlow {
+  constructor (sel) {
+    const nav = document.querySelector(sel);
+    if (!nav || REDUCED || matchMedia('(hover: none)').matches) return;
+
+    nav.addEventListener('pointermove', (e) => {
+      const r = nav.getBoundingClientRect();
+      nav.style.setProperty('--mx', `${e.clientX - r.left}px`);
+      nav.style.setProperty('--my', `${e.clientY - r.top}px`);
+    });
   }
 }
 
@@ -779,23 +1031,35 @@ class VideoFacade {
    boot
    --------------------------------------------------------- */
 document.addEventListener('DOMContentLoaded', () => {
-  const engine = new AudioEngine();
+  const btn  = document.getElementById('playBtn');
+  const skip = document.getElementById('skipBtn');
+  const note = document.getElementById('audioNote');
+
+  // Only the homepage carries the player, so on the other four pages no
+  // AudioEngine is built and none of the queue is probed for.
+  const engine = btn ? new AudioEngine() : null;
+  if (engine) new Pulse(engine);
+
   new HeightVar('#nav', '--nav-h');
   new HeightVar('#ticker', '--ticker-h');
   new Spectrum(document.getElementById('wave'), engine);
   new Tilt();
   new Reveal();
   new Ticker('#tickerTrack');
+  new Ticker('#singlesTrack', 34);
+  new Ticker('#pressRailTrack', 30, '.rail__set', '.rail');
   new MobileNav('#nav', '#navBurger');
+  new NavGlow('#nav');
+  new CursorGlow('.glow');
+  new PressStage('#pressStage');
   new ScrollSpy();
   new VideoFacade();
 
   const year = document.getElementById('year');
   if (year) year.textContent = new Date().getFullYear();
 
-  const btn  = document.getElementById('playBtn');
-  const skip = document.getElementById('skipBtn');
-  const note = document.getElementById('audioNote');
+  // everything below wires the player up, and there isn't one here
+  if (!btn) return;
 
   // the button label and the audio note are the only strings JS writes,
   // so they have to follow the page's language like everything else

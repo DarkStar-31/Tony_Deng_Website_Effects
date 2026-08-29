@@ -23,6 +23,7 @@ them. Attribute values (urls, alt text, ids) ARE escaped.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from html import escape
@@ -41,6 +42,16 @@ BANNER = (
 
 # ---------------------------------------------------------------- helpers
 
+def asset(rel: str, prefix: str) -> str:
+    """`css/styles.css?v=<hash of its contents>`.
+
+    Without this a browser keeps serving the stylesheet it already has, and an
+    edit looks like it silently did nothing - new markup wearing old CSS.
+    """
+    digest = hashlib.sha256((ROOT / rel).read_bytes()).hexdigest()[:8]
+    return f"{prefix}{rel}?v={digest}"
+
+
 def attr(value: str) -> str:
     """Escape a value for use inside a double-quoted HTML attribute."""
     return escape(str(value), quote=True)
@@ -55,14 +66,29 @@ def indent(lines: list[str], by: int) -> list[str]:
     return [pad + line if line else line for line in lines]
 
 
+# The site is five pages per locale. The homepage carries a trimmed version
+# of each section and links through; the other four carry the full thing.
+PAGE_FILE = {
+    "home": "index.html",
+    "music": "music.html",
+    "videos": "videos.html",
+    "about": "about.html",
+    "press": "press.html",
+}
+
+
+ARROW_PREV = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4l-8 8 8 8"/></svg>'
+ARROW_NEXT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4l8 8-8 8"/></svg>'
+
 PLAY_SVG = '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>'
 
 
 # ---------------------------------------------------------------- sections
 
-def render_head(loc: dict) -> list[str]:
+def render_head(loc: dict, page: str) -> list[str]:
     p = loc["assetPrefix"]
-    head = loc["head"]
+    head = loc["pages"][page]
+    rel = PAGE_FILE[page]
     return [
         "<head>",
         '<meta charset="UTF-8">',
@@ -72,10 +98,11 @@ def render_head(loc: dict) -> list[str]:
         "<!-- fonts are self-hosted: fonts.googleapis.com is blocked in mainland China -->",
         f'<link rel="preload" href="{p}fonts/inter-400-latin.woff2" as="font" type="font/woff2" crossorigin>',
         f'<link rel="preload" href="{p}fonts/instrument-serif-400-latin.woff2" as="font" type="font/woff2" crossorigin>',
-        f'<link rel="stylesheet" href="{p}css/styles.css">',
-        '<link rel="alternate" hreflang="en" href="/index.html">',
-        '<link rel="alternate" hreflang="zh-Hans" href="/zh/index.html">',
-        '<link rel="alternate" hreflang="x-default" href="/index.html">',
+        f'<link rel="stylesheet" href="{asset("css/styles.css", p)}">',
+        # each page points at its own counterpart, not back at the two homepages
+        f'<link rel="alternate" hreflang="en" href="/{rel}">',
+        f'<link rel="alternate" hreflang="zh-Hans" href="/zh/{rel}">',
+        f'<link rel="alternate" hreflang="x-default" href="/{rel}">',
         "<!-- scroll-reveal is a progressive enhancement: without JS the content",
         "     must still be visible, so opt in to the hidden state only when JS runs -->",
         "<script>document.documentElement.classList.add('js');</script>",
@@ -83,26 +110,44 @@ def render_head(loc: dict) -> list[str]:
     ]
 
 
-def render_nav(loc: dict) -> list[str]:
+def render_nav(loc: dict, page: str) -> list[str]:
+    """Six evenly spaced slots; CSS orders the wordmark into the middle."""
     nav = loc["nav"]
+    mark = "#top" if page == "home" else "index.html"
+
+    def link(l: dict) -> str:
+        # the page you are on is marked rather than linked away from
+        cur = " is-active" if l["href"] == PAGE_FILE[page] else ""
+        aria = ' aria-current="page"' if cur else ""
+        slug = l["href"].split(".")[0]
+        return (f'    <a href="{attr(l["href"])}"'
+                f' class="nav__item nav__item--{slug}{cur}"{aria}>{l["label"]}</a>')
+
+    cta = nav["cta"]
+    # contact sits at the foot of every page now, so this stays a local anchor
+    cta_href = cta["href"]
+    alt = nav["altLang"]
+    # the other locale's copy of *this* page, not its homepage
+    alt_href = ("zh/" if loc["assetPrefix"] == "" else "../") + PAGE_FILE[page]
+
     out = [
         "<!-- nav -->",
         '<header class="nav" id="nav">',
-        '  <a class="nav__mark" href="#top">TONY&nbsp;D</a>',
-        "",
         f'  <nav class="nav__links" id="navLinks" aria-label="{attr(nav["ariaPrimary"])}">',
     ]
-    for link in nav["links"]:
-        out.append(f'    <a href="{attr(link["href"])}">{link["label"]}</a>')
-    cta = nav["cta"]
-    out.append(f'    <a href="{attr(cta["href"])}" class="nav__cta">{cta["label"]}</a>')
-    alt = nav["altLang"]
-    out.append(
-        f'    <a href="{attr(alt["href"])}" class="nav__lang" lang="{attr(alt["lang"])}"'
-        f' hreflang="{attr(alt["lang"])}">{alt["label"]}</a>'
-    )
+    out += [link(l) for l in nav["links"]]
     out += [
+        "",
+        "    <!-- contact and the language switch travel together as one slot -->",
+        '    <span class="nav__pair">',
+        f'      <a href="{attr(cta_href)}" class="nav__cta">{cta["label"]}</a>',
+        f'      <a href="{attr(alt_href)}" class="nav__lang" lang="{attr(alt["lang"])}"'
+        f' hreflang="{attr(alt["lang"])}">{alt["label"]}</a>',
+        "    </span>",
         "  </nav>",
+        "",
+        "  <!-- outside .nav__links so it stays in the bar when the menu is a panel -->",
+        f'  <a class="nav__mark" href="{mark}">TONY&nbsp;D</a>',
         "",
         "  <!-- shown under 900px, where the link row collapses -->",
         f'  <button class="nav__burger" id="navBurger" aria-expanded="false" aria-controls="navLinks" aria-label="{attr(nav["burgerLabel"])}">',
@@ -208,12 +253,16 @@ def render_ticker(loc: dict) -> list[str]:
     return out
 
 
-def section_head(loc: dict, key: str) -> list[str]:
+def section_head(loc: dict, key: str, href: str | None = None) -> list[str]:
+    """`href` makes the heading itself the way through, with no extra label."""
     sec = loc["sections"][key]
+    title = sec["title"]
+    if href:
+        title = f'<a class="section__link" href="{attr(href)}">{title}</a>'
     return [
         '  <div class="section__head reveal">',
         f'    <span class="section__num">{sec["num"]}</span>',
-        f'    <h2 class="section__title">{sec["title"]}</h2>',
+        f'    <h2 class="section__title">{title}</h2>',
         f'    <p class="section__desc">{sec["desc"]}</p>',
         "  </div>",
     ]
@@ -232,14 +281,63 @@ def render_links(links: list[dict], pad: int) -> list[str]:
     return out
 
 
-def render_music(loc: dict, shared: dict) -> list[str]:
+def render_singles_rail(loc: dict) -> list[str]:
+    """The singles as a marquee - the same treatment the awards ticker gets."""
+    names = loc["releases"]["singles"]["trackList"]
+    out = [
+        f'  <h3 class="rail__heading reveal">{loc["singlesHeading"]}</h3>',
+        f'  <div class="ticker ticker--inset" aria-label="{attr(loc["railAria"]["singles"])}">',
+        '    <div class="ticker__track" id="singlesTrack">',
+        '      <span class="ticker__set">',
+    ]
+    for name in names:
+        out.append(f"        <b>{name}</b> <i>&middot;</i>")
+    out += ["      </span>", "    </div>", "  </div>"]
+    return out
+
+
+def render_press_rail(loc: dict, shared: dict) -> list[str]:
+    """Every press item, looping - the homepage shows them all this way rather
+    than listing the first three."""
+    out = [
+        f'  <div class="rail rail--press" aria-label="{attr(loc["railAria"]["press"])}">',
+        '    <div class="rail__track" id="pressRailTrack">',
+        '      <span class="rail__set">',
+    ]
+    for item in shared["press"]:
+        c = loc["press"][item["id"]]
+        out += [
+            f'        <a class="chip" href="{attr(item["url"])}" target="_blank" rel="noopener">',
+            f'          <span class="chip__src">{c["src"]}</span>',
+            f'          <span class="chip__title"{lang_attr(c.get("titleLang"))}>{c["title"]}</span>',
+            "        </a>",
+        ]
+    out += ["      </span>", "    </div>", "  </div>"]
+    return out
+
+
+def section_cta(href: str, label: str) -> list[str]:
+    return ["", '  <p class="section__cta reveal">', f'    <a href="{attr(href)}">{label}</a>', "  </p>"]
+
+
+def render_music(loc: dict, shared: dict, full: bool = False) -> list[str]:
     p = loc["assetPrefix"]
+    lead = " section--lead" if full else ""
     out = [
         "<!-- ================= 01 MUSIC ================= -->",
-        '<section class="section" id="music">',
-    ] + section_head(loc, "music") + ["", '  <div class="cards">']
+        f'<section class="section{lead}" id="music">',
+    ] + section_head(loc, "music", None if full else "music.html")
 
-    for i, rel in enumerate(shared["releases"]):
+    # On the music page the singles run as a marquee and the two albums keep
+    # their cards. The homepage keeps all three cards exactly as they were.
+    releases = shared["releases"]
+    if full:
+        out += [""] + render_singles_rail(loc)
+        releases = [r for r in releases if r["id"] != "singles"]
+
+    out += ["", '  <div class="cards">']
+
+    for i, rel in enumerate(releases):
         c = loc["releases"][rel["id"]]
         if i:
             out.append("")
@@ -247,7 +345,7 @@ def render_music(loc: dict, shared: dict) -> list[str]:
             '    <article class="card reveal" data-tilt>',
             '      <div class="card__art">',
             # The record sits behind the sleeve and slides out on hover. It is
-            # drawn entirely in CSS — no extra request, which matters on a site
+            # drawn entirely in CSS - no extra request, which matters on a site
             # that has to render inside the GFW.
             '        <span class="card__disc" aria-hidden="true"><span class="card__disc-face"></span></span>',
             # the sleeve carries its own clipping so the disc can escape .card__art
@@ -282,7 +380,16 @@ def render_music(loc: dict, shared: dict) -> list[str]:
         out += render_links(c["links"], 10)
         out += ["        </div>", "      </div>", "    </article>"]
 
-    out += ["  </div>", "</section>"]
+    out.append("  </div>")
+
+    # every listening link the content has, gathered on the page that is about
+    # listening - the singles playlist plus the channel playlists
+    if full:
+        out += ["", '  <div class="playlists reveal">']
+        out += render_links(loc["releases"]["singles"]["links"] + loc["playlists"], 4)
+        out.append("  </div>")
+
+    out.append("</section>")
     return out
 
 
@@ -328,13 +435,15 @@ def render_video_tile(loc: dict, shared_v: dict, pad: int, feature: bool) -> lis
     return out
 
 
-def render_videos(loc: dict, shared: dict) -> list[str]:
+def render_videos(loc: dict, shared: dict, full: bool = False) -> list[str]:
+    lead = " section--lead" if full else ""
+    alt = "" if full else " section--alt"
     out = [
         "<!-- ================= 02 VIDEOS ================= -->",
-        '<section class="section section--alt" id="videos">',
-    ] + section_head(loc, "videos")
+        f'<section class="section{alt}{lead}" id="videos">',
+    ] + section_head(loc, "videos", None if full else "videos.html")
 
-    if loc.get("notice"):
+    if loc.get("notice") and full:
         n = loc["notice"]
         out += [
             "",
@@ -358,6 +467,13 @@ def render_videos(loc: dict, shared: dict) -> list[str]:
     for v in feature:
         out += render_video_tile(loc, v, 2, True)
 
+    # The homepage shows the title track and nothing else; the rest of the
+    # catalogue lives on videos.html.
+    if not full:
+        out += section_cta("videos.html", loc["sections"]["videos"]["more"])
+        out.append("</section>")
+        return out
+
     out += ["", '  <div class="vids">']
     for i, v in enumerate(grid):
         if i:
@@ -371,31 +487,55 @@ def render_videos(loc: dict, shared: dict) -> list[str]:
     return out
 
 
-def render_about(loc: dict, shared: dict) -> list[str]:
+def render_about(loc: dict, shared: dict, full: bool = False) -> list[str]:
     p = loc["assetPrefix"]
     a = loc["about"]
     img = shared["images"]
+    lead = " section--lead" if full else ""
+    shape = "about--full" if full else "about--brief"
+    # one photograph either way, stretched in CSS to start and finish exactly
+    # where the column of text does
+    photo, alt_key = (img["aboutTop"], "altTop") if full else (img["aboutBottom"], "altBottom")
+
     out = [
         "<!-- ================= 03 ABOUT ================= -->",
-        '<section class="section" id="about">',
-    ] + section_head(loc, "about") + [
+        f'<section class="section{lead}" id="about">',
+    ] + section_head(loc, "about", None if full else "about.html") + [
         "",
-        '  <div class="about">',
+        f'  <div class="about {shape}">',
         '    <div class="about__media">',
         '      <figure class="about__shot reveal">',
-        f'        <img src="{p}{img["aboutTop"]}" alt="{attr(a["altTop"])}" loading="lazy">',
-        "      </figure>",
-        '      <figure class="about__shot about__shot--wide reveal">',
-        f'        <img src="{p}{img["aboutWide"]}" alt="{attr(a["altWide"])}" loading="lazy">',
-        f'        <figcaption>{a["captionWide"]}</figcaption>',
-        "      </figure>",
-        '      <figure class="about__shot reveal">',
-        f'        <img src="{p}{img["aboutBottom"]}" alt="{attr(a["altBottom"])}" loading="lazy">',
+        f'        <img src="{p}{photo}" alt="{attr(a[alt_key])}" loading="lazy">',
         "      </figure>",
         "    </div>",
         "",
         '    <div class="about__prose">',
     ]
+
+    if not full:
+        # Homepage: the line he leads with, what shaped him, the bare facts.
+        out += [
+            '      <blockquote class="quote reveal">',
+            f'        <p>{a["quote"]}</p>',
+            "      </blockquote>",
+            "",
+            f'      <h3 class="about__sub reveal">{a["influencesHeading"]}</h3>',
+            '      <ul class="tags reveal">',
+        ]
+        for tag in a["influences"]:
+            out.append(f'        <li{lang_attr(tag.get("lang"))}>{tag["label"]}</li>')
+        out += [
+            "      </ul>",
+            "",
+            f'      <h3 class="about__sub reveal">{a["profileHeading"]}</h3>',
+            '      <dl class="facts reveal">',
+        ]
+        for fact in a["facts"]:
+            out.append(f'        <div><dt>{fact["term"]}</dt><dd>{fact["value"]}</dd></div>')
+        out += ["      </dl>", "    </div>", "  </div>", "</section>"]
+        return out
+
+    # About page: the long copy.
     for para in a["prose"]:
         out.append(f'      <p class="reveal">{para}</p>')
         out.append("")
@@ -408,31 +548,22 @@ def render_about(loc: dict, shared: dict) -> list[str]:
     for para in a["proseAfterQuote"]:
         out.append(f'      <p class="reveal">{para}</p>')
         out.append("")
-    out += [
-        f'      <h3 class="about__sub reveal">{a["influencesHeading"]}</h3>',
-        '      <ul class="tags reveal">',
-    ]
-    for tag in a["influences"]:
-        out.append(f'        <li{lang_attr(tag.get("lang"))}>{tag["label"]}</li>')
-    out += [
-        "      </ul>",
-        "",
-        f'      <h3 class="about__sub reveal">{a["profileHeading"]}</h3>',
-        '      <dl class="facts reveal">',
-    ]
-    for fact in a["facts"]:
-        out.append(f'        <div><dt>{fact["term"]}</dt><dd>{fact["value"]}</dd></div>')
-    out += ["      </dl>", "    </div>", "  </div>", "</section>"]
+    out += ["    </div>", "  </div>", "</section>"]
     return out
 
 
-def render_milestones(loc: dict, shared: dict) -> list[str]:
+def render_milestones(loc: dict, shared: dict, full: bool = False) -> list[str]:
+    # newest first either way: the whole run on the about page, the last three
+    # fading out on the homepage
+    rows = list(reversed(shared["milestones"] if full else shared["milestones"][-3:]))
     out = [
         "<!-- ================= 04 MILESTONES ================= -->",
         '<section class="section section--alt" id="milestones">',
-    ] + section_head(loc, "milestones") + ["", '  <ol class="tl">']
+    ] + section_head(loc, "milestones", None if full else "about.html#milestones") + [
+        "", f'  <ol class="tl{"" if full else " tl--brief"}">'
+    ]
 
-    for i, row in enumerate(shared["milestones"]):
+    for i, row in enumerate(rows):
         if i:
             out.append("")
         year_cls = "tl__year tl__year--now" if row.get("current") else "tl__year"
@@ -445,29 +576,64 @@ def render_milestones(loc: dict, shared: dict) -> list[str]:
             out.append(f'        <li>{loc["milestones"][item_id]}</li>')
         out += ["      </ul>", "    </li>"]
 
-    out += ["  </ol>", "</section>"]
+    out.append("  </ol>")
+    if not full:
+        out += section_cta("about.html#milestones", loc["sections"]["milestones"]["more"])
+    out.append("</section>")
     return out
 
 
-def render_press(loc: dict, shared: dict) -> list[str]:
+def render_press(loc: dict, shared: dict, full: bool = False) -> list[str]:
+    lead = " section--lead" if full else ""
     out = [
         "<!-- ================= 05 PRESS ================= -->",
-        '<section class="section" id="press">',
-    ] + section_head(loc, "press") + ["", '  <ul class="press">']
+        f'<section class="section{lead}" id="press">',
+    ] + section_head(loc, "press", None if full else "press.html")
 
+    # the homepage runs the whole lot past as a marquee rather than listing a few
+    if not full:
+        out += [""] + render_press_rail(loc, shared)
+        out.append("</section>")
+        return out
+
+    p = loc["assetPrefix"]
+    a = loc["about"]
+    nav = loc["pressNav"]
+    out += [
+        "",
+        "  <!-- Four items are in view at a time, two either side of the photograph,",
+        "       and the arrows step that window along. Every item is in the markup:",
+        "       without JS this stays a plain grid of all of them and the arrows are",
+        "       never shown. -->",
+        '  <div class="press-stage" id="pressStage">',
+        f'    <button class="press-arrow press-arrow--prev" type="button" aria-label="{attr(nav["prev"])}">{ARROW_PREV}</button>',
+        "",
+        '    <figure class="press-stage__media about__shot about__shot--wide reveal">',
+        f'      <img src="{p}{shared["images"]["aboutWide"]}" alt="{attr(a["altWide"])}" loading="lazy">',
+        f'      <figcaption>{a["captionWide"]}</figcaption>',
+        "    </figure>",
+        "",
+        '    <ul class="press press--stage">',
+    ]
     for item in shared["press"]:
         c = loc["press"][item["id"]]
         out += [
-            '    <li class="press__item reveal">',
-            f'      <a href="{attr(item["url"])}" target="_blank" rel="noopener">',
-            f'        <span class="press__src">{c["src"]}</span>',
-            f'        <span class="press__title"{lang_attr(c.get("titleLang"))}>{c["title"]}</span>',
-            f'        <span class="press__gloss">{c["gloss"]}</span>',
-            "      </a>",
-            "    </li>",
+            '      <li class="press__item reveal">',
+            f'        <a href="{attr(item["url"])}" target="_blank" rel="noopener">',
+            f'          <span class="press__src">{c["src"]}</span>',
+            f'          <span class="press__title"{lang_attr(c.get("titleLang"))}>{c["title"]}</span>',
+            f'          <span class="press__gloss">{c["gloss"]}</span>',
+            "        </a>",
+            "      </li>",
         ]
 
-    out += ["  </ul>", "</section>"]
+    out += [
+        "    </ul>",
+        "",
+        f'    <button class="press-arrow press-arrow--next" type="button" aria-label="{attr(nav["next"])}">{ARROW_NEXT}</button>',
+        "  </div>",
+        "</section>",
+    ]
     return out
 
 
@@ -529,7 +695,7 @@ def render_footer(loc: dict, shared: dict) -> list[str]:
 
 # ---------------------------------------------------------------- page
 
-def render_page(loc: dict, shared: dict) -> str:
+def render_page(loc: dict, shared: dict, page: str) -> str:
     p = loc["assetPrefix"]
     html_attrs = f' lang="{attr(loc["lang"])}"'
     lines = ["<!DOCTYPE html>", BANNER]
@@ -543,29 +709,69 @@ def render_page(loc: dict, shared: dict) -> str:
         html_attrs += ' data-video="bilibili"'
 
     lines.append(f"<html{html_attrs}>")
-    lines += render_head(loc)
-    lines += ["<body>", "", "<!-- film grain overlay -->",
-              '<div class="grain" aria-hidden="true"></div>', "",
-              f'<a class="skip" href="#music">{loc["nav"]["skip"]}</a>', ""]
+    lines += render_head(loc, page)
 
-    for block in (
-        render_nav(loc),
-        render_hero(loc, shared),
-        # sits straight after the hero, and the hero is sized so this lands
-        # at the foot of the first screen rather than below it
-        render_ticker(loc),
-        render_music(loc, shared),
-        render_videos(loc, shared),
-        render_about(loc, shared),
-        render_milestones(loc, shared),
-        render_press(loc, shared),
-        render_contact(loc, shared),
+    # the skip link has to name a section that exists on this page
+    first = "music" if page == "home" else page
+    lines += ["<body>", "", "<!-- film grain overlay, and the light that follows the pointer -->",
+              '<div class="grain" aria-hidden="true"></div>',
+              '<div class="glow" aria-hidden="true"></div>', "",
+              f'<a class="skip" href="#{first}">{loc["nav"]["skip"]}</a>', ""]
+
+    # The homepage hangs #top on the hero. Pages with no hero still carry the
+    # footer's back-to-top link, so they need a target of their own.
+    if page != "home":
+        lines += ['<span id="top" aria-hidden="true"></span>', ""]
+
+    if page == "home":
+        # a trimmed version of each section, every heading a way through
+        blocks = [
+            render_nav(loc, page),
+            render_hero(loc, shared),
+            # sits straight after the hero, and the hero is sized so this lands
+            # at the foot of the first screen rather than below it
+            render_ticker(loc),
+            render_music(loc, shared),
+            render_videos(loc, shared),
+            render_about(loc, shared),
+            render_milestones(loc, shared),
+            render_press(loc, shared),
+        ]
+    elif page == "music":
+        blocks = [
+            render_nav(loc, page),
+            render_music(loc, shared, full=True),
+        ]
+    elif page == "videos":
+        blocks = [
+            render_nav(loc, page),
+            render_videos(loc, shared, full=True),
+        ]
+    elif page == "about":
+        blocks = [
+            render_nav(loc, page),
+            render_about(loc, shared, full=True),
+            render_milestones(loc, shared, full=True),
+        ]
+    else:
+        blocks = [
+            render_nav(loc, page),
+            render_press(loc, shared, full=True),
+        ]
+
+    # Every page finishes the same way: the copyright line, then the contact
+    # block. It carries the only email address on the site, so it should not
+    # be a trip back to the homepage to find it.
+    blocks += [
         render_footer(loc, shared),
-    ):
+        render_contact(loc, shared),
+    ]
+
+    for block in blocks:
         lines += block
         lines.append("")
 
-    lines += [f'<script src="{p}js/main.js"></script>', "</body>", "</html>", ""]
+    lines += [f'<script src="{asset("js/main.js", p)}"></script>', "</body>", "</html>", ""]
     return "\n".join(lines)
 
 
@@ -605,10 +811,10 @@ def build_dist(shared: dict, pages: list[tuple[dict, str]]) -> None:
         if src.is_dir():
             shutil.copytree(src, dist / name, dirs_exist_ok=True)
 
-    for loc, rel in pages:
+    for loc, page, rel in pages:
         out = dist / rel
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(render_page(loc, shared), encoding="utf-8", newline="\n")
+        out.write_text(render_page(loc, shared, page), encoding="utf-8", newline="\n")
 
     # The admin is gated by Cloudflare Access, but keep it out of search
     # indexes too — Access returns a login page, not a 404, and that is
@@ -627,7 +833,12 @@ def build_dist(shared: dict, pages: list[tuple[dict, str]]) -> None:
 
 def main() -> int:
     shared = load("shared.json")
-    pages = [(load("en.json"), "index.html"), (load("zh.json"), "zh/index.html")]
+    # five pages per locale: the homepage plus one for each full section
+    pages = [
+        (loc, page, f"{prefix}{PAGE_FILE[page]}")
+        for loc, prefix in ((load("en.json"), ""), (load("zh.json"), "zh/"))
+        for page in PAGE_FILE
+    ]
 
     if "--dist" in sys.argv:
         build_dist(shared, pages)
@@ -636,9 +847,9 @@ def main() -> int:
     check = "--check" in sys.argv
     stale = []
 
-    for loc, rel in pages:
+    for loc, page, rel in pages:
         path = ROOT / rel
-        html = render_page(loc, shared)
+        html = render_page(loc, shared, page)
         if check:
             current = path.read_text(encoding="utf-8") if path.exists() else ""
             if current != html:
@@ -654,7 +865,7 @@ def main() -> int:
         if stale:
             print("\nRun `python build.py` to refresh them.")
             return 1
-        print("both pages match content/")
+        print(f"all {len(pages)} pages match content/")
     return 0
 
 

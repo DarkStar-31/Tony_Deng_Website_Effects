@@ -6,25 +6,47 @@
     "title": "Tony D 邓乐潼 — 创作歌手",
     "description": "Tony D（邓乐潼）——创作歌手、吉他手，环球音乐版权集团（UMPG）签约词曲作者。"
   },
+  "pages": {
+    "home": {
+      "title": "Tony D 邓乐潼 — 创作歌手",
+      "description": "Tony D（邓乐潼）——创作歌手、吉他手，环球音乐版权集团（UMPG）签约词曲作者。"
+    },
+    "music": {
+      "title": "音乐作品 — Tony D 邓乐潼",
+      "description": "专辑、单曲及收听渠道。全部作品均由 Tony 本人作词、作曲并演唱。"
+    },
+    "videos": {
+      "title": "影像作品 — Tony D 邓乐潼",
+      "description": "Tony D 原创歌曲的官方影像与完整作品列表。"
+    },
+    "about": {
+      "title": "关于 — Tony D 邓乐潼",
+      "description": "Tony D（邓乐潼）——创作歌手、吉他手。个人简介、音乐影响与创作历程。"
+    },
+    "press": {
+      "title": "媒体报道 — Tony D 邓乐潼",
+      "description": "关于 Tony D 的相关报道与乐评。"
+    }
+  },
   "nav": {
     "skip": "跳到主要内容",
     "ariaPrimary": "主导航",
     "burgerLabel": "打开菜单",
     "links": [
       {
-        "href": "#music",
+        "href": "music.html",
         "label": "音乐"
       },
       {
-        "href": "#videos",
+        "href": "videos.html",
         "label": "影像"
       },
       {
-        "href": "#about",
+        "href": "about.html",
         "label": "关于"
       },
       {
-        "href": "#press",
+        "href": "press.html",
         "label": "媒体"
       }
     ],
@@ -90,7 +112,8 @@
     "videos": {
       "num": "02",
       "title": "影像作品",
-      "desc": "原创歌曲的官方影像。哔哩哔哩版本上线后即可在本页直接播放。"
+      "desc": "原创歌曲的官方影像。哔哩哔哩版本上线后即可在本页直接播放。",
+      "more": "更多影像"
     },
     "about": {
       "num": "03",
@@ -100,7 +123,8 @@
     "milestones": {
       "num": "04",
       "title": "创作历程",
-      "desc": "五年时间，从第一支单曲到全球发行。"
+      "desc": "五年时间，从第一支单曲到全球发行。",
+      "more": "查看更多"
     },
     "press": {
       "num": "05",
@@ -453,5 +477,14 @@
   "footer": {
     "copyright": "Tony D · 邓乐潼",
     "backToTop": "返回顶部"
+  },
+  "railAria": {
+    "singles": "单曲",
+    "press": "媒体报道"
+  },
+  "singlesHeading": "单曲",
+  "pressNav": {
+    "prev": "上一条报道",
+    "next": "下一条报道"
   }
 }

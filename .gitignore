@@ -3,7 +3,11 @@
 # of these would go stale the moment anyone edits content. Cloudflare Pages
 # renders them at deploy time; run `python build.py` for a local copy.
 /index.html
-/zh/index.html
+/music.html
+/videos.html
+/about.html
+/press.html
+/zh/*.html
 /dist/
 
 # asset pipeline scratch (regenerate with tools/*.py)

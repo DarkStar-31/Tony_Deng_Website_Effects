@@ -96,6 +96,13 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
+/* Registered so the browser knows these are numbers, not arbitrary strings.
+   Pulse rewrites them every frame while audio is playing, and a typed
+   property lets the engine narrow what that invalidates. Browsers without
+   @property ignore this and fall back to the var() defaults. */
+@property --beat{  syntax:'<number>'; inherits:true; initial-value:0; }
+@property --level{ syntax:'<number>'; inherits:true; initial-value:0; }
+
 :root{
   --ink:        #0B0A0C;   /* base, from album cover #1D0C16 */
   --ink-2:      #131114;   /* raised surface */
@@ -170,6 +177,28 @@ img{ display:block; max-width:100%; }
 }
 
 /* ---------- film grain: the cheapest "designed" cue there is ---------- */
+/* A soft light following the pointer across the whole page - the same idea
+   as the one on the nav, but far weaker, so the bar stays the brighter of
+   the two. Stays fully transparent until JS turns it on, and never turns on
+   for reduced motion or on touch. */
+.glow{
+  position:fixed; inset:0; z-index:9998; pointer-events:none;
+  opacity:0; transition:opacity .6s var(--ease);
+  /* --beat is published by Pulse while something is playing, and is 0 the
+     rest of the time, so this is a still light until the music starts. */
+  background:radial-gradient(
+             calc(26rem + var(--beat,0) * 9rem) circle
+             at var(--px,50%) var(--py,50%),
+             rgb(237 230 220 / calc(.055 + var(--beat,0) * .055)),
+             rgb(237 230 220 / 0) 70%);
+}
+.glow.is-on{ opacity:1; }
+
+/* the page warms up while it is playing */
+.is-playing .nav::before{ background:rgba(11,10,12,.55); }
+.is-playing .nav::after{ opacity:calc(.35 + var(--beat,0) * .65); }
+.is-playing .ticker__set i{ color:rgb(250 39 159 / calc(.6 + var(--beat,0) * .4)); }
+
 .grain{
   position:fixed; inset:-50%;
   z-index:9999; pointer-events:none;
@@ -192,22 +221,61 @@ img{ display:block; max-width:100%; }
    rather than as an effect. */
 .nav{
   position:sticky; top:0; z-index:80;
-  display:flex; align-items:center; justify-content:space-between;
+  display:flex; align-items:center; justify-content:space-between; gap:1rem;
   padding:1.15rem var(--pad);
-  background:var(--ink);
+  background:transparent;
   border-bottom:1px solid var(--line);
 }
-.nav__mark{
-  font-weight:700; letter-spacing:.22em; font-size:.82rem;
-  color:var(--bone); text-decoration:none;
+/* The tint and blur ride on a pseudo-element rather than .nav itself:
+   backdrop-filter would make .nav the containing block for the mobile menu,
+   which is position:fixed, and strand the panel inside the bar. */
+.nav::before{
+  content:""; position:absolute; inset:0; z-index:-1;
+  background:rgba(11,10,12,.62);
+  -webkit-backdrop-filter:blur(16px) saturate(1.25);
+          backdrop-filter:blur(16px) saturate(1.25);
 }
-.nav__links{ display:flex; gap:1.9rem; align-items:center; }
-.nav__links a{
+/* a faint light that follows the cursor along the bar */
+.nav::after{
+  content:""; position:absolute; inset:0; z-index:-1; pointer-events:none;
+  background:radial-gradient(16rem circle at var(--mx,50%) var(--my,50%),
+             rgba(237,230,220,.11), rgba(237,230,220,0) 65%);
+  opacity:0; transition:opacity .4s var(--ease);
+}
+.nav:hover::after{ opacity:1; }
+
+/* the two link groups become grid items of .nav so the wordmark can sit
+   between them, dead centre, regardless of how wide either group is */
+.nav__links{ display:contents; }
+/* Six slots spread evenly across the bar. The wordmark has to live outside
+   .nav__links so it stays put when that becomes the mobile panel, so `order`
+   rather than DOM position is what lands it in the middle. */
+.nav__links > *{ order:0; }
+.nav__mark        { order:1; }
+.nav__item--music { order:2; }
+.nav__item--videos{ order:3; }
+.nav__item--about { order:4; }
+.nav__item--press { order:5; }
+.nav__pair        { order:6; }
+
+/* contact and the language switch read as one item, not two */
+.nav__pair{ display:flex; gap:.4rem; align-items:center; }
+
+.nav__mark{
+  font-weight:700; letter-spacing:.3em; font-size:1.15rem;
+  color:var(--bone); text-decoration:none; white-space:nowrap;
+}
+.nav__links a,
+.nav__pair a{
   color:var(--bone-dim); text-decoration:none;
   font-size:.8rem; letter-spacing:.09em; text-transform:uppercase;
   transition:color .25s var(--ease);
 }
-.nav__links a:hover{ color:var(--bone); }
+/* everything in the bar answers in the accent, like the section headings */
+.nav__links a:hover,
+.nav__links a:focus-visible,
+.nav__mark:hover,
+.nav__mark:focus-visible{ color:var(--magenta); }
 .nav__cta{
   color:var(--ink) !important; background:var(--bone);
   padding:.5rem .95rem; border-radius:100px; font-weight:600;
@@ -220,7 +288,8 @@ img{ display:block; max-width:100%; }
   padding:.42rem .85rem;
   letter-spacing:.06em !important; text-transform:none !important;
 }
-.nav__lang:hover{ border-color:var(--bone); }
+.nav__lang:hover,
+.nav__lang:focus-visible{ color:var(--magenta); border-color:var(--magenta); }
 
 /* scroll-spy: the section you're actually in */
 .nav__links a.is-active:not(.nav__cta){ color:var(--bone); }
@@ -310,6 +379,11 @@ img{ display:block; max-width:100%; }
      Percentages are scaled to hold the draw itself at ~1.9s — retune them
      alongside the duration if you change it. */
   animation:ink-draw 9.5s var(--ease) .35s infinite both;
+  /* Breathes with the low end while something is playing. --beat is 0 the
+     rest of the time, so this is a plain scale(1) at rest. The animation
+     above drives clip-path only, so there is nothing to fight over here. */
+  transform-origin:left center;
+  transform:scale(calc(1 + var(--beat,0) * .045));
 }
 @keyframes ink-draw{
   /* draw on, left to right */
@@ -818,6 +892,9 @@ img{ display:block; max-width:100%; }
 .muted{ color:var(--bone-dim); }
 
 /* ================= FOOT ================= */
+/* the contact block closes every page, under the copyright line */
+.section--alt#contact{ border-bottom:0; }
+
 .foot{
   border-top:1px solid var(--line);
   padding:2rem var(--pad);
@@ -843,6 +920,168 @@ img{ display:block; max-width:100%; }
    aligned inside its row, so when it outgrows it the stack overflows
    upward and the eyebrow is clipped. Shrink the stack rather than let it
    slide out of view. */
+/* ================= PAGE LINKS, RAILS, ABOUT VARIANTS ================= */
+
+/* On the homepage each section heading is the way through to its own page.
+   It reads as a heading, not as a link, until you point at it. */
+.section__link{
+  color:var(--bone); text-decoration:none;
+  transition:color .2s var(--ease);
+}
+.section__link:hover,
+.section__link:focus-visible,
+.section__link:active{ color:var(--magenta); }
+
+/* The way on from a trimmed section. Set in the display serif at the same
+   weight as a timeline year, so it reads as part of the page rather than as
+   a footnote you scroll past. */
+.section__cta{ margin-top:3.2rem; text-align:center; }
+.section__cta a{
+  display:inline-block;
+  font-family:var(--f-serif); font-weight:400;
+  font-size:clamp(1.75rem,3.4vw,2.5rem); line-height:1.1;
+  color:var(--bone); text-decoration:none;
+  border-bottom:1px solid var(--line); padding-bottom:.3rem;
+  transition:color .25s var(--ease), border-color .25s var(--ease);
+}
+.section__cta a::after{ content:" \2192"; }
+.section__cta a:hover,
+.section__cta a:focus-visible,
+.section__cta a:active{ color:var(--magenta); border-color:var(--magenta); }
+
+/* the homepage timeline shows three years and dissolves into the link */
+.tl--brief{
+  -webkit-mask-image:linear-gradient(to bottom,
+    #000 0%, #000 34%, rgba(0,0,0,.78) 62%, rgba(0,0,0,.34) 86%, rgba(0,0,0,.10) 100%);
+          mask-image:linear-gradient(to bottom,
+    #000 0%, #000 34%, rgba(0,0,0,.78) 62%, rgba(0,0,0,.34) 86%, rgba(0,0,0,.10) 100%);
+}
+.tl--brief .tl__row:last-child{ border-bottom:0; }
+
+/* the first section on a page with no hero above it still has to clear
+   the sticky nav */
+.section--lead{ padding-top:calc(var(--nav-h) + clamp(2.5rem,6vh,4.5rem)); }
+
+/* ---- singles marquee on the music page ---- */
+.rail__heading{
+  text-align:center; margin-bottom:1.1rem;
+  font-size:.72rem; letter-spacing:.22em; text-transform:uppercase;
+  color:var(--magenta); font-weight:600;
+}
+.ticker--inset{
+  border:1px solid var(--line); border-radius:10px;
+  margin-bottom:2.8rem;
+}
+/* the singles are the content here, not a footnote under the hero */
+.ticker--inset .ticker__set{
+  font-size:1rem; letter-spacing:.05em; text-transform:none;
+  color:var(--bone);
+}
+.ticker--inset .ticker__set b{ font-weight:400; }
+
+/* ---- rail: the looping press row on the homepage ---- */
+.rail{ overflow:hidden; }
+.rail__track{ display:flex; width:max-content; will-change:transform; }
+.rail__set{ display:inline-flex; gap:1rem; padding-right:1rem; align-items:stretch; }
+.chip{
+  flex:0 0 auto; display:flex; flex-direction:column; gap:.4rem;
+  padding:1rem 1.35rem; text-decoration:none;
+  background:rgba(237,230,220,.035);
+  border:1px solid var(--line); border-radius:10px;
+  transition:border-color .25s var(--ease), background .25s var(--ease);
+}
+.chip:hover{ border-color:var(--bone); background:rgba(237,230,220,.06); }
+.chip__src{
+  font-size:.62rem; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--magenta);
+}
+.chip__title{ color:var(--bone); font-size:.95rem; white-space:nowrap; }
+
+/* ---- about: one photograph, flush with the column of text ---- */
+/* Both shapes carry a single image, stretched so it starts and finishes
+   exactly where the prose does. Below 1100px the grid is already a single
+   column and there is nothing to line up against. */
+@media (min-width:1101px){
+  .about--brief,
+  .about--full{ align-items:stretch; }
+  .about--brief .about__media,
+  .about--full .about__media{ position:static; min-height:0; }
+  .about--brief .about__shot,
+  .about--full .about__shot{ display:flex; min-height:0; height:100%; }
+  .about--brief .about__shot img,
+  .about--full .about__shot img{
+    aspect-ratio:auto; width:100%; height:100%; min-height:0;
+    object-fit:cover;
+  }
+}
+.about--full .about__prose p:last-of-type{ margin-bottom:0; }
+
+/* ---- press page: the photograph, flanked ---- */
+/* Without JS this is what you get: every item, in a plain grid, arrows hidden. */
+.press-arrow{ display:none; }
+.press-stage__media{ margin:0 0 2rem; }
+
+/* PressStage adds .is-live once it has taken over. */
+.press-stage.is-live{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr) auto;
+  grid-template-rows:1fr 1fr;
+  gap:1.25rem clamp(1.25rem,3vw,2.5rem);
+  align-items:stretch;
+}
+/* the list itself stops being a box so its items can sit in the stage grid */
+.press-stage.is-live .press--stage{ display:contents; }
+.press-stage.is-live .press-stage__media{
+  grid-column:3; grid-row:1 / span 2;
+  width:clamp(17rem,28vw,27rem); margin:0;
+  display:flex; flex-direction:column;
+}
+.press-stage.is-live .press-stage__media img{
+  aspect-ratio:auto; height:100%; min-height:0; flex:1 1 auto; object-fit:cover;
+}
+.press-stage.is-live .press__item[data-slot="0"]{ grid-column:2; grid-row:1; }
+.press-stage.is-live .press__item[data-slot="1"]{ grid-column:2; grid-row:2; }
+.press-stage.is-live .press__item[data-slot="2"]{ grid-column:4; grid-row:1; }
+.press-stage.is-live .press__item[data-slot="3"]{ grid-column:4; grid-row:2; }
+
+.press-stage.is-live .press-arrow{
+  display:grid; place-items:center; align-self:center;
+  width:2.9rem; height:2.9rem; padding:0;
+  background:none; cursor:pointer;
+  border:1px solid var(--line); border-radius:100px;
+  color:var(--bone-dim);
+  transition:color .25s var(--ease), border-color .25s var(--ease),
+             background .25s var(--ease);
+}
+.press-arrow--prev{ grid-column:1; grid-row:1 / span 2; }
+.press-arrow--next{ grid-column:5; grid-row:1 / span 2; }
+.press-stage.is-live .press-arrow:hover,
+.press-stage.is-live .press-arrow:focus-visible{
+  color:var(--ink); background:var(--bone); border-color:var(--bone);
+}
+.press-arrow svg{
+  width:20px; height:20px;
+  fill:none; stroke:currentColor; stroke-width:1.7;
+  stroke-linecap:round; stroke-linejoin:round;
+}
+
+@media (max-width:1100px){
+  /* no room for a photograph between two columns of cards */
+  .press-stage.is-live{
+    grid-template-columns:auto minmax(0,1fr) auto;
+    grid-template-rows:auto auto;
+  }
+  .press-stage.is-live .press-stage__media{
+    grid-column:1 / -1; grid-row:1; width:100%; margin-bottom:1.5rem;
+  }
+  .press-stage.is-live .press__item[data-slot="0"]{ grid-column:2; grid-row:2; }
+  .press-stage.is-live .press__item[data-slot="1"]{ grid-column:2; grid-row:3; }
+  .press-stage.is-live .press__item[data-slot="2"]{ grid-column:2; grid-row:4; }
+  .press-stage.is-live .press__item[data-slot="3"]{ grid-column:2; grid-row:5; }
+  .press-arrow--prev{ grid-column:1; grid-row:2 / span 4; }
+  .press-arrow--next{ grid-column:3; grid-row:2 / span 4; }
+}
+
 @media (max-height:780px){
   .ink{ width:min(23rem,60vw); }
   .hero__eyebrow{ margin-bottom:1.1rem; }
@@ -870,7 +1109,14 @@ img{ display:block; max-width:100%; }
 @media (max-width:900px){
   /* the link row becomes a drop panel driven by the burger */
   .nav__burger{ display:block; }
+  /* back to a plain bar: wordmark on one side, burger on the other */
+  .nav{ display:flex; justify-content:space-between; }
+  .nav__mark{ font-size:.95rem; letter-spacing:.24em; }
+  /* the panel stacks in source order; `order` only matters on the desktop row */
+  .nav__links > *{ order:0; }
+  .nav__pair{ gap:1rem; }
   .nav__links{
+    display:flex;
     position:fixed; inset:0 0 auto; top:0;
     flex-direction:column; align-items:flex-start; justify-content:center;
     gap:1.6rem;

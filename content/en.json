@@ -6,25 +6,47 @@
     "title": "Tony D — Singer-Songwriter",
     "description": "Tony D (Yuetong Deng) — singer-songwriter and guitarist. Signed writer, Universal Music Publishing Group."
   },
+  "pages": {
+    "home": {
+      "title": "Tony D — Singer-Songwriter",
+      "description": "Tony D (Yuetong Deng) — singer-songwriter and guitarist. Signed writer, Universal Music Publishing Group."
+    },
+    "music": {
+      "title": "Music — Tony D",
+      "description": "Albums, singles and where to listen. Every track written, composed and performed by Tony D."
+    },
+    "videos": {
+      "title": "Videos — Tony D",
+      "description": "Official videos for Tony D's original songs, with the full catalogue of releases."
+    },
+    "about": {
+      "title": "About — Tony D",
+      "description": "Tony D (Yuetong Deng) — singer-songwriter and guitarist. Biography, influences, profile and milestones."
+    },
+    "press": {
+      "title": "Press — Tony D",
+      "description": "Coverage and commentary on Tony D, mostly on Weibo and in Chinese."
+    }
+  },
   "nav": {
     "skip": "Skip to content",
     "ariaPrimary": "Primary",
     "burgerLabel": "Open menu",
     "links": [
       {
-        "href": "#music",
+        "href": "music.html",
         "label": "Music"
       },
       {
-        "href": "#videos",
+        "href": "videos.html",
         "label": "Videos"
       },
       {
-        "href": "#about",
+        "href": "about.html",
         "label": "About"
       },
       {
-        "href": "#press",
+        "href": "press.html",
         "label": "Press"
       }
     ],
@@ -90,7 +112,8 @@
     "videos": {
       "num": "02",
       "title": "Videos",
-      "desc": "Original songs, shot and cut for the channel. Press one and the player loads in place — nothing from YouTube runs until you do."
+      "desc": "Original songs, shot and cut for the channel. Press one and the player loads in place — nothing from YouTube runs until you do.",
+      "more": "More videos"
     },
     "about": {
       "num": "03",
@@ -100,7 +123,8 @@
     "milestones": {
       "num": "04",
       "title": "Milestones",
-      "desc": "Five years, from a first single to a global release."
+      "desc": "Five years, from a first single to a global release.",
+      "more": "See more"
     },
     "press": {
       "num": "05",
@@ -335,45 +359,38 @@
   "press": {
     "umpg-signing": {
       "src": "Weibo",
-      "title": "环球音乐版权签约速报",
-      "titleLang": "zh",
-      "gloss": "UMPG publishing signing — news report"
+      "title": "Universal Music Publishing Signing",
+      "gloss": "News report"
     },
     "umg-china": {
       "src": "Weibo",
-      "title": "环球音乐中国",
-      "titleLang": "zh",
-      "gloss": "Universal Music China"
+      "title": "Universal Music China",
+      "gloss": "Official post"
     },
     "umg-teaser": {
       "src": "Weibo",
-      "title": "环球集团新歌预告",
-      "titleLang": "zh",
-      "gloss": "UMG new release announcement"
+      "title": "Universal Music Group New Song Teaser",
+      "gloss": "Release announcement"
     },
     "comment-1": {
       "src": "Weibo",
-      "title": "微博热门评论",
-      "titleLang": "zh",
-      "gloss": "Featured listener commentary"
+      "title": "Featured Weibo Comment",
+      "gloss": "Listener commentary"
     },
     "comment-2": {
       "src": "Weibo",
-      "title": "微博热门评论",
-      "titleLang": "zh",
-      "gloss": "Featured listener commentary"
+      "title": "Featured Weibo Comment",
+      "gloss": "Listener commentary"
     },
     "comment-3": {
       "src": "Weibo",
-      "title": "微博热门评论",
-      "titleLang": "zh",
-      "gloss": "Featured listener commentary"
+      "title": "Featured Weibo Comment",
+      "gloss": "Listener commentary"
     },
     "comment-4": {
       "src": "Weibo",
-      "title": "微博热门评论",
-      "titleLang": "zh",
-      "gloss": "Featured listener commentary"
+      "title": "Featured Weibo Comment",
+      "gloss": "Listener commentary"
     }
   },
   "contact": {
@@ -430,5 +447,14 @@
   "footer": {
     "copyright": "Tony D · <span lang=\"zh\">邓乐潼</span>",
     "backToTop": "Back to top"
+  },
+  "railAria": {
+    "singles": "Singles",
+    "press": "Press coverage"
+  },
+  "singlesHeading": "Singles",
+  "pressNav": {
+    "prev": "Previous coverage",
+    "next": "Next coverage"
   }
 }
