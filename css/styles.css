@@ -328,16 +328,19 @@ img{ display:block; max-width:100%; }
      carry the light well past the word. A single large blur only smears -
      one shadow cannot be sharp at the edge and soft at distance, so the
      reach has to be built out of separate layers. */
-  text-shadow:0 0 10px rgba(250,39,159,1),
-              0 0 28px rgba(250,39,159,.95),
-              0 0 58px rgba(250,39,159,.7),
-              0 0 96px rgba(250,39,159,.4);
+  text-shadow:0 0 4px rgba(250,39,159,1),
+              0 0 12px rgba(250,39,159,1),
+              0 0 30px rgba(250,39,159,1),
+              0 0 66px rgba(250,39,159,.85),
+              0 0 130px rgba(250,39,159,.6),
+              0 0 220px rgba(250,39,159,.35);
 }
 .nav__links a.is-active:not(.nav__cta):hover::after,
 .nav__links a.is-active:not(.nav__cta):focus-visible::after{
   box-shadow:0 0 12px 2px rgba(250,39,159,1),
-             0 0 34px 5px rgba(250,39,159,.75),
-             0 0 72px 9px rgba(250,39,159,.4);
+             0 0 34px 5px rgba(250,39,159,.9),
+             0 0 78px 10px rgba(250,39,159,.6),
+             0 0 150px 16px rgba(250,39,159,.32);
 }
 
 /* ---- burger: only rendered under 900px (see responsive block) ---- */
@@ -382,6 +385,105 @@ img{ display:block; max-width:100%; }
   animation:hero-drift 26s ease-in-out infinite alternate;
 }
 @keyframes hero-drift{ to{ transform:scale(1.07) translateY(-1%); } }
+
+/* ---- the photograph is lit while the music plays ----
+
+   A wash of the accent over the portrait: solid at the right edge, thinning
+   away to nothing as it travels left, so the grey studio backdrop reads as
+   pink and the dark left side is untouched.
+
+   --wash is the distance that thinning covers, and it is what animates. A
+   custom property cannot be transitioned unless it is registered, which is
+   what the @property block is for: without it this would snap between the
+   two states instead of sweeping. On play it grows leftward; on pause it
+   shrinks back toward the right edge and the colour retreats the way it
+   arrived. The two durations are the audio's own fades - 1.4s up in
+   AudioEngine.start, 1.1s down in stop - so the light goes out exactly as
+   the sound does.
+
+   blend mode: `color` takes the hue and keeps the photograph's own
+   lighting, which is what actually turns grey into pink. It tints the shirt
+   and skin too, like a gel on a studio light. `screen` or `soft-light`
+   there instead give a gentler wash that leaves skin tones alone. */
+@property --wash{
+  syntax:"<percentage>";
+  inherits:false;
+  initial-value:0%;
+}
+.hero__media::after{
+  content:""; position:absolute; inset:0; z-index:1;
+  pointer-events:none;
+  mix-blend-mode:color;
+  --wash:0%;
+  /* Solid for most of its travel and only feathering at the very end, so
+     the backdrop is fully covered rather than fading to grey halfway across
+     it. The wash is allowed to run past the left edge of the photograph -
+     there is nothing to protect out there, because the mask has already
+     taken the black panel out along with him. */
+  background:linear-gradient(to left,
+             rgba(250,39,159,1)   0%,
+             rgba(250,39,159,.96) calc(var(--wash) * .45),
+             rgba(232,45,190,.78) calc(var(--wash) * .78),
+             rgba(210,50,210,0)   var(--wash));
+
+  /* Held to the studio backdrop, so the light falls behind Tony and not on
+     him. The mask is a silhouette cut from the photograph itself: the
+     backdrop is neutral and mid-bright, while his skin, the guitar and the
+     denim are all far more saturated and the white shirt is far brighter,
+     so the two separate cleanly on those two measures. Only backdrop that
+     reaches the edge of the frame counts, which is what keeps gaps in the
+     strings and folds in the shirt from lighting up.
+
+     It is an alpha channel rather than a greyscale image because mask-image
+     reads alpha by default - a plain greyscale file would mask nothing.
+
+     The sizing and the drift below mirror .hero__media img exactly. The
+     photograph is slowly scaling the whole time, and a mask that did not
+     move with it would slide off the shoulders within seconds. */
+  -webkit-mask-image:url(../img/hero-backdrop-mask.webp);
+          mask-image:url(../img/hero-backdrop-mask.webp);
+  -webkit-mask-size:cover;   mask-size:cover;
+  -webkit-mask-position:50% 18%; mask-position:50% 18%;
+  -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat;
+  transform:scale(1.02);
+  animation:hero-drift 26s ease-in-out infinite alternate;
+
+  transition:--wash 1.1s var(--ease);
+}
+
+/* The colour layer can only replace hue - it cannot darken, because that is
+   what `color` blending means. So the fade into the black panel is a second
+   layer of its own: the same silhouette mask, but painting the page's own
+   ink over the backdrop, heaviest at the left. Without it the wash met the
+   panel as a hard vertical edge, since the mask stops dead where the panel
+   begins. Masked like the wash, so it dims the backdrop and not him. */
+.hero__media::before{
+  content:""; position:absolute; inset:0; z-index:2;
+  pointer-events:none; opacity:0;
+  background:linear-gradient(to left,
+             rgba(11,10,12,0)   34%,
+             rgba(11,10,12,.5)  66%,
+             rgba(11,10,12,.92) 88%,
+             rgba(11,10,12,1)  100%);
+  -webkit-mask-image:url(../img/hero-backdrop-mask.webp);
+          mask-image:url(../img/hero-backdrop-mask.webp);
+  -webkit-mask-size:cover;   mask-size:cover;
+  -webkit-mask-position:50% 18%; mask-position:50% 18%;
+  -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat;
+  transform:scale(1.02);
+  animation:hero-drift 26s ease-in-out infinite alternate;
+  transition:opacity 1.1s var(--ease);
+}
+.is-playing .hero__media::before{
+  opacity:1;
+  transition:opacity 1.4s var(--ease);
+}
+.is-playing .hero__media::after{
+  --wash:190%;
+  /* no transition on opacity, so this tracks the kick frame by frame */
+  opacity:calc(.84 + var(--beat,0) * .16);
+  transition:--wash 1.4s var(--ease);
+}
 
 /* floor fade only — the horizontal blend is handled by the media mask */
 .hero__scrim{
@@ -733,6 +835,36 @@ img{ display:block; max-width:100%; }
   font-family:var(--f-serif); font-weight:400;
   font-size:clamp(2.4rem,5.5vw,3.9rem); line-height:1.02;
   letter-spacing:-.015em; margin-bottom:.85rem;
+  /* inline-block so the box hugs the words: a full-width block would answer
+     a hover from anywhere along the line, including empty space */
+  display:inline-block; transform-origin:left center;
+  transition:color .5s var(--ease), text-shadow .5s var(--ease),
+             transform .35s var(--ease);
+}
+
+/* Lit while something is playing, and lit harder under the pointer. Both
+   are scoped to .is-playing, so a paused page behaves exactly as it did -
+   Pulse never adds that class under prefers-reduced-motion either, which is
+   what keeps all of this off for anyone who has asked for less movement. */
+/* A bright, tight core carries most of the colour; the wide layers only
+   add reach. Spreading it thin over one large blur is what made the first
+   attempt read as a grey smudge rather than as light. */
+.is-playing .section__title{
+  color:#fff;
+  text-shadow:0 0 5px rgba(250,39,159,.95),
+              0 0 16px rgba(250,39,159,.85),
+              0 0 40px rgba(250,39,159,.6),
+              0 0 90px rgba(250,39,159,.35);
+}
+.is-playing .section__title:hover{
+  transform:scale(1.045);
+  text-shadow:0 0 5px rgba(250,39,159,1),
+              0 0 18px rgba(250,39,159,1),
+              0 0 48px rgba(250,39,159,.9),
+              0 0 110px rgba(250,39,159,.55);
+}
+.is-playing .section__num{
+  text-shadow:0 0 12px rgba(250,39,159,.6);
 }
 .section__desc{ color:var(--bone-dim); }
 
