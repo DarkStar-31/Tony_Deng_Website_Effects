@@ -64,8 +64,11 @@
     "imageAlt": "Tony D seated with an acoustic guitar",
     "eyebrow": "Signed Writer &middot; Universal Music Publishing Group",
     "srTitle": "Tony D — Overthinking",
-    "sub": "Singer-songwriter and guitarist from Seattle.\n      <em>Indie rock, britpop, soul.</em>\n      Second album <strong>Overthinking</strong> out now via Universal Music Group.",
+    "sub": "<em>Indie rock, britpop, soul.</em>",
+    "count": "<b>3 million+</b> streams, <b>11</b> singles, <b>6</b> years, <b>2</b> albums and <b class=\"key\">one Overthinker</b>.",
+    "outNow": "New album <strong>Overthinking</strong> out now",
     "playLabel": "Play",
+    "pauseLabel": "Pause",
     "nextLabel": "Next track",
     "nowPlaying": "Now playing",
     "secondary": {
@@ -107,7 +110,7 @@
     "music": {
       "num": "01",
       "title": "Releases",
-      "desc": "Two albums. Every track written, composed and performed by Tony."
+      "desc": "Two albums and eleven singles, released since 2021. Every track written, composed and performed by Tony."
     },
     "videos": {
       "num": "02",
@@ -139,10 +142,22 @@
   },
   "releases": {
     "overthinking": {
+      "discTracks": [
+        "Curiosity",
+        "想太多",
+        "Her",
+        "I Do",
+        "If You",
+        "Look in the Mirror",
+        "If It&rsquo;s True"
+      ],
+      "discSecret": "Overthinking",
+      "discTitleTrack": "想太多",
       "alt": "Overthinking album cover",
       "badge": "New",
       "title": "Overthinking <span lang=\"zh\">想太多</span>",
-      "meta": "Album · 2025 · Universal Music Group",
+      "meta": "Album · 2025",
+      "label": "Universal Music Group",
       "copy": "Seven tracks — six English, one Mandarin. A more refined sound and layered arrangements.",
       "links": [
         {
@@ -156,9 +171,22 @@
       ]
     },
     "saturn": {
+      "discTracks": [
+        "Time Will Speak",
+        "Saturn Diary",
+        "Tell Me",
+        "Oh, Mother 2022",
+        "It&rsquo;s Raining",
+        "Oh, Mother 2021",
+        "How It Feels Like",
+        "Be Mine"
+      ],
+      "discSecret": "Saturn Diary",
+      "discTitleTrack": "Saturn Diary",
       "alt": "Saturn Diary album cover",
       "title": "Saturn Diary",
-      "meta": "Album · 2023 · Independent",
+      "meta": "Album · 2023",
+      "label": "Independent",
       "copy": "The debut record — written between the ages of thirteen and fifteen.",
       "links": [
         {
@@ -173,17 +201,31 @@
       ]
     },
     "singles": {
-      "alt": "Tony D portrait",
+      "alt": "Tony D walking past a painted wall",
       "title": "Singles",
       "meta": "2021 &ndash; 2025",
-      "trackList": [
-        "HER",
-        "Look in the Mirror",
-        "I Do",
-        "Curiosity",
-        "If It&rsquo;s True",
-        "Time Will Speak",
-        "Oh, Mother"
+      "$singlesByYear": "Years are the resume PDF's MILESTONES section, except Curiosity - the PDF never dates it. Released 15 October 2025, confirmed by Josie 2026-08-29.",
+      "singlesByYear": [
+        {
+          "year": "2025",
+          "tracks": ["I Do", "Curiosity"]
+        },
+        {
+          "year": "2024",
+          "tracks": ["Look in the Mirror", "HER", "If It&rsquo;s True"]
+        },
+        {
+          "year": "2023",
+          "tracks": ["Time Will Speak"]
+        },
+        {
+          "year": "2022",
+          "tracks": ["Oh, Mother", "How It Feels Like"]
+        },
+        {
+          "year": "2021",
+          "tracks": ["One Day", "It&rsquo;s Raining", "Be Mine"]
+        }
       ],
       "links": [
         {
@@ -449,10 +491,20 @@
     "backToTop": "Back to top"
   },
   "railAria": {
-    "singles": "Singles",
+    "playlists": "Listening links",
     "press": "Press coverage"
   },
-  "singlesHeading": "Singles",
+  "stats": [
+    { "value": "2", "label": "Albums" },
+    { "value": "11", "label": "Singles" },
+    { "value": "2M+", "label": "Look in the Mirror &middot; QQ Music", "url": "https://youtu.be/Z-EP0Qwl2xw" },
+    { "value": "1M+", "label": "HER &middot; NetEase", "url": "https://youtu.be/NwpjbcHqua4" }
+  ],
+  "playlistsHeading": "More on YouTube",
+  "singlesNav": {
+    "prev": "Earlier singles",
+    "next": "Later singles"
+  },
   "pressNav": {
     "prev": "Previous coverage",
     "next": "Next coverage"

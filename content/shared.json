@@ -44,8 +44,10 @@
     },
     {
       "id": "singles",
-      "art": "img/portrait-orange.webp",
-      "badge": false
+      "art": "img/portrait-mural.webp",
+      "badge": false,
+      "$disc": "no record behind this sleeve - the singles are already listed as text in the card body, and there is no one album for a disc to belong to",
+      "disc": false
     }
   ],
   "videos": [

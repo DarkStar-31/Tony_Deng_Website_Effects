@@ -64,8 +64,11 @@
     "imageAlt": "Tony D 抱着木吉他的肖像",
     "eyebrow": "环球音乐版权集团 &middot; 签约词曲作者",
     "srTitle": "Tony D — 想太多",
-    "sub": "来自西雅图的创作歌手、吉他手。\n      <em>独立摇滚、英伦摇滚、灵魂乐。</em>\n      第二张专辑《<strong>想太多</strong>》由环球音乐集团全球发行。",
+    "sub": "<em>独立摇滚、英伦流行、灵魂乐。</em>",
+    "count": "<b>300 万+</b> 次播放，<b>11</b> 首单曲，<b>6</b> 年创作，<b>2</b> 张专辑，以及<b class=\"key\">一个想太多的人</b>。",
+    "outNow": "新专辑《<strong>想太多</strong>》现已上线",
     "playLabel": "播放",
+    "pauseLabel": "暂停",
     "nextLabel": "下一首",
     "nowPlaying": "正在播放",
     "secondary": {
@@ -107,7 +110,7 @@
     "music": {
       "num": "01",
       "title": "音乐作品",
-      "desc": "两张专辑。全部作品均由 Tony 本人作词、作曲并演唱。"
+      "desc": "两张专辑，十一首单曲，自 2021 年起陆续发行。全部作品均由 Tony 本人作词、作曲并演唱。"
     },
     "videos": {
       "num": "02",
@@ -147,10 +150,22 @@
   },
   "releases": {
     "overthinking": {
+      "discTracks": [
+        "Curiosity",
+        "想太多",
+        "Her",
+        "I Do",
+        "If You",
+        "Look in the Mirror",
+        "If It&rsquo;s True"
+      ],
+      "discSecret": "想太多",
+      "discTitleTrack": "想太多",
       "alt": "《想太多》专辑封面",
       "badge": "新专",
       "title": "想太多 <span lang=\"en\">Overthinking</span>",
-      "meta": "专辑 · 2025 · 环球音乐集团",
+      "meta": "专辑 · 2025",
+      "label": "环球音乐集团",
       "copy": "共七首作品，六首英文、一首中文。声音更加成熟，编曲层次更为丰富。",
       "links": [
         {
@@ -168,10 +183,23 @@
       ]
     },
     "saturn": {
+      "discTracks": [
+        "Time Will Speak",
+        "Saturn Diary",
+        "Tell Me",
+        "Oh, Mother 2022",
+        "It&rsquo;s Raining",
+        "Oh, Mother 2021",
+        "How It Feels Like",
+        "Be Mine"
+      ],
+      "discSecret": "Saturn Diary",
+      "discTitleTrack": "Saturn Diary",
       "alt": "《Saturn Diary》专辑封面",
       "title": "Saturn Diary",
       "titleLang": "en",
-      "meta": "专辑 · 2023 · 独立发行",
+      "meta": "专辑 · 2023",
+      "label": "独立发行",
       "copy": "首张个人专辑，创作于十三至十五岁之间。",
       "links": [
         {
@@ -185,17 +213,30 @@
       ]
     },
     "singles": {
-      "alt": "Tony D 肖像",
+      "alt": "Tony D 走过一面涂鸦墙",
       "title": "单曲",
       "meta": "2021 &ndash; 2025",
-      "trackList": [
-        "HER",
-        "Look in the Mirror",
-        "I Do",
-        "Curiosity",
-        "If It&rsquo;s True",
-        "Time Will Speak",
-        "Oh, Mother"
+      "singlesByYear": [
+        {
+          "year": "2025",
+          "tracks": ["I Do", "Curiosity"]
+        },
+        {
+          "year": "2024",
+          "tracks": ["Look in the Mirror", "HER", "If It&rsquo;s True"]
+        },
+        {
+          "year": "2023",
+          "tracks": ["Time Will Speak"]
+        },
+        {
+          "year": "2022",
+          "tracks": ["Oh, Mother", "How It Feels Like"]
+        },
+        {
+          "year": "2021",
+          "tracks": ["One Day", "It&rsquo;s Raining", "Be Mine"]
+        }
       ],
       "copyLang": "en",
       "links": [
@@ -479,10 +520,20 @@
     "backToTop": "返回顶部"
   },
   "railAria": {
-    "singles": "单曲",
+    "playlists": "收听与关注",
     "press": "媒体报道"
   },
-  "singlesHeading": "单曲",
+  "stats": [
+    { "value": "2", "label": "专辑" },
+    { "value": "11", "label": "单曲" },
+    { "value": "2M+", "label": "Look in the Mirror &middot; QQ音乐", "url": "https://c6.y.qq.com/base/fcgi-bin/u?__=lxOE5R4mtyYK" },
+    { "value": "1M+", "label": "HER &middot; 网易云音乐", "url": "https://y.music.163.com/m/user?id=1656858754" }
+  ],
+  "playlistsHeading": "更多平台",
+  "singlesNav": {
+    "prev": "更早的单曲",
+    "next": "更近的单曲"
+  },
   "pressNav": {
     "prev": "上一条报道",
     "next": "下一条报道"

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sys
 from html import escape
 from pathlib import Path
@@ -185,13 +186,66 @@ def render_hero(loc: dict, shared: dict) -> list[str]:
         f'      {hero["sub"]}',
         "    </p>",
         "",
+        # One sentence rather than a stack of lines - the figures still run
+        # largest to smallest, but they read as a phrase.
+        f'    <p class="hero__count reveal">{hero["count"]}</p>',
+        "",
+        f'    <p class="hero__out reveal">{hero["outNow"]}</p>',
+        "",
         '    <div class="hero__actions reveal">',
-        '      <button class="btn btn--play" id="playBtn" aria-pressed="false">',
+        # aria-label carries the name because the visible label is two
+        # words deep and rolls between them; aria-pressed carries the state.
+        f'      <button class="btn btn--play" id="playBtn" aria-pressed="false"'
+        f' aria-label="{attr(hero["playLabel"])}">',
+        # A record rather than a triangle. The disc, the glyph on its
+        # label and the morph between the two are all one <svg>: the spin
+        # is driven from JS so it can be eased up and down, and the play
+        # mark and the note cross-fade so neither ever snaps.
         '        <span class="btn__icon" aria-hidden="true">',
-        '          <svg class="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>',
-        '          <svg class="i-pause" viewBox="0 0 24 24"><rect x="7" y="5.5" width="3.4" height="13" rx="1"/><rect x="13.6" y="5.5" width="3.4" height="13" rx="1"/></svg>',
+        '          <svg class="cd" viewBox="0 0 40 40">',
+        "            <defs>",
+        '              <linearGradient id="cdSheen" x1="0" y1="0" x2="1" y2="1">',
+        '                <stop offset="0" stop-color="#fff" stop-opacity=".95"/>',
+        '                <stop offset=".35" stop-color="#fff" stop-opacity=".55"/>',
+        '                <stop offset=".62" stop-color="#fff" stop-opacity=".85"/>',
+        '                <stop offset="1" stop-color="#fff" stop-opacity=".5"/>',
+        "              </linearGradient>",
+        "            </defs>",
+        '            <g class="cd__disc">',
+        '              <circle cx="20" cy="20" r="19" fill="url(#cdSheen)"/>',
+        # two faint grooves: enough to read as a pressed surface at 22px
+        '              <circle cx="20" cy="20" r="15.2" fill="none"'
+        ' stroke="currentColor" stroke-opacity=".18" stroke-width=".7"/>',
+        '              <circle cx="20" cy="20" r="12.4" fill="none"'
+        ' stroke="currentColor" stroke-opacity=".12" stroke-width=".7"/>',
+        '              <circle cx="20" cy="20" r="9.4" fill="#fff"/>',
+        '              <g class="cd__glyph" fill="currentColor">',
+        '                <path class="cd__play" d="M16.9 14.6v10.8l9-5.4z"/>',
+        # a quaver, drawn to sit in the same 10-unit box as the triangle
+        # The quaver is drawn off-centre and small for the label it sits
+        # on, so the shape is kept and the group placed instead: scaled up,
+        # then translated so its bounding box centres on the spindle. The
+        # static transform lives on the inner <g> so the CSS morph, which
+        # owns .cd__note's own transform, has nothing to fight over.
+        '                <g class="cd__note">',
+        '                  <g transform="translate(-1.1 -2.1) scale(1.15)">',
+        '                    <path d="M17.4 13.2h1.7v9.1a2.9 2.9 0 1 1-1.7-2.6z'
+        'M19.1 13.2c2.6.5 4.3 1.9 4.3 4 0 .8-.2 1.5-.7 2.2.1-2.4-1.5-3.6-3.6-4.2z"/>',
+        "                  </g>",
+        "                </g>",
+        "              </g>",
+        "            </g>",
+        "          </svg>",
         "        </span>",
-        f'        <span class="btn__label">{hero["playLabel"]}</span>',
+        # Both words ship, stacked in a one-line window that slides. That
+        # fixes the width jump swapping textContent used to cause - "Pause"
+        # is longer than "Play" - and gives the change somewhere to go.
+        '        <span class="btn__label" aria-hidden="true">',
+        '          <span class="btn__roll">',
+        f'            <span class="btn__word">{hero["playLabel"]}</span>',
+        f'            <span class="btn__word">{hero["pauseLabel"]}</span>',
+        "          </span>",
+        "        </span>",
         "      </button>",
         # Revealed by JS only once a real playlist has loaded — with the
         # synth fallback there is nothing to skip to.
@@ -281,17 +335,191 @@ def render_links(links: list[dict], pad: int) -> list[str]:
     return out
 
 
-def render_singles_rail(loc: dict) -> list[str]:
-    """The singles as a marquee - the same treatment the awards ticker gets."""
-    names = loc["releases"]["singles"]["trackList"]
+# The record's type ring. A circle of radius 38 in a 0-100 viewBox, drawn
+# clockwise from twelve o'clock, so a track list laid on it starts at the
+# top and reads the way a pressed CD's matrix ring does.
+RING_PATH = "M 50,12 a 38,38 0 1,1 0,76 a 38,38 0 1,1 0,-76"
+RING_LEN = 238.76          # 2*pi*38, one lap
+
+
+def render_disc(rel: dict, c: dict, full: bool) -> list[str]:
+    """The record that slides out from behind the sleeve.
+
+    Three different discs come out of this:
+
+      * the singles card gets none at all ("disc": false) - its tracks are
+        already listed as text in the card body, and there is no single
+        album for a record to be;
+      * on the homepage an album gets the plain disc it always had;
+      * on the music page an album's disc carries its own track list around
+        the outer ring, turning slowly so that every title passes through
+        the crescent that clears the sleeve.
+
+    The album name is set separately, near the hub and to the left - the
+    part of the disc the sleeve never uncovers at rest. It is only there to
+    be found.
+    """
+    if not rel.get("disc", True):
+        return []
+
+    s = "        "
+    out = [f'{s}<span class="card__disc" aria-hidden="true">',
+           f'{s}  <span class="card__disc-face"></span>']
+
+    tracks = c.get("discTracks") if full else None
+    if tracks:
+        rid = rel["id"]
+        # Non-breaking spaces, not ordinary ones. The ring ends on a
+        # separator so the last title joins back onto the first, but XML
+        # strips trailing whitespace - so that final space disappeared and
+        # the seam read as "...TRUE ·CURIOSITY". A nbsp is a glyph and
+        # survives, and using it throughout keeps every gap identical.
+        sep = "&#160;&middot;&#160;"
+        # The track that shares its name with the record is set in the
+        # accent, the way a title track is the one you are pointed at.
+        title = c.get("discTitleTrack")
+        chunks = [
+            f'<tspan class="card__ring-title">{n}</tspan>' if n == title else n
+            for n in tracks
+        ]
+        # The trailing separator is the join that closes the circle. Without
+        # it the last title ran straight into the first with nothing between
+        # them - the one seam on the ring that had no bullet.
+        ring = sep.join(chunks) + sep
+        # tags draw nothing and entities - named or numeric - render as one
+        # glyph, so measure the text as it will actually look
+        seen = len(re.sub(r"<[^>]+>", "", re.sub(r"&#?[a-zA-Z0-9]+;", "x", ring)))
+        size = max(2.5, min(4.2, RING_LEN / (seen * 0.62)))
+        out += [
+            f'{s}  <svg class="card__ring" viewBox="0 0 100 100">',
+            f'{s}    <defs><path id="ring-{rid}" d="{RING_PATH}"></path></defs>',
+            f'{s}    <text class="card__ring-t" font-size="{size:.2f}">',
+            # textLength pins the list to exactly one lap: it always closes
+            # the circle, with no gap and no overlap, whatever the titles are
+            f'{s}      <textPath href="#ring-{rid}" startOffset="0"'
+            f' textLength="{RING_LEN}" lengthAdjust="spacing">{ring}</textPath>',
+            f'{s}    </text>',
+            f'{s}  </svg>',
+        ]
+        if c.get("discSecret"):
+            out += [
+                f'{s}  <svg class="card__secret" viewBox="0 0 100 100">',
+                f'{s}    <text x="30" y="51" text-anchor="middle">{c["discSecret"]}</text>',
+                f'{s}  </svg>',
+            ]
+
+    out.append(f'{s}</span>')
+    return out
+
+
+def render_singles_years(loc: dict, c: dict) -> list[str]:
+    """The singles card, one year per panel, newest first.
+
+    Every panel is rendered and they are stacked in a single grid cell, so
+    the card is always as tall as the busiest year and never resizes as you
+    step through. Panels are hidden with visibility rather than [hidden] for
+    exactly that reason - display:none would collapse the cell and put the
+    jumping right back.
+
+    With JS off, the first panel is the one marked on, so the card still
+    shows a year of singles rather than nothing.
+    """
+    nav = loc["singlesNav"]
+    years = c["singlesByYear"]
+    # The right-hand arrow walks *backwards* through the years and the
+    # left-hand one comes forward again - the panels are a stack being dealt
+    # through rather than a timeline being scrubbed. Only the left arrow has
+    # an end; the right one wraps from the oldest year round to the newest.
     out = [
-        f'  <h3 class="rail__heading reveal">{loc["singlesHeading"]}</h3>',
-        f'  <div class="ticker ticker--inset" aria-label="{attr(loc["railAria"]["singles"])}">',
-        '    <div class="ticker__track" id="singlesTrack">',
-        '      <span class="ticker__set">',
+        f'        <div class="years" data-years{lang_attr(c.get("copyLang"))}>',
+        '          <div class="years__head">',
+        f'            <button class="years__arrow" type="button" data-dir="-1"'
+        f' aria-label="{attr(nav["next"])}">'
+        f'<svg viewBox="0 0 24 24" aria-hidden="true">'
+        f'<path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor"'
+        f' stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+        f"</svg></button>",
+        '            <span class="years__label" data-years-label>'
+        f'{years[0]["year"]}</span>',
+        f'            <button class="years__arrow" type="button" data-dir="1"'
+        f' aria-label="{attr(nav["prev"])}">'
+        f'<svg viewBox="0 0 24 24" aria-hidden="true">'
+        f'<path d="M9 5l7 7-7 7" fill="none" stroke="currentColor"'
+        f' stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+        f"</svg></button>",
+        "          </div>",
+        '          <div class="years__stack">',
     ]
-    for name in names:
-        out.append(f"        <b>{name}</b> <i>&middot;</i>")
+    for i, y in enumerate(years):
+        on = " is-on" if i == 0 else ""
+        out.append(f'            <ul class="card__tracks years__panel{on}"'
+                   f' data-year="{attr(y["year"])}">')
+        for name in y["tracks"]:
+            out.append(f"              <li>{name}</li>")
+        out.append("            </ul>")
+    out += ["          </div>", "        </div>"]
+    return out
+
+
+def render_stats_strip(loc: dict) -> list[str]:
+    """The catalogue in figures, above the cards on the music page.
+
+    Every value here is stated outright in the resume PDF - the two stream
+    counts belong to named songs on named platforms and are quoted that way
+    rather than summed into one catalogue-wide total the PDF never claims.
+    """
+    out = ['  <dl class="stats reveal">']
+    for s in loc["stats"]:
+        # A figure that belongs to one song links to that song. Which link
+        # that is differs by locale on purpose: the English page can point at
+        # the video, the Chinese one has to stay on a platform reachable from
+        # the mainland, so it points at the artist on the platform the count
+        # was measured on.
+        url = s.get("url")
+        out.append('    <div class="stat">')
+        out.append(f'      <dt class="stat__value">{s["value"]}</dt>')
+        if url:
+            out += [
+                '      <dd class="stat__label">',
+                f'        <a href="{attr(url)}" target="_blank" rel="noopener">{s["label"]}</a>',
+                "      </dd>",
+            ]
+        else:
+            out.append(f'      <dd class="stat__label">{s["label"]}</dd>')
+        out.append("    </div>")
+    out.append("  </dl>")
+    return out
+
+
+def render_playlist_rail(loc: dict) -> list[str]:
+    """The listening links as a looping strip, under a heading.
+
+    The English page's are all YouTube, so it says so. The Chinese page's are
+    not - YouTube is unreachable from the mainland, so that locale lists the
+    platforms its audience actually uses and titles the strip accordingly.
+    The labels come from the locale file; nothing here assumes either set.
+    """
+    # "All releases" and "Original songs" are two names for one YouTube
+    # playlist; in a strip of five that reads as a mistake, so the same URL
+    # is only ever listed once, under the first name it is given.
+    links, seen = [], set()
+    for l in loc["releases"]["singles"]["links"] + loc["playlists"]:
+        if l["url"] in seen:
+            continue
+        seen.add(l["url"])
+        links.append(l)
+
+    out = [
+        f'  <h3 class="rail__heading reveal">{loc["playlistsHeading"]}</h3>',
+        f'  <div class="rail rail--links" aria-label="{attr(loc["railAria"]["playlists"])}">',
+        '    <div class="rail__track" id="playlistRailTrack">',
+        '      <span class="rail__set">',
+    ]
+    for l in links:
+        out.append(
+            f'        <a class="rail__link" href="{attr(l["url"])}"'
+            f' target="_blank" rel="noopener">{l["label"]}</a>'
+        )
     out += ["      </span>", "    </div>", "  </div>"]
     return out
 
@@ -328,12 +556,12 @@ def render_music(loc: dict, shared: dict, full: bool = False) -> list[str]:
         f'<section class="section{lead}" id="music">',
     ] + section_head(loc, "music", None if full else "music.html")
 
-    # On the music page the singles run as a marquee and the two albums keep
-    # their cards. The homepage keeps all three cards exactly as they were.
+    # Both pages show the same three cards - two albums and the singles. The
+    # music page adds the stat strip above them, because arriving on a page
+    # about the catalogue and counting three tiles undersells it.
     releases = shared["releases"]
     if full:
-        out += [""] + render_singles_rail(loc)
-        releases = [r for r in releases if r["id"] != "singles"]
+        out += [""] + render_stats_strip(loc)
 
     out += ["", '  <div class="cards">']
 
@@ -344,13 +572,17 @@ def render_music(loc: dict, shared: dict, full: bool = False) -> list[str]:
         out += [
             '    <article class="card reveal" data-tilt>',
             '      <div class="card__art">',
-            # The record sits behind the sleeve and slides out on hover. It is
-            # drawn entirely in CSS - no extra request, which matters on a site
-            # that has to render inside the GFW.
-            '        <span class="card__disc" aria-hidden="true"><span class="card__disc-face"></span></span>',
+        ]
+        # The record sits behind the sleeve and slides out on hover. It is
+        # drawn entirely in CSS and inline SVG - no extra request, which
+        # matters on a site that has to render inside the GFW.
+        out += render_disc(rel, c, full)
+        out += [
             # the sleeve carries its own clipping so the disc can escape .card__art
             '        <span class="card__sleeve">',
-            f'          <img src="{p}{rel["art"]}" alt="{attr(c["alt"])}" loading="lazy">',
+            # versioned like the stylesheet: replacing a cover keeps the
+            # same path, so without the hash a browser serves the old one
+            f'          <img src="{asset(rel["art"], p)}" alt="{attr(c["alt"])}" loading="lazy">',
             "        </span>",
         ]
         if rel.get("badge") and c.get("badge"):
@@ -359,22 +591,38 @@ def render_music(loc: dict, shared: dict, full: bool = False) -> list[str]:
             "      </div>",
             '      <div class="card__body">',
             f'        <h3 class="card__title"{lang_attr(c.get("titleLang"))}>{c["title"]}</h3>',
-            f'        <p class="card__meta">{c["meta"]}</p>',
+            # who put the record out is detail for the music page; the
+            # homepage says what it is and when, and stops there
+            f'        <p class="card__meta">{c["meta"]}'
+            + (f' &middot; {c["label"]}' if full and c.get("label") else "")
+            + "</p>",
         ]
 
-        # A release with named tracks gets them as real list items, so each one
-        # can be hovered on its own. Only the singles have names to list: the
-        # resume PDF gives no track order for either album, and it is the only
-        # source, so nothing is invented to fill the gap.
-        if c.get("trackList"):
-            out.append(f'        <ul class="card__tracks"{lang_attr(c.get("copyLang"))}>')
-            for name in c["trackList"]:
-                out.append(f"          <li>{name}</li>")
-            out.append("        </ul>")
-        else:
+        # The singles are paged a year at a time. Eleven titles at once
+        # made this card far taller than the two album cards beside it; a
+        # year holds three at most, so the row stays even - and stepping
+        # back through 2021 is the clearest way to show the run is unbroken.
+        if full and c.get("singlesByYear"):
+            out += render_singles_years(loc, c)
+        # An album's prose belongs on the page that is about the records.
+        # The homepage cards are a cover, a line of billing and a way in.
+        elif full and c.get("copy"):
             out.append(
                 f'        <p class="card__copy"{lang_attr(c.get("copyLang"))}>{c["copy"]}</p>'
             )
+        # the singles card has no prose of its own: on the homepage it is a
+        # cover, a date range and a way through to the list on the music page
+
+        # The disc's ring is decoration - it sits inside an aria-hidden span
+        # and is drawn, not written. An album's running order is real content
+        # even so, so the music page states it once in text a screen reader
+        # can read and Baidu can index. Only there: repeating it on the
+        # homepage would be the same list on two URLs.
+        if full and c.get("discTracks"):
+            out.append(f'        <ol class="sr-only">')
+            for name in c["discTracks"]:
+                out.append(f"          <li>{name}</li>")
+            out.append("        </ol>")
 
         out.append('        <div class="card__links">')
         out += render_links(c["links"], 10)
@@ -382,12 +630,10 @@ def render_music(loc: dict, shared: dict, full: bool = False) -> list[str]:
 
     out.append("  </div>")
 
-    # every listening link the content has, gathered on the page that is about
-    # listening - the singles playlist plus the channel playlists
+    # every listening link the content has, gathered on the page that is
+    # about listening, and looping rather than sitting in a row
     if full:
-        out += ["", '  <div class="playlists reveal">']
-        out += render_links(loc["releases"]["singles"]["links"] + loc["playlists"], 4)
-        out.append("  </div>")
+        out += [""] + render_playlist_rail(loc)
 
     out.append("</section>")
     return out

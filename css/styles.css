@@ -242,11 +242,26 @@ img{ display:block; max-width:100%; }
              rgba(237,230,220,.11), rgba(237,230,220,0) 65%);
   opacity:0; transition:opacity .4s var(--ease);
 }
-.nav:hover::after{ opacity:1; }
+.nav:hover::after,
+.nav.is-lit::after{ opacity:1; }   /* .is-lit is how a touch lights it */
 
 /* the two link groups become grid items of .nav so the wordmark can sit
    between them, dead centre, regardless of how wide either group is */
 .nav__links{ display:contents; }
+
+/* Each of the six slots takes an equal share of the bar and stands its full
+   height, so the target is a sixth of the bar rather than the few small
+   words printed in it. The negative margin lets a slot cover the bar's own
+   padding without making the bar any taller. */
+.nav__mark,
+.nav__item,
+.nav__pair{
+  flex:1 1 0;
+  display:flex; align-items:center;
+  margin-block:-1.15rem; padding-block:1.15rem;
+}
+.nav__item{ justify-content:center; }
+.nav__pair{ justify-content:flex-end; }
 /* Six slots spread evenly across the bar. The wordmark has to live outside
    .nav__links so it stays put when that becomes the mobile panel, so `order`
    rather than DOM position is what lands it in the middle. */
@@ -262,14 +277,14 @@ img{ display:block; max-width:100%; }
 .nav__pair{ display:flex; gap:.4rem; align-items:center; }
 
 .nav__mark{
-  font-weight:700; letter-spacing:.3em; font-size:1.15rem;
+  font-weight:700; letter-spacing:.3em; font-size:1.24rem;
   color:var(--bone); text-decoration:none; white-space:nowrap;
 }
 .nav__links a,
 .nav__pair a{
   color:var(--bone-dim); text-decoration:none;
-  font-size:.8rem; letter-spacing:.09em; text-transform:uppercase;
-  transition:color .25s var(--ease);
+  font-size:.88rem; letter-spacing:.09em; text-transform:uppercase;
+  transition:color .25s var(--ease), text-shadow .25s var(--ease);
 }
 /* everything in the bar answers in the accent, like the section headings */
 .nav__links a:hover,
@@ -296,6 +311,33 @@ img{ display:block; max-width:100%; }
 .nav__links a.is-active:not(.nav__cta)::after{
   content:""; display:block; height:1px; margin-top:4px;
   background:var(--magenta);
+  transition:box-shadow .25s var(--ease);
+}
+
+/* The page you are already on cannot answer a hover by turning the accent
+   colour - it is the one item in the bar that is not dim to begin with, and
+   it already carries the accent as a rule beneath it. So it lights instead:
+   the word goes white behind a magenta halo and the rule under it picks up
+   a glow. Same gesture as everything else in the bar, different mechanism,
+   because "you are here" should not read the same as "you could go here". */
+.nav__links a.is-active:not(.nav__cta):hover,
+.nav__links a.is-active:not(.nav__cta):focus-visible{
+  color:#fff;
+  /* Four stacked shadows rather than one: a tight core that keeps the
+     letterforms crisp, then progressively wider and fainter layers to
+     carry the light well past the word. A single large blur only smears -
+     one shadow cannot be sharp at the edge and soft at distance, so the
+     reach has to be built out of separate layers. */
+  text-shadow:0 0 10px rgba(250,39,159,1),
+              0 0 28px rgba(250,39,159,.95),
+              0 0 58px rgba(250,39,159,.7),
+              0 0 96px rgba(250,39,159,.4);
+}
+.nav__links a.is-active:not(.nav__cta):hover::after,
+.nav__links a.is-active:not(.nav__cta):focus-visible::after{
+  box-shadow:0 0 12px 2px rgba(250,39,159,1),
+             0 0 34px 5px rgba(250,39,159,.75),
+             0 0 72px 9px rgba(250,39,159,.4);
 }
 
 /* ---- burger: only rendered under 900px (see responsive block) ---- */
@@ -410,8 +452,28 @@ img{ display:block; max-width:100%; }
 
 .hero__sub{
   font-size:clamp(1rem,1.45vw,1.16rem);
-  color:#CFC8C0; max-width:34rem; margin-bottom:2.2rem;
+  color:#CFC8C0; max-width:34rem; margin-bottom:1.05rem;
 }
+
+/* The tally under the genre line, in the same serif as the line above it.
+   The figures run largest to smallest and the sentence lands on the joke.
+
+   Instrument Serif is a single 400 weight, so a <b> in here would be a
+   browser-synthesised fake bold and would look it. The figures are lifted
+   by colour instead, and the payoff word takes the accent. */
+.hero__count{
+  font-family:var(--f-serif);
+  font-size:clamp(1.2rem,2vw,1.6rem); line-height:1.35;
+  max-width:34rem; margin:0 0 1.2rem; color:#CFC8C0;
+}
+.hero__count b{ font-weight:400; color:var(--bone); }
+.hero__count b.key{ font-weight:400; color:var(--magenta); }
+
+.hero__out{
+  font-size:.74rem; letter-spacing:.15em; text-transform:uppercase;
+  color:var(--bone-dim); margin-bottom:2.2rem;
+}
+.hero__out strong{ color:var(--bone); font-weight:600; }
 .hero__sub em{ font-family:var(--f-serif); font-style:italic; color:var(--bone); }
 .hero__sub strong{ color:var(--bone); font-weight:600; }
 
@@ -426,16 +488,185 @@ img{ display:block; max-width:100%; }
              color .25s var(--ease), border-color .25s var(--ease);
 }
 .btn:hover{ transform:translateY(-2px); }
-.btn--play{ background:var(--magenta); color:#fff; }
+.btn--play{
+  background:var(--magenta); color:#fff;
+  /* The two halves of the record's behaviour are timed from here and only
+     here: main.js reads these off the element rather than keeping its own
+     copy, so the spin and the morph cannot drift apart. */
+  --cd-start:620ms;    /* winding up, and play mark -> note */
+  --cd-settle:1150ms;  /* running down, and note -> play mark */
+}
 .btn--play:hover{ background:#ff45ad; }
 .btn--ghost{ background:transparent; color:var(--bone); border-color:var(--line); }
 .btn--ghost:hover{ border-color:var(--bone); }
 
-.btn__icon{ width:17px; height:17px; display:grid; place-items:center; }
-.btn__icon svg{ width:100%; height:100%; fill:currentColor; grid-area:1/1; }
-.i-pause{ display:none; }
-.btn--play[aria-pressed="true"] .i-play{ display:none; }
-.btn--play[aria-pressed="true"] .i-pause{ display:block; }
+/* a record needs considerably more room than a triangle did to read as one */
+.btn__icon{
+  width:36px; height:36px; flex:none;
+  display:grid; place-items:center; line-height:0;
+}
+.btn__icon svg{ width:100%; height:100%; grid-area:1/1; display:block; }
+
+/* Both words sit in a one-line window and the pair slides, so the change
+   wipes upward instead of blinking. The window is as wide as the longer
+   word, so the button never resizes either. The whole label is aria-hidden
+   and the button carries an aria-label instead - otherwise a screen reader
+   would read straight through both words as "Play Pause". */
+.btn__label{ display:block; overflow:hidden; height:1.2em; }
+.btn__roll{
+  display:block;
+  transition:transform .38s var(--ease);
+}
+.btn__word{ display:block; height:1.2em; line-height:1.2em; white-space:nowrap; }
+.btn--play[aria-pressed="true"] .btn__roll{ transform:translateY(-1.2em); }
+
+/* ---- the record on the play button ----
+
+   The disc's rotation is not a CSS animation. It is a Web Animations one
+   built in main.js, because animation-play-state can only freeze a spin
+   dead, and a record is supposed to coast to a stop - so the playback rate
+   is eased down instead, over about a second and a half.
+
+   Everything else here is CSS: the play mark and the note cross-fade and
+   scale through each other, so neither shape ever snaps into place. Both
+   sit inside the rotating group, which is why the note turns with the
+   label it is printed on. */
+.cd{ overflow:visible; }
+.cd__disc{ transform-box:fill-box; transform-origin:center; }
+.cd__glyph{ color:var(--magenta); }
+/* The morph is timed to the spin, not to itself. A transition takes its
+   duration from the state being moved *to*, so the base rule times the
+   note turning back into the play mark and the pressed rule times the
+   other direction - which means the triangle finishes arriving on the same
+   frame the record stops turning, instead of appearing a second early and
+   then riding round with it. */
+.cd__play,
+.cd__note{
+  transform-box:fill-box; transform-origin:center;
+  transition:opacity var(--cd-settle) var(--ease),
+             transform var(--cd-settle) var(--ease);
+}
+.btn--play[aria-pressed="true"] .cd__play,
+.btn--play[aria-pressed="true"] .cd__note{
+  transition-duration:var(--cd-start);
+}
+.cd__note{ opacity:0; transform:scale(.55) rotate(-25deg); }
+.btn--play[aria-pressed="true"] .cd__play{ opacity:0; transform:scale(.55) rotate(25deg); }
+.btn--play[aria-pressed="true"] .cd__note{ opacity:1; transform:none; }
+
+/* ---- singles, a year at a time ----
+
+   Every panel is in the same grid cell, so the card is always as tall as
+   the busiest year and never jumps as you step between them. That is also
+   why panels hide with visibility and not [hidden]: display:none would
+   collapse the cell and the height would start moving again. */
+.years{ margin-bottom:1.15rem; }
+.years__head{
+  display:flex; align-items:center; gap:.5rem;
+  margin-bottom:.7rem;
+}
+.years__label{
+  font-family:var(--f-serif); font-size:1.2rem; color:var(--bone);
+  font-variant-numeric:tabular-nums; min-width:3.2ch;
+  transition:color .3s var(--ease), text-shadow .3s var(--ease),
+             opacity .26s var(--ease);
+}
+.years__arrow{
+  display:grid; place-items:center;
+  width:1.7rem; height:1.7rem; padding:0;
+  border:1px solid var(--line); border-radius:50%;
+  background:transparent; color:var(--bone-dim); cursor:pointer;
+  transition:color .25s var(--ease), border-color .25s var(--ease),
+             opacity .25s var(--ease), box-shadow .35s var(--ease);
+}
+/* Hovering the singles card lights the whole control once and lets it
+   fade - the arrows, the year and the titles under it. One pass, not a
+   held state: it is there to say the year is something you can move
+   through, and a permanent glow would say something else. Suppressed
+   while a wrap is running so the two never fight over the same pixels. */
+/* A glow on the letters alone was all but invisible: the titles sit on a
+   pale pill, which washed a soft magenta text-shadow straight out. So the
+   pill itself lights - border and halo, the way the arrows already did -
+   and only the year, which has no pill behind it, glows as text. */
+/* The arrows carry the brightest of the three. They are the controls - the
+   part of this the hint exists to point at - while eleven titles all
+   lighting hard just made the card look top-heavy. So the pills are turned
+   down to a whisper and the arrows up, and the year sits between them. */
+@keyframes years-hint-box{
+  0%, 100%{ box-shadow:0 0 0 0 rgba(250,39,159,0);
+            border-color:transparent;
+            background:rgba(237,230,220,.045); }
+  38%     { box-shadow:0 0 7px 0 rgba(250,39,159,.18);
+            border-color:rgba(250,39,159,.28);
+            background:rgba(250,39,159,.05); }
+}
+@keyframes years-hint-text{
+  0%, 100%{ text-shadow:0 0 0 rgba(250,39,159,0); color:var(--bone); }
+  38%     { text-shadow:0 0 10px rgba(250,39,159,.5); color:var(--bone); }
+}
+@keyframes years-hint-ring{
+  0%, 100%{ box-shadow:0 0 0 0 rgba(250,39,159,0);
+            border-color:var(--line); color:var(--bone-dim); }
+  38%     { box-shadow:0 0 17px 1px rgba(250,39,159,.85);
+            border-color:var(--magenta); color:#fff; }
+}
+.card:hover .years:not(.is-flare):not(.is-out) .years__label{
+  animation:years-hint-text 1.15s var(--ease) 1;
+}
+.card:hover .years:not(.is-flare):not(.is-out) .years__panel.is-on li{
+  animation:years-hint-box 1.15s var(--ease) 1;
+}
+.card:hover .years:not(.is-flare):not(.is-out) .years__arrow:not(:disabled){
+  animation:years-hint-ring 1.15s var(--ease) 1;
+}
+/* a short stagger, so it reads as one pass across the row rather than
+   everything blinking at once */
+.card:hover .years__panel.is-on li:nth-child(2){ animation-delay:.07s; }
+.card:hover .years__panel.is-on li:nth-child(3){ animation-delay:.14s; }
+
+/* ---- reaching either end of the run ----
+
+   Both arrows wrap, and the wrap is announced rather than just happening:
+   the arrow, the year and every title under it flare up together, hold for
+   a beat, dim out, and the far end of the run fades in behind them. The
+   earlier version only tinted the arrow's own border, which is why it was
+   easy to miss entirely.
+
+   The flare is a text-shadow rather than a filter so it costs nothing to
+   composite, and the swap happens while the block is at zero opacity, so
+   the years never appear to change mid-fade. */
+.years__arrow.is-cycling{
+  color:#fff; border-color:var(--magenta);
+  box-shadow:0 0 0 3px rgba(250,39,159,.35), 0 0 20px rgba(250,39,159,.6);
+}
+.years.is-flare .years__label{
+  color:#fff;
+  text-shadow:0 0 12px rgba(250,39,159,.9), 0 0 30px rgba(250,39,159,.55);
+}
+.years.is-flare .years__panel.is-on li{
+  color:#fff; opacity:1;
+  border-color:var(--magenta);
+  background:rgba(250,39,159,.12);
+  text-shadow:0 0 10px rgba(250,39,159,.75), 0 0 24px rgba(250,39,159,.4);
+}
+/* then the whole block dims, and the swap happens behind the dark */
+.years.is-out .years__label,
+.years.is-out .years__stack{ opacity:0; }
+.years__arrow svg{ width:13px; height:13px; }
+.years__arrow:hover:not(:disabled),
+.years__arrow:focus-visible:not(:disabled){
+  color:var(--magenta); border-color:var(--magenta);
+}
+/* the ends of the run are shown, not hidden - it is the point of the thing */
+.years__arrow:disabled{ opacity:.28; cursor:default; }
+
+.years__stack{ display:grid; transition:opacity .26s var(--ease); }
+.years__panel{
+  grid-area:1/1; margin-bottom:0;
+  opacity:0; visibility:hidden;
+  transition:opacity .32s var(--ease), visibility .32s;
+}
+.years__panel.is-on{ opacity:1; visibility:visible; }
 
 /* icon-only, so it stays subordinate to Play; hidden until the queue
    actually has somewhere to skip to */
@@ -512,6 +743,7 @@ img{ display:block; max-width:100%; }
 }
 .card{
   position:relative;
+  display:flex; flex-direction:column;
   background:rgba(237,230,220,.035);
   border:1px solid var(--line);
   border-radius:14px;
@@ -525,7 +757,7 @@ img{ display:block; max-width:100%; }
   border-color:rgba(237,230,220,.3); background:rgba(237,230,220,.06);
   z-index:2;                    /* the disc overlaps the next card, not under it */
 }
-.card__art{ position:relative; aspect-ratio:1/1; background:var(--ink-2);
+.card__art{ position:relative; flex:none; aspect-ratio:1/1; background:var(--ink-2);
   border-radius:14px 14px 0 0; }
 
 /* ---- the record: pulled from the sleeve on hover, and spinning ----
@@ -535,6 +767,7 @@ img{ display:block; max-width:100%; }
   position:absolute; inset:0; z-index:1;
   overflow:hidden;              /* the clipping .card gave up */
   border-radius:inherit;
+  transition:opacity .9s var(--ease);
 }
 .card__disc{
   position:absolute; z-index:0;
@@ -578,6 +811,44 @@ img{ display:block; max-width:100%; }
 }
 @keyframes disc-spin{ to{ transform:rotate(360deg); } }
 
+/* ---- the track list pressed into the record (music page, albums only) ----
+
+   The ring turns far slower than the disc's specular sweep does. That is
+   deliberate and it is how a real record behaves: the highlight is a
+   reflection sliding over the surface, while the printing underneath is
+   part of the disc. It also means the titles are legible - at the sweep's
+   3.4s a name would be through the crescent before it could be read, and
+   at 22s each one holds still long enough to catch. One full turn brings
+   the whole list past the opening. */
+.card__ring{
+  position:absolute; inset:0; z-index:1;
+  animation:disc-spin 22s linear infinite;
+  animation-play-state:paused;
+}
+.card:hover .card__ring{ animation-play-state:running; }
+/* the title track, picked out of its own ring */
+.card__ring-title{ fill:var(--magenta); }
+.card__ring-t{
+  fill:rgba(237,230,220,.52);
+  font-family:var(--f-sans);
+  font-weight:500; letter-spacing:.03em; text-transform:uppercase;
+}
+
+/* The album name, near the hub and off to the left: the side of the record
+   the sleeve keeps covered. It does not rotate, so it never comes round
+   into the crescent - the only way to read it is to hold on the card until
+   the sleeve fades. */
+/* The album name, near the hub and off to the left - the side of the record
+   the sleeve never uncovers. Nothing on the page will reveal it: it does not
+   rotate, so it cannot come round into the crescent, and no hover or tap
+   lifts the sleeve. It is in the markup for someone reading the markup. */
+.card__secret{ position:absolute; inset:0; z-index:0; }
+.card__secret text{
+  fill:rgba(237,230,220,.26);
+  font-family:var(--f-serif); font-size:4.4px; letter-spacing:.08em;
+}
+
+
 /* far enough that a real slice of the record clears the sleeve; the hovered
    card is raised above its neighbour so the overhang reads as depth */
 .card:hover .card__disc{ transform:translateX(34%); }
@@ -597,7 +868,16 @@ img{ display:block; max-width:100%; }
   font-size:.62rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase;
   padding:.3rem .6rem; border-radius:100px;
 }
-.card__body{ padding:1.35rem 1.4rem 1.5rem; }
+/* The three cards are grid items and so already share a height; making
+   the body a column and pushing the links down with an auto margin lands
+   every card's link row on the same line, whatever sits above it. Without
+   this the singles card's "All releases" floated well below the albums'
+   Spotify and Apple Music, because it has less copy over it. */
+.card__body{
+  padding:1.35rem 1.4rem 1.5rem;
+  display:flex; flex-direction:column; flex:1;
+}
+.card__links{ margin-top:auto; }
 .card__title{
   font-size:1.22rem; font-weight:600; letter-spacing:-.01em; margin-bottom:.35rem;
 }
@@ -611,17 +891,21 @@ img{ display:block; max-width:100%; }
 /* ---- track list: each name lifts on its own, and its neighbours step back
    so the one under the cursor is the only thing in focus ---- */
 .card__tracks{
-  list-style:none; display:flex; flex-wrap:wrap; gap:.4rem;
+  list-style:none; display:flex; flex-wrap:wrap; gap:.5rem;
   margin-bottom:1.15rem;
 }
+/* A year holds three titles at most, so they are set larger than they were
+   when all eleven had to fit - at the old size a single year looked stranded
+   in the middle of the card. */
 .card__tracks li{
-  font-size:.82rem; color:#B9B2AB;
-  padding:.24rem .6rem; border-radius:100px;
+  font-size:.95rem; color:#B9B2AB;
+  padding:.42rem .85rem; border-radius:100px;
   border:1px solid transparent; background:rgba(237,230,220,.045);
   cursor:default;
   transition:transform .28s var(--ease), color .28s var(--ease),
              opacity .28s var(--ease), background .28s var(--ease),
-             border-color .28s var(--ease), box-shadow .28s var(--ease);
+             border-color .28s var(--ease), box-shadow .28s var(--ease),
+             text-shadow .28s var(--ease);
 }
 .card__tracks:hover li{ opacity:.42; }        /* everything recedes... */
 .card__tracks li:hover{                        /* ...except this one */
@@ -687,7 +971,8 @@ img{ display:block; max-width:100%; }
 .vid__thumb{
   width:100%; height:100%; object-fit:cover;
   filter:saturate(.86) brightness(.82);
-  transition:transform .7s var(--ease), filter .5s var(--ease);
+  transition:transform .7s var(--ease), filter .5s var(--ease),
+             opacity .45s var(--ease);
 }
 .vid:hover .vid__frame{ border-color:rgba(237,230,220,.3); }
 .vid:hover .vid__thumb{ transform:scale(1.04); filter:saturate(1) brightness(1); }
@@ -699,7 +984,7 @@ img{ display:block; max-width:100%; }
   background:rgba(11,10,12,.55); backdrop-filter:blur(4px);
   border:1px solid rgba(237,230,220,.35);
   transition:background .3s var(--ease), transform .3s var(--ease),
-             border-color .3s var(--ease);
+             border-color .3s var(--ease), opacity .35s var(--ease);
 }
 .vid__play svg{ width:24px; height:24px; fill:var(--bone); margin-left:2px; }
 .vid:hover .vid__play{
@@ -709,11 +994,27 @@ img{ display:block; max-width:100%; }
 .vid--feature .vid__play{ width:78px; height:78px; }
 .vid--feature .vid__play svg{ width:32px; height:32px; }
 
-/* the iframe main.js drops in keeps the frame's shape */
+/* the iframe main.js drops in keeps the frame's shape, and sits above the
+   poster rather than replacing it - see VideoFacade.embed */
 .vid__frame iframe{
-  position:absolute; inset:0;
+  position:absolute; inset:0; z-index:2;
   width:100%; height:100%; border:0; border-radius:12px;
 }
+
+/* ---- a played tile grows into its own row ---- */
+/* The layout does not change shape: the feature stays on top and the grid
+   stays a grid. The tile that was clicked simply claims a full row at the
+   feature's own width, and main.js FLIPs the reflow so the siblings slide
+   rather than jump. */
+.vid--playing{
+  grid-column:1 / -1;
+  justify-self:center; width:100%; max-width:64rem;
+}
+.vid--playing .vid__frame{ border-color:rgba(237,230,220,.3); }
+/* the poster underneath, on its way out */
+.vid__thumb, .vid__play{ will-change:opacity; }
+/* a click landing mid-slide would measure against a moving target */
+.vids.is-morphing{ pointer-events:none; }
 
 /* A tile with no Bilibili id yet: still an outbound link, but it should
    not pretend to be an inline player, so the play badge comes off. */
@@ -877,17 +1178,43 @@ img{ display:block; max-width:100%; }
   align-items:start;
 }
 .contact__lead .section__title{ margin-bottom:.85rem; }
-.contact__mail{ margin-top:1.8rem; word-break:break-all; }
+/* Sized down towards the width of the line beneath it - the default
+   button padding made the pill noticeably wider than "Management — Ms.
+   Zhang" and the two left edges lined up while the right ones did not.
+   Tuned by eye: the exact match depends on how two different strings
+   happen to render, and it is a different pair of strings in Chinese. */
+.contact__mail{
+  margin-top:1.8rem;
+  font-size:.82rem;
+  padding:.85rem .95rem;
+  word-break:break-all;
+}
 .contact__who{
   margin-top:.9rem;
   font-size:.7rem; letter-spacing:.14em; text-transform:uppercase;
   color:var(--bone-dim);
 }
-
-.contact__grid{
-  display:grid; gap:2rem;
-  grid-template-columns:repeat(auto-fit,minmax(min(11rem,100%),1fr));
+/* Han characters carry far more detail per glyph than Latin caps do, so
+   the size that reads cleanly as MANAGEMENT — MS. ZHANG turns 经纪事务 into
+   mush. Bigger, and with less of the tracking that was pushing the strokes
+   apart - uppercasing does nothing here either way. */
+html[lang^="zh"] .contact__who{
+  font-size:.86rem; letter-spacing:.06em; text-transform:none;
 }
+
+/* Plain 1fr columns gave "Universal Music Publishing Group" exactly as
+   much room as "Douyin", so publishing was the only column that wrapped -
+   and it wrapped every line. minmax(max-content,1fr) fixes that from the
+   other end: no column may be narrower than its own longest entry, and
+   whatever is left over is shared out evenly between them. So nothing
+   wraps, and the three still reach the right edge together - the block
+   sits in its half rather than huddling at the left of it. */
+.contact__grid{
+  display:grid; gap:2rem 2.75rem;
+  grid-template-columns:repeat(3,minmax(max-content,1fr));
+  align-items:start;
+}
+.contact__col li{ white-space:nowrap; }
 .contact__col h3{
   font-size:.7rem; letter-spacing:.2em; text-transform:uppercase;
   color:var(--magenta); font-weight:600; margin-bottom:1rem;
@@ -973,22 +1300,86 @@ img{ display:block; max-width:100%; }
    the sticky nav */
 .section--lead{ padding-top:calc(var(--nav-h) + clamp(2.5rem,6vh,4.5rem)); }
 
-/* ---- singles marquee on the music page ---- */
+/* ---- catalogue stat strip on the music page ---- */
+/* A <dl>: each figure is a term and its gloss, so a screen reader reads
+   "2, albums" rather than four loose numbers. */
+.stats{
+  display:grid; gap:1px;
+  grid-template-columns:repeat(auto-fit,minmax(min(11rem,100%),1fr));
+  margin:0 0 2.8rem;
+  border:1px solid var(--line); border-radius:10px;
+  background:var(--line);          /* the 1px gap shows through as the rule */
+  overflow:hidden;
+}
+.stat{
+  background:var(--ink);
+  padding:1.35rem 1.1rem;
+  text-align:center;
+}
+.stat__value{
+  font-family:var(--f-serif);
+  font-size:clamp(1.75rem,4.5vw,2.5rem);
+  line-height:1; color:var(--bone); font-weight:600;
+  font-variant-numeric:tabular-nums;
+}
+.stat__label{
+  margin:.55rem 0 0;
+  font-size:.68rem; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--bone-dim);
+}
+/* A figure that links out still reads as the caption it is - the browser's
+   own blue-and-underlined treatment made two of the four look like a
+   different kind of thing entirely. It answers on hover instead. */
+.stat__label a{
+  color:inherit; text-decoration:none;
+  border-bottom:1px solid transparent;
+  transition:color .25s var(--ease), border-color .25s var(--ease);
+}
+.stat__label a:hover,
+.stat__label a:focus-visible{
+  color:var(--magenta); border-bottom-color:var(--magenta);
+}
+
+/* ---- the listening links, looping under a heading ---- */
 .rail__heading{
-  text-align:center; margin-bottom:1.1rem;
+  /* the cards above need air: this heading was sitting almost on them */
+  text-align:center; margin:clamp(3rem,7vw,4.75rem) 0 1.35rem;
   font-size:.72rem; letter-spacing:.22em; text-transform:uppercase;
   color:var(--magenta); font-weight:600;
 }
-.ticker--inset{
-  border:1px solid var(--line); border-radius:10px;
-  margin-bottom:2.8rem;
+/* Held to the middle half of the page, fading up across its first quarter
+   and away across its last - so between a quarter and three eighths of the
+   way in it arrives, and between five eighths and three quarters it leaves.
+
+   With only four or five links in the loop, running them the full width put
+   the same names on screen twice at once. Half the width shows fewer, and
+   the soft ends mean the set drifts in and out instead of visibly restarting
+   against a hard edge. The border goes with it: the fade is the edge now. */
+.rail--links{
+  width:50%; margin-inline:auto; padding:.25rem 0;
+  --fade:linear-gradient(to right,
+          transparent 0, #000 25%, #000 75%, transparent 100%);
+  -webkit-mask-image:var(--fade);
+          mask-image:var(--fade);
 }
-/* the singles are the content here, not a footnote under the hero */
-.ticker--inset .ticker__set{
-  font-size:1rem; letter-spacing:.05em; text-transform:none;
-  color:var(--bone);
+.rail--links .rail__set{ display:flex; align-items:center; gap:.75rem; padding-right:.75rem; }
+/* deliberately not a .chip: that one is a two-line press card, and its
+   column layout and hover border would both have to be undone here */
+.rail__link{
+  flex:0 0 auto;
+  display:block; white-space:nowrap;
+  padding:.5rem 1.05rem; border-radius:100px;
+  border:1px solid var(--line); background:rgba(237,230,220,.03);
+  color:var(--bone-dim); text-decoration:none;
+  font-size:.76rem; letter-spacing:.12em; text-transform:uppercase;
+  transition:color .25s var(--ease), border-color .25s var(--ease),
+             background .25s var(--ease);
 }
-.ticker--inset .ticker__set b{ font-weight:400; }
+.rail__link:hover,
+.rail__link:focus-visible{
+  color:var(--magenta); border-color:var(--magenta);
+  background:rgba(237,230,220,.06);
+}
 
 /* ---- rail: the looping press row on the homepage ---- */
 .rail{ overflow:hidden; }
@@ -1097,12 +1488,15 @@ img{ display:block; max-width:100%; }
   .ink{ width:min(23rem,60vw); }
   .hero__eyebrow{ margin-bottom:1.1rem; }
   .hero__title{ margin-bottom:1.1rem; }
-  .hero__sub{ margin-bottom:1.5rem; }
+  .hero__sub{ margin-bottom:.8rem; }
+  .hero__count{ margin-bottom:.9rem; }
+  .hero__out{ margin-bottom:1.5rem; }
   .hero__inner{ padding-bottom:clamp(4.5rem,9vh,6.5rem); }
 }
 @media (max-height:620px){
   .ink{ width:min(17rem,48vw); }
   .hero__sub{ font-size:.95rem; }
+  .hero__count{ font-size:1.1rem; }
   .hero__wave{ height:80px; }
 }
 
@@ -1118,10 +1512,31 @@ img{ display:block; max-width:100%; }
 }
 
 @media (max-width:900px){
+  /* three max-content columns will not fit side by side down here, and
+     holding them to one line each would push the page sideways */
+  .contact__grid{ grid-template-columns:1fr; }
+  .contact__col li{ white-space:normal; }
+
+  /* half of a phone is not enough width for a pill, so the strip goes full
+     bleed and only the fades keep their proportions */
+  .rail--links{
+    width:100%;
+    --fade:linear-gradient(to right,
+            transparent 0, #000 12%, #000 88%, transparent 100%);
+  }
   /* the link row becomes a drop panel driven by the burger */
   .nav__burger{ display:block; }
   /* back to a plain bar: wordmark on one side, burger on the other */
   .nav{ display:flex; justify-content:space-between; }
+  /* the six equal slots are a desktop idea only - in the drop panel they
+     would stretch each link down the viewport and eat the gaps between */
+  .nav__mark,
+  .nav__item,
+  .nav__pair{
+    flex:0 0 auto;
+    margin-block:0; padding-block:0;
+    justify-content:flex-start;
+  }
   .nav__mark{ font-size:.95rem; letter-spacing:.24em; }
   /* the panel stacks in source order; `order` only matters on the desktop row */
   .nav__links > *{ order:0; }
@@ -1203,6 +1618,8 @@ img{ display:block; max-width:100%; }
      so it simply stays in the sleeve */
   .card__disc{ transform:none !important; }
   .card__disc-face{ animation:none !important; }
+  .card__ring{ animation:none !important; }
+  .years__panel{ transition:none; }
   .card__tracks li:hover{ transform:none; }
   .card__links a:hover{ transform:none; }
   .js .reveal{ opacity:1; transform:none; }

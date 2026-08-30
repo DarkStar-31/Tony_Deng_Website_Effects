@@ -10,9 +10,12 @@ const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
    the cursor is, and each adding its own listener would mean several handlers
    firing on every mouse move. -1,-1 means "not over the document". */
 const POINTER = { x: -1, y: -1 };
-addEventListener('pointermove', (e) => {
-  POINTER.x = e.clientX; POINTER.y = e.clientY;
-}, { passive: true });
+const track = (e) => { POINTER.x = e.clientX; POINTER.y = e.clientY; };
+addEventListener('pointermove', track, { passive: true });
+/* A finger never "moves" before it arrives, so without this a touch would
+   only register once it had already started dragging. With it, a tap puts
+   the light where the finger is. */
+addEventListener('pointerdown', track, { passive: true });
 document.addEventListener('pointerleave', () => { POINTER.x = POINTER.y = -1; });
 
 /* The hero queue is emitted into the page by build.py, out of
@@ -838,7 +841,10 @@ class PressStage {
 class CursorGlow {
   constructor (sel) {
     const el = document.querySelector(sel);
-    if (!el || REDUCED || matchMedia('(hover: none)').matches) return;
+    // Touch is welcome here. There is no hover state to depend on - the
+    // light simply follows wherever the last pointer was, finger or cursor,
+    // and stays put when it lifts.
+    if (!el || REDUCED) return;
 
     // one write per frame off the shared pointer, not one per pointer event
     const tick = () => {
@@ -861,13 +867,18 @@ class CursorGlow {
 class NavGlow {
   constructor (sel) {
     const nav = document.querySelector(sel);
-    if (!nav || REDUCED || matchMedia('(hover: none)').matches) return;
+    if (!nav || REDUCED) return;
 
-    nav.addEventListener('pointermove', (e) => {
+    const move = (e) => {
       const r = nav.getBoundingClientRect();
       nav.style.setProperty('--mx', `${e.clientX - r.left}px`);
       nav.style.setProperty('--my', `${e.clientY - r.top}px`);
-    });
+      // :hover never fires on a touchscreen, so the lit state is a class
+      nav.classList.add('is-lit');
+    };
+    nav.addEventListener('pointermove', move, { passive: true });
+    nav.addEventListener('pointerdown', move, { passive: true });
+    nav.addEventListener('pointerleave', () => nav.classList.remove('is-lit'));
   }
 }
 
@@ -995,10 +1006,95 @@ class VideoFacade {
         // let modified clicks do the normal thing: open the site properly
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
         e.preventDefault();
-        this.embed(el, useBili ? { kind: 'bilibili', id: bv }
-                               : { kind: 'youtube',  id: yt });
+        const src = useBili ? { kind: 'bilibili', id: bv }
+                            : { kind: 'youtube',  id: yt };
+
+        // The feature tile is already full width and sits outside .vids, so
+        // it just loads. A tile in the grid grows into its own row first.
+        const grid = el.closest('.vids');
+        if (!grid) { this.embed(el, src); return; }
+
+        this.morph(grid, () => {
+          // one player at a time: the tile that was open shrinks back and
+          // loses its iframe, so two videos can never talk over each other
+          const open = grid.querySelector('.vid--playing');
+          if (open && open !== el) this.collapse(open);
+          el.classList.add('vid--playing');
+          this.embed(el, src);
+        });
       });
     });
+  }
+
+  /* Run `mutate`, then animate the reflow it caused.
+
+     A CSS grid cannot tween its own reflow - the moment a tile takes
+     `grid-column:1/-1` every sibling jumps to its new cell. So this is
+     FLIP: measure each tile First, let the mutation land (Last), apply the
+     difference as an Inverted transform, and Play it off to nothing. The
+     tiles appear to slide and swell into place; nothing actually animates
+     a layout property.
+
+     Only the tile that grew changes size, and scaling it would stretch its
+     own caption, so that caption gets the inverse scale for the same beat
+     and stays at its true weight throughout. */
+  morph (grid, mutate) {
+    const tiles = [...grid.querySelectorAll('.vid')];
+    if (REDUCED || !grid.animate) { mutate(); return; }
+
+    const first = new Map(tiles.map(t => [t, t.getBoundingClientRect()]));
+    mutate();
+
+    const EASE = 'cubic-bezier(.22,.61,.36,1)', MS = 560;
+    let running = 0;
+    const done = () => { if (--running <= 0) grid.classList.remove('is-morphing'); };
+
+    tiles.forEach(t => {
+      const a = first.get(t), b = t.getBoundingClientRect();
+      if (!a || !b.width) return;
+      const dx = a.left - b.left, dy = a.top - b.top;
+      const sx = a.width / b.width, sy = a.height / b.height;
+      const moved   = Math.abs(dx) > .5 || Math.abs(dy) > .5;
+      const resized = Math.abs(sx - 1) > .005 || Math.abs(sy - 1) > .005;
+      if (!moved && !resized) return;
+
+      running++;
+      const anim = t.animate([
+        { transform: `translate(${dx}px,${dy}px) scale(${sx},${sy})`,
+          transformOrigin: '0 0' },
+        { transform: 'none', transformOrigin: '0 0' },
+      ], { duration: MS, easing: EASE });
+
+      const meta = t.querySelector('.vid__meta');
+      if (resized && meta) {
+        meta.animate([
+          { transform: `scale(${1 / sx},${1 / sy})`, transformOrigin: '0 0' },
+          { transform: 'none', transformOrigin: '0 0' },
+        ], { duration: MS, easing: EASE });
+      }
+      anim.finished.then(done, done);
+    });
+
+    // clicks during the slide would measure against moving targets
+    if (running) grid.classList.add('is-morphing');
+  }
+
+  /* Back to a poster-sized link: the iframe goes, which is also what stops
+     the sound. */
+  collapse (el) {
+    el.classList.remove('vid--playing');
+    const frame = el.querySelector('.vid__frame');
+    if (!frame) return;
+    const old = frame.querySelector('iframe');
+    if (old) old.remove();
+    delete frame.dataset.loaded;
+
+    const thumb = frame.querySelector('.vid__thumb');
+    const play  = frame.querySelector('.vid__play');
+    if (thumb) thumb.style.opacity = '';
+    if (play)  play.style.opacity  = '';
+    if (el.dataset.href)  { el.href = el.dataset.href; el.target = '_blank'; }
+    if (el.dataset.label) el.setAttribute('aria-label', el.dataset.label);
   }
 
   embed (el, src) {
@@ -1015,12 +1111,202 @@ class VideoFacade {
     iframe.allowFullscreen = true;
     iframe.loading = 'lazy';
 
-    frame.replaceChildren(iframe);
+    // The poster is left in place underneath rather than replaced: a tile
+    // that is still growing would otherwise flash black for the length of
+    // the animation. It fades once the player has something to show.
+    frame.appendChild(iframe);
+    const thumb = frame.querySelector('.vid__thumb');
+    const play  = frame.querySelector('.vid__play');
+    const veil  = () => {
+      if (thumb) thumb.style.opacity = '0';
+      if (play)  play.style.opacity  = '0';
+    };
+    iframe.addEventListener('load', veil, { once: true });
+    setTimeout(veil, 1200);        // a cross-origin load can pass unheard
 
-    // it is a player now, not a link
+    // it is a player now, not a link - kept so collapse() can undo it
+    el.dataset.href  = el.href;
+    el.dataset.label = el.getAttribute('aria-label') || '';
     el.removeAttribute('href');
     el.removeAttribute('target');
     el.removeAttribute('aria-label');
+  }
+}
+
+
+/* ---------------------------------------------------------
+   DiscSpin — the record on the play button
+
+   A CSS animation can only be paused, and pausing one stops it dead on the
+   frame it happens to be on. A record does not do that: it runs down. So
+   there are two Web Animations here rather than one CSS spin:
+
+     starting  an infinite rotation whose playbackRate is eased 0 -> 1, so
+               it winds up instead of snapping to full speed;
+     stopping  that loop is dropped and replaced by a single eased run to
+               the next whole turn, which both decelerates and guarantees
+               where it lands.
+
+   Both take their length from --cd-start and --cd-settle, declared on the
+   button in CSS, which is also what times the play-mark/note morph. That is
+   the whole point of reading them from there: the triangle finishes turning
+   on the same frame it finishes appearing.
+
+   That landing is the point. The play mark and the note ride inside this
+   group, so a stop at an arbitrary angle left the triangle tipped over.
+   Finishing on a multiple of 360 puts it back upright every time, and
+   travelling between one and two turns keeps the run-down the same length
+   wherever the music happened to stop.
+
+   Both begin from whatever angle is on screen, read off the composed
+   matrix, so a play mid-run-down picks up where it is rather than jumping.
+   --------------------------------------------------------- */
+class DiscSpin {
+  constructor (el, period = 3200) {
+    this.el = el;
+    this.period = period;
+    this.spin = null;
+    this.settle = null;
+    this.raf = 0;
+  }
+
+  /* A duration declared in CSS, in ms. Both timings live on the button so
+     the morph and the spin are stated once and cannot fall out of step. */
+  ms (name, fallback) {
+    if (!this.el) return fallback;
+    const v = getComputedStyle(this.el).getPropertyValue(name).trim();
+    const n = parseFloat(v);
+    if (!n) return fallback;
+    return v.endsWith('ms') ? n : n * 1000;
+  }
+
+  /* Whatever angle is on screen right now, in degrees, whichever animation
+     put it there - read off the composed matrix rather than tracked, so it
+     is right even mid-run-down. */
+  angle () {
+    if (!this.el) return 0;
+    const m = getComputedStyle(this.el).transform;
+    if (!m || m === 'none') return 0;
+    const n = m.match(/-?[\d.e+-]+/g);
+    if (!n || n.length < 4) return 0;
+    return Math.atan2(+n[1], +n[0]) * 180 / Math.PI;
+  }
+
+  set (on) {
+    if (!this.el || !this.el.animate) return;
+    cancelAnimationFrame(this.raf);
+    const from = this.angle();
+    if (this.settle) { this.settle.cancel(); this.settle = null; }
+
+    if (!on) {
+      if (this.spin) { this.spin.cancel(); this.spin = null; }
+      if (REDUCED) { this.el.style.transform = 'none'; return; }
+
+      /* Coast to a stop on a whole turn. The glyph rides inside this group,
+         so stopping at an arbitrary angle used to leave the play triangle
+         tipped over - it now always lands upright.
+
+         Only as far as it needs to go: whatever is left of the current turn,
+         and another one added only if that remainder is too short to read as
+         a run-down. Half a turn to a turn and a half, rather than the one to
+         two it used to take - the shorter coast is what lets the morph run
+         at the same length without the note hanging about. */
+      let travel = 360 - (((from % 360) + 360) % 360);
+      if (travel < 180) travel += 360;
+      this.settle = this.el.animate(
+        [{ transform: `rotate(${from}deg)` },
+         { transform: `rotate(${from + travel}deg)` }],
+        { duration: this.ms('--cd-settle', 1150),
+          easing: 'cubic-bezier(.12,.62,.24,1)', fill: 'forwards' }
+      );
+      return;
+    }
+
+    if (REDUCED) return;
+    this.el.style.transform = '';
+    this.spin = this.el.animate(
+      [{ transform: `rotate(${from}deg)` },
+       { transform: `rotate(${from + 360}deg)` }],
+      { duration: this.period, iterations: Infinity }
+    );
+    // eased up rather than switched on, so it does not start at full speed
+    this.spin.playbackRate = 0;
+    const wind = this.ms('--cd-start', 620);
+    const t0 = performance.now();
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / wind);
+      this.spin.playbackRate = 1 - Math.pow(1 - k, 3);
+      if (k < 1) this.raf = requestAnimationFrame(step);
+    };
+    this.raf = requestAnimationFrame(step);
+  }
+}
+
+
+/* ---------------------------------------------------------
+   SinglesYears — the singles card, one year per panel
+
+   All the panels are already in the page and stacked in one grid cell; this
+   only moves which of them is visible. Nothing is created or destroyed, so
+   the card cannot change height as you step through.
+   --------------------------------------------------------- */
+class SinglesYears {
+  constructor (sel = '[data-years]') {
+    document.querySelectorAll(sel).forEach(root => {
+      const panels = [...root.querySelectorAll('.years__panel')];
+      const label = root.querySelector('[data-years-label]');
+      const arrows = [...root.querySelectorAll('.years__arrow')];
+      if (panels.length < 2) {
+        arrows.forEach(a => { a.disabled = true; });
+        return;
+      }
+
+      let i = 0;
+      let cycling = false;
+
+      const show = (next) => {
+        i = Math.max(0, Math.min(panels.length - 1, next));
+        panels.forEach((p, n) => p.classList.toggle('is-on', n === i));
+        if (label) label.textContent = panels[i].dataset.year;
+      };
+
+      /* Falling off either end of the run. The arrow, the year and its
+         titles flare together, hold, dim out, and the far end fades in -
+         the swap itself happens while everything is at zero opacity, so
+         the years are never seen changing. */
+      const FLARE = 460;   // lit and holding
+      const OUT = 260;     // dimming, and how long the swap has to hide in
+
+      const wrap = (arrow, target) => {
+        if (cycling) return;
+        cycling = true;
+        root.classList.add('is-flare');
+        arrow.classList.add('is-cycling');
+
+        setTimeout(() => {
+          root.classList.add('is-out');
+          setTimeout(() => {
+            show(target);
+            root.classList.remove('is-flare', 'is-out');
+            arrow.classList.remove('is-cycling');
+            cycling = false;
+          }, OUT);
+        }, FLARE);
+      };
+
+      arrows.forEach(a => a.addEventListener('click', () => {
+        if (cycling) return;              // ignore clicks mid-wrap
+        const dir = Number(a.dataset.dir);
+        const next = i + dir;
+
+        // Both ends wrap: back past the oldest year returns to the newest,
+        // forward past the newest drops to the oldest.
+        if (next > panels.length - 1) return wrap(a, 0);
+        if (next < 0) return wrap(a, panels.length - 1);
+        show(next);
+      }));
+      show(0);
+    });
   }
 }
 
@@ -1044,12 +1330,15 @@ document.addEventListener('DOMContentLoaded', () => {
   new Tilt();
   new Reveal();
   new Ticker('#tickerTrack');
-  new Ticker('#singlesTrack', 34);
   new Ticker('#pressRailTrack', 30, '.rail__set', '.rail');
+  // slower than the press row, and it coasts to a stop under the pointer
+  // because every item in it is something you are meant to be able to click
+  new Ticker('#playlistRailTrack', 24, '.rail__set', '.rail');
   new MobileNav('#nav', '#navBurger');
   new NavGlow('#nav');
   new CursorGlow('.glow');
   new PressStage('#pressStage');
+  new SinglesYears();
   new ScrollSpy();
   new VideoFacade();
 
@@ -1062,11 +1351,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // the button label and the audio note are the only strings JS writes,
   // so they have to follow the page's language like everything else
   const zh = document.documentElement.lang.toLowerCase().startsWith('zh');
+  // Play/Pause are both in the markup and swapped by CSS off aria-pressed,
+  // so the only string left for JS to write is the placeholder note.
   const T = zh
-    ? { play: '播放', pause: '暂停',
-        placeholder: '当前为占位环境音 — 正式音频待上线' }
-    : { play: 'Play', pause: 'Pause',
-        placeholder: 'Placeholder ambient pad — drop MP3s in audio/' };
+    ? { placeholder: '当前为占位环境音 — 正式音频待上线' }
+    : { placeholder: 'Placeholder ambient pad — drop MP3s in audio/' };
 
   // "Now playing" is content, so it rides in on the element, not in here
   const NOW = (note && note.dataset.now) || '';
@@ -1077,9 +1366,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (engine.playing) paint(true, engine.mode);
   };
 
+  const disc = new DiscSpin(btn.querySelector('.cd__disc'));
+
   function paint (playing, mode) {
     btn.setAttribute('aria-pressed', String(playing));
-    btn.querySelector('.btn__label').textContent = playing ? T.pause : T.play;
+    // aria-pressed drives both the label swap and the play/note cross-fade
+    // in CSS; the spin is the one part that needs easing, so it is done here
+    disc.set(playing);
 
     // a queue of one has nothing to skip to
     if (skip) skip.hidden = !(mode === 'file' && engine.queue.length > 1);
