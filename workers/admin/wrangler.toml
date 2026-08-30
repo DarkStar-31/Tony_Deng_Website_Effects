@@ -16,7 +16,10 @@ ACCESS_TEAM_DOMAIN = "REPLACE-ME.cloudflareaccess.com"
 # Zero Trust → Access → Applications → your app → Overview → Application Audience (AUD) Tag.
 ACCESS_AUD = "REPLACE-ME"
 
-GITHUB_REPO = "DarkStar-31/Tony_Deng_Website"
+# This copy of the admin must never write to the live repository - it is
+# pointed at the effects one, so an accidental deploy from here edits the
+# experiment rather than the site that is actually published.
+GITHUB_REPO = "DarkStar-31/Tony_Deng_Website_Effects"
 LIVE_BRANCH = "main"
 DRAFT_BRANCH = "draft"
 

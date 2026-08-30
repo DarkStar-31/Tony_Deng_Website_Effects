@@ -1,4 +1,14 @@
-# Deploys the built site as a Workers static-assets project.
+# Deploys the EFFECTS build as its own Workers static-assets project.
+#
+# This repository is a copy of Tony_Deng_Website kept for trying visual work
+# out. It shares that repository's history and keeps it as the `upstream`
+# remote, so finished work can be moved across with git rather than by hand:
+#
+#   git fetch upstream && git log upstream/main    # what has changed live
+#   git cherry-pick <sha>                          # take one commit
+#
+# The Worker name below is what keeps the two apart. It is different from the
+# live site's, so a deploy from this repository cannot reach the real one.
 #
 # The Cloudflare build runs `python3 build.py --dist` first, which renders
 # index.html and zh/index.html from content/*.json and assembles dist/;
@@ -8,7 +18,7 @@
 # There is no `main` script: this Worker serves assets and nothing else.
 # The admin API Worker is separate, with its own config in workers/admin/,
 # and is deployed on its own — it is not part of this deployment.
-name = "tony-deng-website"
+name = "tony-deng-website-effects"
 compatibility_date = "2026-08-01"
 
 [assets]
