@@ -9,7 +9,7 @@
   "pages": {
     "home": {
       "title": "Tony D 邓乐潼 — 创作歌手",
-      "description": "Tony D（邓乐潼）——创作歌手、吉他手，环球音乐版权集团（UMPG）签约词曲作者。"
+      "description": "Tony Deng 邓乐潼：创作歌手"
     },
     "music": {
       "title": "音乐作品 — Tony D 邓乐潼",
@@ -47,7 +47,7 @@
       },
       {
         "href": "press.html",
-        "label": "媒体"
+        "label": "创作手记"
       }
     ],
     "cta": {
@@ -64,8 +64,8 @@
     "imageAlt": "Tony D 抱着木吉他的肖像",
     "eyebrow": "环球音乐版权集团 &middot; 签约词曲作者",
     "srTitle": "Tony D — 想太多",
-    "sub": "<em>独立摇滚、英伦流行、灵魂乐。</em>",
-    "count": "<b>300 万+</b> 次播放，<b>11</b> 首单曲，<b>6</b> 年创作，<b>2</b> 张专辑，<br><b class=\"key\">一个想太多的人</b>。",
+    "sub": "",
+    "count": "<b class=\"key\">Tony Deng 邓乐潼</b>：<b>创作歌手</b>",
     "outNow": "新专辑《<strong>想太多</strong>》现已上线",
     "playLabel": "播放",
     "pauseLabel": "暂停",
@@ -77,6 +77,12 @@
     }
   },
   "tracks": {
+    "i-do": {
+      "title": "I Do"
+    },
+    "overthinking": {
+      "title": "想太多"
+    },
     "bluesky": {
       "title": "bluesky"
     },
@@ -92,19 +98,6 @@
     "weifeng": {
       "title": "weifeng"
     }
-  },
-  "ticker": {
-    "aria": "重要成绩",
-    "items": [
-      "QQ音乐播放量 <b>200万+</b>",
-      "<b>UMPG</b> 签约词曲作者",
-      "<b>IYMC</b> 2024 冠军",
-      "American Songwriter 2025 <b>冠军</b>",
-      "<b>ISC</b> 决赛入围",
-      "<b>JLSC</b> 周冠军",
-      "网易云播放量 <b>100万+</b>",
-      "<b>IAMA</b> AAA 组第三名"
-    ]
   },
   "sections": {
     "music": {
@@ -129,10 +122,11 @@
       "desc": "五年时间，从第一支单曲到全球发行。",
       "more": "查看更多"
     },
+    "$pressComment": "第 05 部分现为「创作手记」。键名、页面文件 press.html 与 #press 锚点均保持原样，以免既有链接失效；改动仅限读者可见的文字。",
     "press": {
       "num": "05",
-      "title": "媒体报道",
-      "desc": "相关报道与乐评。"
+      "title": "创作手记",
+      "desc": "新歌创作中——记录它们成形的过程。"
     },
     "contact": {
       "num": "06",
@@ -166,7 +160,7 @@
       "title": "想太多 <span lang=\"en\">Overthinking</span>",
       "meta": "专辑 · 2025",
       "label": "环球音乐集团",
-      "copy": "共七首作品，六首英文、一首中文。声音更加成熟，编曲层次更为丰富。",
+      "copy": "七首原创作品：六首英文，一首中文。",
       "links": [
         {
           "label": "网易云音乐",
@@ -200,7 +194,7 @@
       "titleLang": "en",
       "meta": "专辑 · 2023",
       "label": "独立发行",
-      "copy": "首张个人专辑，创作于十三至十五岁之间。",
+      "copy": "首张个人专辑，创作与录制于十二至十五岁之间。",
       "links": [
         {
           "label": "网易云音乐",
@@ -533,6 +527,12 @@
   "singlesNav": {
     "prev": "更早的单曲",
     "next": "更近的单曲"
+  },
+  "making": {
+    "body": [
+      "本页正在建设中。",
+      "新歌成形的过程与创作手记，将在这里陆续更新。"
+    ]
   },
   "pressNav": {
     "prev": "上一条报道",

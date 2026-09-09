@@ -127,16 +127,14 @@
   --pad: clamp(1.25rem, 4vw, 4.5rem);
   --ease: cubic-bezier(.22,.61,.36,1);
 
-  /* Measured at runtime by HeightVar in main.js; these are the values the
+  /* Measured at runtime by HeightVar in main.js; this is the value the
      page uses before that runs, and if it never does. Anything that has to
-     clear the sticky nav, or fit beside the ticker, is expressed against
-     them rather than a hand-tuned guess per rule. */
+     clear the sticky nav is expressed against it rather than a hand-tuned
+     guess per rule. */
   --nav-h: 4.2rem;
-  --ticker-h: 2.2rem;
 
-  /* The hero gives up exactly the ticker's height, so the awards strip
-     lands at the foot of the first screen instead of just below it. */
-  --hero-h: calc(100svh - var(--nav-h) - var(--ticker-h));
+  /* The hero takes the whole first screen below the nav. */
+  --hero-h: calc(100svh - var(--nav-h));
 }
 
 *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
@@ -197,7 +195,6 @@ img{ display:block; max-width:100%; }
 /* the page warms up while it is playing */
 .is-playing .nav::before{ background:rgba(11,10,12,.55); }
 .is-playing .nav::after{ opacity:calc(.35 + var(--beat,0) * .65); }
-.is-playing .ticker__set i{ color:rgb(250 39 159 / calc(.6 + var(--beat,0) * .4)); }
 
 .grain{
   position:fixed; inset:-50%;
@@ -285,6 +282,10 @@ img{ display:block; max-width:100%; }
   color:var(--bone-dim); text-decoration:none;
   font-size:.88rem; letter-spacing:.09em; text-transform:uppercase;
   transition:color .25s var(--ease), text-shadow .25s var(--ease);
+  /* "In the Making" is two words longer than anything else in the bar.
+     Wrapping it would make the bar taller and take --nav-h with it, so the
+     slot is allowed to claim more than its sixth instead. */
+  white-space:nowrap;
 }
 /* everything in the bar answers in the accent, like the section headings */
 .nav__links a:hover,
@@ -794,27 +795,6 @@ img{ display:block; max-width:100%; }
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 
-/* ================= TICKER ================= */
-/* Sits directly under the hero, which is sized to leave room for it, so the
-   awards are on screen the moment the page loads — at the foot of the first
-   view rather than a scroll away. Kept small and tight so the hero gives up
-   as little height as possible; the marquee, the caps and the magenta
-   separators are unchanged. */
-.ticker{
-  border-top:1px solid var(--line); border-bottom:1px solid var(--line);
-  background:var(--ink-2);
-  overflow:hidden; padding:.5rem 0;
-}
-.ticker__track{ display:flex; width:max-content; will-change:transform; }
-.ticker__set{
-  display:inline-flex; align-items:center; gap:.55rem;
-  padding-right:.55rem; white-space:nowrap;
-  font-size:.63rem; letter-spacing:.14em; text-transform:uppercase;
-  color:var(--bone-dim);
-}
-.ticker__set b{ color:var(--bone); font-weight:700; }
-.ticker__set i{ color:var(--magenta); font-style:normal; padding:0 .5rem; }
-
 /* ================= SECTION ================= */
 .section{
   padding:clamp(4.5rem,10vh,8rem) var(--pad);
@@ -1276,7 +1256,25 @@ img{ display:block; max-width:100%; }
 }
 .tl__list b{ color:var(--bone); font-weight:600; }
 
+/* ================= IN THE MAKING ================= */
+/* Section 05 is prose and nothing else. Every other section fills the width
+   with a rail or a grid, so this one would read as an orphaned sentence
+   against the left edge; holding it to the heading's own 38rem column keeps
+   the two reading as one block. */
+.making__prose{ max-width:38rem; }
+.making__prose p{
+  color:#B9B2AB; margin-bottom:1.15rem; text-wrap:pretty;
+}
+.making__prose p:first-of-type{
+  font-family:var(--f-serif); font-size:1.32rem; line-height:1.5;
+  color:var(--bone);
+}
+.making__prose p:last-of-type{ margin-bottom:0; }
+
+
 /* ================= PRESS ================= */
+/* Dormant: the coverage this styles is still in the content files but is not
+   rendered anywhere at the moment. Kept for when it is placed again. */
 .press{
   list-style:none;
   display:grid; gap:1rem;

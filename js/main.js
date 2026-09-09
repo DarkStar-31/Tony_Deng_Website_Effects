@@ -567,12 +567,10 @@ class Spectrum {
 /* ---------------------------------------------------------
    HeightVar — publishes an element's height as a custom property
 
-   Two things on this page have to be laid out around rather than guessed
-   at: the sticky nav, which anchor targets and the sticky rails in About
-   and Press must clear, and the awards ticker, whose height the hero gives
-   up so the strip lands at the foot of the first screen. Both move with the
-   viewport, the locale and their own type, so both are measured. The CSS
-   carries fallbacks for before this runs.
+   The sticky nav has to be laid out around rather than guessed at: anchor
+   targets and the sticky rails in About and In the Making must clear it, and
+   it moves with the viewport, the locale and its own type, so it is measured.
+   The CSS carries a fallback for before this runs.
    --------------------------------------------------------- */
 class HeightVar {
   constructor (sel, prop) {
@@ -1325,11 +1323,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (engine) new Pulse(engine);
 
   new HeightVar('#nav', '--nav-h');
-  new HeightVar('#ticker', '--ticker-h');
   new Spectrum(document.getElementById('wave'), engine);
   new Tilt();
   new Reveal();
-  new Ticker('#tickerTrack');
   new Ticker('#pressRailTrack', 30, '.rail__set', '.rail');
   // slower than the press row, and it coasts to a stop under the pointer
   // because every item in it is something you are meant to be able to click

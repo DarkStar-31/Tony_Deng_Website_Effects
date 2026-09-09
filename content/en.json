@@ -9,7 +9,7 @@
   "pages": {
     "home": {
       "title": "Tony D — Singer-Songwriter",
-      "description": "Tony D (Yuetong Deng) — singer-songwriter and guitarist. Signed writer, Universal Music Publishing Group."
+      "description": "Tony Deng: Singer-Songwriter"
     },
     "music": {
       "title": "Music — Tony D",
@@ -39,7 +39,7 @@
       },
       {
         "href": "videos.html",
-        "label": "Videos"
+        "label": "Visuals"
       },
       {
         "href": "about.html",
@@ -47,7 +47,7 @@
       },
       {
         "href": "press.html",
-        "label": "Press"
+        "label": "In the Making"
       }
     ],
     "cta": {
@@ -64,8 +64,8 @@
     "imageAlt": "Tony D seated with an acoustic guitar",
     "eyebrow": "Signed Writer &middot; Universal Music Publishing Group",
     "srTitle": "Tony D — Overthinking",
-    "sub": "<em>Indie rock, britpop, soul.</em>",
-    "count": "<b>3 million+</b> streams, <b>11</b> singles, <b>6</b> years, <b>2</b> albums,<br><b class=\"key\">one Overthinker</b>.",
+    "sub": "",
+    "count": "<b class=\"key\">Tony Deng</b>: <b>Singer-Songwriter</b>",
     "outNow": "New album <strong>Overthinking</strong> out now",
     "playLabel": "Play",
     "pauseLabel": "Pause",
@@ -77,6 +77,12 @@
     }
   },
   "tracks": {
+    "i-do": {
+      "title": "I Do"
+    },
+    "overthinking": {
+      "title": "Overthinking"
+    },
     "bluesky": {
       "title": "bluesky"
     },
@@ -93,19 +99,6 @@
       "title": "weifeng"
     }
   },
-  "ticker": {
-    "aria": "Career highlights",
-    "items": [
-      "<b>2M+</b> streams · QQ Music",
-      "<b>UMPG</b> signed writer",
-      "<b>IYMC</b> Champion 2024",
-      "<b>1st Place</b> American Songwriter 2025",
-      "<b>ISC</b> Finalist",
-      "<b>JLSC</b> Weekly Winner",
-      "<b>1M+</b> streams · NetEase",
-      "<b>IAMA</b> 3rd Place AAA"
-    ]
-  },
   "sections": {
     "music": {
       "num": "01",
@@ -114,9 +107,9 @@
     },
     "videos": {
       "num": "02",
-      "title": "Videos",
+      "title": "Visuals",
       "desc": "Original songs, shot and cut for the channel. Press one and the player loads in place — nothing from YouTube runs until you do.",
-      "more": "More videos"
+      "more": "More visuals"
     },
     "about": {
       "num": "03",
@@ -129,10 +122,11 @@
       "desc": "Five years, from a first single to a global release.",
       "more": "See more"
     },
+    "$pressComment": "Section 05 is In the Making. The key, the page file (press.html) and the #press anchor keep their old names so existing links still resolve; only what readers see changed.",
     "press": {
       "num": "05",
-      "title": "Press",
-      "desc": "Coverage and commentary, mostly on Weibo and in Chinese."
+      "title": "In the Making",
+      "desc": "New songs in progress — notes from the studio as they take shape."
     },
     "contact": {
       "num": "06",
@@ -158,7 +152,7 @@
       "title": "Overthinking <span lang=\"zh\">想太多</span>",
       "meta": "Album · 2025",
       "label": "Universal Music Group",
-      "copy": "Seven tracks — six English, one Mandarin. A more refined sound and layered arrangements.",
+      "copy": "Seven original songs: six in English and one in Chinese.",
       "links": [
         {
           "label": "Spotify",
@@ -187,7 +181,7 @@
       "title": "Saturn Diary",
       "meta": "Album · 2023",
       "label": "Independent",
-      "copy": "The debut record — written between the ages of thirteen and fifteen.",
+      "copy": "His debut solo album, written and recorded between the ages of 12 and 15.",
       "links": [
         {
           "label": "Spotify",
@@ -504,6 +498,12 @@
   "singlesNav": {
     "prev": "Earlier singles",
     "next": "Later singles"
+  },
+  "making": {
+    "body": [
+      "This page is a work in progress.",
+      "Notes from the studio will appear here as new songs take shape."
+    ]
   },
   "pressNav": {
     "prev": "Previous coverage",

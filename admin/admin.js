@@ -607,7 +607,7 @@ function renderMilestones() {
 function renderPress() {
   const shared = SHARED();
   const rerender = () => renderPanel();
-  const out = [intro('Section 05. The English page shows the original Chinese headline with an English gloss underneath — those glosses are translations for readers, not official titles, so keep them descriptive rather than authoritative.')];
+  const out = [intro('Not currently shown on the site — section 05 is now In the Making. This coverage is kept here so it can be placed somewhere else later; edits are saved but will not appear until it is rendered again. The English page shows the original Chinese headline with an English gloss underneath — those glosses are translations for readers, not official titles, so keep them descriptive rather than authoritative.')];
 
   shared.press.forEach((item, i) => {
     const enP = LOC('en').press[item.id] || (LOC('en').press[item.id] = { src: '', title: '', gloss: '' });
@@ -701,7 +701,7 @@ function renderContact() {
 
 function renderPage() {
   const rerender = () => renderPanel();
-  const out = [intro('The masthead, the scrolling achievements ticker, and the numbered heading at the top of every section.')];
+  const out = [intro('The masthead and the numbered heading at the top of every section.')];
 
   out.push(card('Browser tab & search results', null, el('div', {},
     bi('Page title', 'title', (l) => LOC(l).head),
@@ -716,22 +716,6 @@ function renderPage() {
     bi('Play button label', 'playLabel', (l) => LOC(l).hero),
     bi('Hero image alt', 'imageAlt', (l) => LOC(l).hero),
   )));
-
-  // Ticker — a plain per-locale list of strings.
-  const ticker = el('div', { className: 'row' }, ...LANGS.map((lang) => {
-    const items = LOC(lang.code).ticker.items;
-    return el('div', { style: 'flex:1' },
-      el('span', { className: 'hint' }, `Ticker items (${lang.label}) — <b>…</b> for the emphasised part`),
-      ...items.map((_, i) => row(
-        field(`Item ${i + 1}`, input(items, String(i), { lang: lang.attr })),
-        el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
-                       onclick: () => { items.splice(i, 1); markDirty(); rerender(); } }, '×'),
-      )),
-      el('button', { className: 'btn btn--small', type: 'button',
-                     onclick: () => { items.push(''); markDirty(); rerender(); } }, '+ item'),
-    );
-  }));
-  out.push(card('Achievements ticker', null, ticker));
 
   const sectionKeys = Object.keys(LOC('en').sections);
   out.push(card('Section headings', null, el('div', {}, ...sectionKeys.map((key) =>

@@ -163,7 +163,7 @@ def render_hero(loc: dict, shared: dict) -> list[str]:
     p = loc["assetPrefix"]
     hero = loc["hero"]
     sec = hero["secondary"]
-    return [
+    out = [
         "<!-- ================= HERO ================= -->",
         '<section class="hero" id="top">',
         '  <div class="hero__media">',
@@ -182,14 +182,16 @@ def render_hero(loc: dict, shared: dict) -> list[str]:
         f'      <img class="ink" src="{p}{shared["images"]["ink"]}" alt="" aria-hidden="true">',
         "    </h1>",
         "",
-        '    <p class="hero__sub reveal">',
-        f'      {hero["sub"]}',
-        "    </p>",
-        "",
-        # One sentence rather than a stack of lines - the figures still run
-        # largest to smallest, but they read as a phrase.
-        f'    <p class="hero__count reveal">{hero["count"]}</p>',
-        "",
+    ]
+
+    # Either line can be emptied in the JSON without leaving a blank <p>
+    # behind; putting the text back brings the line back.
+    if hero.get("sub"):
+        out += ['    <p class="hero__sub reveal">', f'      {hero["sub"]}', "    </p>", ""]
+    if hero.get("count"):
+        out += [f'    <p class="hero__count reveal">{hero["count"]}</p>', ""]
+
+    out += [
         f'    <p class="hero__out reveal">{hero["outNow"]}</p>',
         "",
         '    <div class="hero__actions reveal">',
@@ -263,6 +265,7 @@ def render_hero(loc: dict, shared: dict) -> list[str]:
         *render_playlist(loc, shared),
         "</section>",
     ]
+    return out
 
 
 def render_playlist(loc: dict, shared: dict) -> list[str]:
@@ -272,39 +275,33 @@ def render_playlist(loc: dict, shared: dict) -> list[str]:
     content, they differ per locale, and the admin already round-trips
     anything it finds in the JSON.
     """
-    tracks = shared.get("tracks") or []
-    if not tracks:
+    files = {t["id"]: t["file"] for t in shared.get("tracks") or []}
+    # Each locale queues its own selection: the English homepage opens on
+    # "I Do", the Chinese one on the album's title track. Anything in
+    # `tracks` that no locale names simply never loads.
+    code = loc["lang"].split("-")[0]
+    wanted = (shared.get("playlists") or {}).get(code, [])
+    missing = [i for i in wanted if i not in files]
+    if missing:
+        raise SystemExit(f"playlists[{code}]: no track named {', '.join(missing)}")
+    if not wanted:
         return []
 
     p = loc["assetPrefix"]
     titles = loc.get("tracks", {})
     queue = [
         {
-            "id": t["id"],
-            "src": f'{p}{t["file"]}',
-            "title": titles.get(t["id"], {}).get("title", t["id"]),
+            "id": tid,
+            "src": f"{p}{files[tid]}",
+            "title": titles.get(tid, {}).get("title", tid),
         }
-        for t in tracks
+        for tid in wanted
     ]
     # `<` escaped so a title can never close this script element early.
     body = json.dumps(queue, ensure_ascii=False).replace("<", "\u003c")
     return [
         '  <script type="application/json" id="playlist">' + body + "</script>",
     ]
-
-
-def render_ticker(loc: dict) -> list[str]:
-    ticker = loc["ticker"]
-    out = [
-        "<!-- ================= TICKER ================= -->",
-        f'<div class="ticker" id="ticker" aria-label="{attr(ticker["aria"])}">',
-        '  <div class="ticker__track" id="tickerTrack">',
-        '    <span class="ticker__set">',
-    ]
-    for item in ticker["items"]:
-        out.append(f"      {item} <i>·</i>")
-    out += ["    </span>", "  </div>", "</div>"]
-    return out
 
 
 def section_head(loc: dict, key: str, href: str | None = None) -> list[str]:
@@ -829,57 +826,30 @@ def render_milestones(loc: dict, shared: dict, full: bool = False) -> list[str]:
     return out
 
 
-def render_press(loc: dict, shared: dict, full: bool = False) -> list[str]:
-    lead = " section--lead" if full else ""
+def render_making(loc: dict) -> list[str]:
+    """Section 05, "In the Making" - a placeholder page while the notes that
+    belong here are still being written.
+
+    The section keeps the id `press` and the file `press.html`: the coverage
+    this section used to carry is still in `shared["press"]` and both locales,
+    dormant rather than deleted, and existing links to #press still land
+    somewhere sensible. `render_press_rail` and `PressStage` are unused for
+    now and kept for when that coverage is placed somewhere else.
+
+    Unlike every other section this is prose and nothing else, so the body
+    is held to the same 38rem column as the heading above it rather than
+    running the full width a rail or a grid would want.
+    """
     out = [
-        "<!-- ================= 05 PRESS ================= -->",
-        f'<section class="section{lead}" id="press">',
-    ] + section_head(loc, "press", None if full else "press.html")
-
-    # the homepage runs the whole lot past as a marquee rather than listing a few
-    if not full:
-        out += [""] + render_press_rail(loc, shared)
-        out.append("</section>")
-        return out
-
-    p = loc["assetPrefix"]
-    a = loc["about"]
-    nav = loc["pressNav"]
-    out += [
+        "<!-- ================= 05 IN THE MAKING ================= -->",
+        '<section class="section section--lead" id="press">',
+    ] + section_head(loc, "press") + [
         "",
-        "  <!-- Four items are in view at a time, two either side of the photograph,",
-        "       and the arrows step that window along. Every item is in the markup:",
-        "       without JS this stays a plain grid of all of them and the arrows are",
-        "       never shown. -->",
-        '  <div class="press-stage" id="pressStage">',
-        f'    <button class="press-arrow press-arrow--prev" type="button" aria-label="{attr(nav["prev"])}">{ARROW_PREV}</button>',
-        "",
-        '    <figure class="press-stage__media about__shot about__shot--wide reveal">',
-        f'      <img src="{p}{shared["images"]["aboutWide"]}" alt="{attr(a["altWide"])}" loading="lazy">',
-        f'      <figcaption>{a["captionWide"]}</figcaption>',
-        "    </figure>",
-        "",
-        '    <ul class="press press--stage">',
+        '  <div class="making__prose">',
     ]
-    for item in shared["press"]:
-        c = loc["press"][item["id"]]
-        out += [
-            '      <li class="press__item reveal">',
-            f'        <a href="{attr(item["url"])}" target="_blank" rel="noopener">',
-            f'          <span class="press__src">{c["src"]}</span>',
-            f'          <span class="press__title"{lang_attr(c.get("titleLang"))}>{c["title"]}</span>',
-            f'          <span class="press__gloss">{c["gloss"]}</span>',
-            "        </a>",
-            "      </li>",
-        ]
-
-    out += [
-        "    </ul>",
-        "",
-        f'    <button class="press-arrow press-arrow--next" type="button" aria-label="{attr(nav["next"])}">{ARROW_NEXT}</button>',
-        "  </div>",
-        "</section>",
-    ]
+    for para in loc["making"]["body"]:
+        out.append(f'    <p class="reveal">{para}</p>')
+    out += ["  </div>", "</section>"]
     return out
 
 
@@ -974,14 +944,12 @@ def render_page(loc: dict, shared: dict, page: str) -> str:
         blocks = [
             render_nav(loc, page),
             render_hero(loc, shared),
-            # sits straight after the hero, and the hero is sized so this lands
-            # at the foot of the first screen rather than below it
-            render_ticker(loc),
             render_music(loc, shared),
             render_videos(loc, shared),
             render_about(loc, shared),
             render_milestones(loc, shared),
-            render_press(loc, shared),
+            # 05 "In the Making" is a page of its own, reached from the nav.
+            # A "work in progress" teaser would say nothing here.
         ]
     elif page == "music":
         blocks = [
@@ -1002,7 +970,7 @@ def render_page(loc: dict, shared: dict, page: str) -> str:
     else:
         blocks = [
             render_nav(loc, page),
-            render_press(loc, shared, full=True),
+            render_making(loc),
         ]
 
     # Every page finishes the same way: the copyright line, then the contact
