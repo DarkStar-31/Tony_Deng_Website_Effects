@@ -267,7 +267,7 @@ img{ display:block; max-width:100%; }
 .nav__item--music { order:2; }
 .nav__item--videos{ order:3; }
 .nav__item--about { order:4; }
-.nav__item--press { order:5; }
+.nav__item--making{ order:5; }
 .nav__pair        { order:6; }
 
 /* contact and the language switch read as one item, not two */
@@ -1072,6 +1072,10 @@ img{ display:block; max-width:100%; }
 .vid--feature{
   display:block; max-width:64rem; margin:0 auto 3rem;
 }
+/* On the Visuals page itself the feature is the page, so it runs the whole
+   content width instead of sitting in a 64rem column. The homepage keeps the
+   narrower one, where it is a taster under the hero. */
+#videos.section--lead .vid--feature{ max-width:none; }
 
 .vid__frame{
   position:relative; display:block;
@@ -1433,6 +1437,38 @@ html[lang^="zh"] .contact__who{
 /* ---- catalogue stat strip on the music page ---- */
 /* A <dl>: each figure is a term and its gloss, so a screen reader reads
    "2, albums" rather than four loose numbers. */
+/* Heading left, catalogue figures right. Two tiles stretched across the
+   whole width read as a mostly empty band, which is what they became once
+   the stream counts came out. */
+/* Same three columns and the same gap as .cards below, so the figures sit
+   exactly over the third sleeve instead of a dozen pixels off it. */
+.section__lede{
+  display:grid; gap:1.6rem;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  align-items:stretch;
+  margin-bottom:3.2rem;
+}
+.section__lede .section__head{ grid-column:1 / 3; }
+.section__lede .stats{ grid-column:3; }
+.section__lede .section__head{ margin-bottom:0; }
+.section__lede .stats{
+  margin:0;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
+/* the tiles take their height from the heading beside them, so the figures
+   centre in whatever that comes to rather than leaving air above and below */
+.section__lede .stat{
+  display:flex; flex-direction:column; justify-content:center;
+}
+/* Beside the heading the figures are their own width, so their left edge
+   answers to nothing below them. Once the row gets tight, stack instead: full
+   width lines both edges up with the cards underneath. */
+@media (max-width:1180px){
+  .section__lede{ grid-template-columns:minmax(0,1fr); gap:2rem; }
+  .section__lede .section__head,
+  .section__lede .stats{ grid-column:auto; }
+}
+
 .stats{
   display:grid; gap:1px;
   grid-template-columns:repeat(auto-fit,minmax(min(11rem,100%),1fr));
@@ -1456,6 +1492,11 @@ html[lang^="zh"] .contact__who{
   margin:.55rem 0 0;
   font-size:.68rem; letter-spacing:.16em; text-transform:uppercase;
   color:var(--bone-dim);
+  /* letter-spacing puts a gap after the LAST letter too, so centring counts
+     it and the word lands half a space left of true centre. The figure above
+     is tabular and unspaced, so it centres honestly - nudge the label back
+     by half the tracking to put them on the same axis. */
+  text-indent:.08em;
 }
 /* A figure that links out still reads as the caption it is - the browser's
    own blue-and-underlined treatment made two of the four look like a
@@ -1529,23 +1570,41 @@ html[lang^="zh"] .contact__who{
 }
 .chip__title{ color:var(--bone); font-size:.95rem; white-space:nowrap; }
 
-/* ---- about: one photograph, flush with the column of text ---- */
-/* Both shapes carry a single image, stretched so it starts and finishes
-   exactly where the prose does. Below 1100px the grid is already a single
-   column and there is nothing to line up against. */
+/* The homepage carries the short profile, not the long bio, so its text
+   column is much shorter than the About page's. At the shared .85fr the
+   photograph towered over it and lined up with nothing; a fixed column keeps
+   it a portrait rather than something that grows with the viewport. */
 @media (min-width:1101px){
-  .about--brief,
-  .about--full{ align-items:stretch; }
-  .about--brief .about__media,
-  .about--full .about__media{ position:static; min-height:0; }
-  .about--brief .about__shot,
-  .about--full .about__shot{ display:flex; min-height:0; height:100%; }
-  .about--brief .about__shot img,
-  .about--full .about__shot img{
-    aspect-ratio:auto; width:100%; height:100%; min-height:0;
-    object-fit:cover;
+  .about--brief{
+    grid-template-columns:minmax(0,24rem) minmax(0,1fr);
+    align-items:stretch;
   }
+  /* Now that the column is a fixed 24rem the photograph can fill the height
+     of the profile again without the crop going square on a wide screen -
+     it only has to stretch from a 4:5 portrait to roughly 3:5. */
+  /* `top` is still set from the sticky rule above, and position:relative
+     honours it - which quietly pushed the photograph down the height of the
+     nav and left it hanging past the last row of the profile. */
+  .about--brief .about__media{
+    position:relative; top:auto; align-self:stretch;
+  }
+  .about--brief .about__shot{ position:absolute; inset:0; display:flex; }
+  .about--brief .about__shot img{
+    aspect-ratio:auto; width:100%; height:100%; object-fit:cover;
+  }
+  /* the quote leads the column, and its top margin would drop the first line
+     below the top edge of the photograph */
+  .about--brief .about__prose > :first-child{ margin-top:0; }
 }
+
+/* ---- about: one photograph beside the column of text ---- */
+/* The photograph keeps its own 4:5 proportions and the two columns start
+   together at the top; .about__media stays sticky, so it tracks the prose
+   as you read past it. It used to be stretched to finish exactly where the
+   text does, which tied the crop to the length of the copy - a tall column
+   of facts produced a near-square box and cover() ate everything but his
+   face. Nothing here needs a breakpoint: align-items:start is the default
+   on .about, and below 1100px the grid is a single column anyway. */
 .about--full .about__prose p:last-of-type{ margin-bottom:0; }
 
 /* ---- press page: the photograph, flanked ---- */

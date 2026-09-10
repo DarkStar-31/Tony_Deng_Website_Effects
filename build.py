@@ -74,7 +74,7 @@ PAGE_FILE = {
     "music": "music.html",
     "videos": "videos.html",
     "about": "about.html",
-    "press": "press.html",
+    "press": "making.html",
 }
 
 
@@ -165,7 +165,7 @@ def render_hero(loc: dict, shared: dict) -> list[str]:
     sec = hero["secondary"]
     out = [
         "<!-- ================= HERO ================= -->",
-        '<section class="hero" id="top">',
+        '<section class="hero">',
         '  <div class="hero__media">',
         f'    <img src="{p}{shared["images"]["hero"]}" alt="{attr(hero["imageAlt"])}" fetchpriority="high">',
         "  </div>",
@@ -310,13 +310,16 @@ def section_head(loc: dict, key: str, href: str | None = None) -> list[str]:
     title = sec["title"]
     if href:
         title = f'<a class="section__link" href="{attr(href)}">{title}</a>'
-    return [
+    out = [
         '  <div class="section__head reveal">',
         f'    <span class="section__num">{sec["num"]}</span>',
         f'    <h2 class="section__title">{title}</h2>',
-        f'    <p class="section__desc">{sec["desc"]}</p>',
-        "  </div>",
     ]
+    # a standfirst is optional - Visuals carries none
+    if sec.get("desc"):
+        out.append(f'    <p class="section__desc">{sec["desc"]}</p>')
+    out.append("  </div>")
+    return out
 
 
 def render_links(links: list[dict], pad: int) -> list[str]:
@@ -548,17 +551,24 @@ def section_cta(href: str, label: str) -> list[str]:
 def render_music(loc: dict, shared: dict, full: bool = False) -> list[str]:
     p = loc["assetPrefix"]
     lead = " section--lead" if full else ""
+    head = section_head(loc, "music", None if full else "music.html")
     out = [
         "<!-- ================= 01 MUSIC ================= -->",
         f'<section class="section{lead}" id="music">',
-    ] + section_head(loc, "music", None if full else "music.html")
+    ]
 
     # Both pages show the same three cards - two albums and the singles. The
-    # music page adds the stat strip above them, because arriving on a page
-    # about the catalogue and counting three tiles undersells it.
+    # music page adds the catalogue figures, set beside the heading rather
+    # than under it: two tiles run the full width read as an empty band.
     releases = shared["releases"]
     if full:
-        out += [""] + render_stats_strip(loc)
+        out += ['  <div class="section__lede">']
+        out += ["  " + l for l in head]
+        out += [""]
+        out += ["  " + l for l in render_stats_strip(loc)]
+        out += ["  </div>"]
+    else:
+        out += head
 
     out += ["", '  <div class="cards">']
 
@@ -631,6 +641,11 @@ def render_music(loc: dict, shared: dict, full: bool = False) -> list[str]:
     # about listening, and looping rather than sitting in a row
     if full:
         out += [""] + render_playlist_rail(loc)
+    # The homepage ends the releases on what is coming rather than what is
+    # done, and hands over to In the Making. The music page does not: it is
+    # the catalogue, and a teaser there would interrupt the listening links.
+    else:
+        out += section_cta(PAGE_FILE["press"], loc["comingSoon"])
 
     out.append("</section>")
     return out
@@ -756,20 +771,14 @@ def render_about(loc: dict, shared: dict, full: bool = False) -> list[str]:
     ]
 
     if not full:
-        # Homepage: the line he leads with, what shaped him, the bare facts.
+        # Homepage: the line he leads with, then the bare facts.
         out += [
             '      <blockquote class="quote reveal">',
             f'        <p>{a["quote"]}</p>',
             "      </blockquote>",
             "",
-            f'      <h3 class="about__sub reveal">{a["influencesHeading"]}</h3>',
-            '      <ul class="tags reveal">',
         ]
-        for tag in a["influences"]:
-            out.append(f'        <li{lang_attr(tag.get("lang"))}>{tag["label"]}</li>')
         out += [
-            "      </ul>",
-            "",
             f'      <h3 class="about__sub reveal">{a["profileHeading"]}</h3>',
             '      <dl class="facts reveal">',
         ]
@@ -830,8 +839,9 @@ def render_making(loc: dict) -> list[str]:
     """Section 05, "In the Making" - a placeholder page while the notes that
     belong here are still being written.
 
-    The section keeps the id `press` and the file `press.html`: the coverage
-    this section used to carry is still in `shared["press"]` and both locales,
+    The file is `making.html`, but the content key and the `#press` anchor
+    keep their old names: the coverage this section used to carry is still
+    in `shared["press"]` and both locales,
     dormant rather than deleted, and existing links to #press still land
     somewhere sensible. `render_press_rail` and `PressStage` are unused for
     now and kept for when that coverage is placed somewhere else.
@@ -934,10 +944,10 @@ def render_page(loc: dict, shared: dict, page: str) -> str:
               '<div class="glow" aria-hidden="true"></div>', "",
               f'<a class="skip" href="#{first}">{loc["nav"]["skip"]}</a>', ""]
 
-    # The homepage hangs #top on the hero. Pages with no hero still carry the
-    # footer's back-to-top link, so they need a target of their own.
-    if page != "home":
-        lines += ['<span id="top" aria-hidden="true"></span>', ""]
+    # #top sits above the nav on every page, so the wordmark and the footer's
+    # back-to-top link both land at the very top. On the homepage it used to
+    # hang on the hero, which scrolled the portrait under the sticky bar.
+    lines += ['<span id="top" aria-hidden="true"></span>', ""]
 
     if page == "home":
         # a trimmed version of each section, every heading a way through
