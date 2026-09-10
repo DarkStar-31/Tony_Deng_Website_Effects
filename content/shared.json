@@ -18,26 +18,6 @@
     {
       "id": "overthinking",
       "file": "audio/overthinking.mp3"
-    },
-    {
-      "id": "bluesky",
-      "file": "audio/bluesky.mp3"
-    },
-    {
-      "id": "pozhen",
-      "file": "audio/pozhen.mp3"
-    },
-    {
-      "id": "shiming",
-      "file": "audio/shiming.mp3"
-    },
-    {
-      "id": "tiankong",
-      "file": "audio/tiankong.mp3"
-    },
-    {
-      "id": "weifeng",
-      "file": "audio/weifeng.mp3"
     }
   ],
   "$playlists": "Keyed by the locale's `lang` up to the first dash. An id here must exist in `tracks`; an empty list falls the player back to its synthesised pad.",
@@ -175,8 +155,7 @@
         "how-it-feels-like",
         "oh-mother",
         "isc-finalist",
-        "masc-gasc-finalist",
-        "uksc-semi"
+        "masc-gasc-finalist"
       ]
     },
     {

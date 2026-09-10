@@ -21,11 +21,11 @@
     },
     "about": {
       "title": "About — Tony D",
-      "description": "Tony D (Yuetong Deng) — singer-songwriter and guitarist. Biography, influences, profile and milestones."
+      "description": "Tony D (Yuetong Deng) — singer-songwriter and guitarist. Biography, profile and milestones."
     },
     "press": {
-      "title": "Press — Tony D",
-      "description": "Coverage and commentary on Tony D, mostly on Weibo and in Chinese."
+      "title": "In the Making — Tony D",
+      "description": "New songs in progress — demos, recording, arrangement and notes from the studio as they take shape."
     }
   },
   "nav": {
@@ -46,7 +46,7 @@
         "label": "About"
       },
       {
-        "href": "press.html",
+        "href": "making.html",
         "label": "In the Making"
       }
     ],
@@ -65,7 +65,7 @@
     "eyebrow": "Signed Writer &middot; Universal Music Publishing Group",
     "srTitle": "Tony D — Overthinking",
     "sub": "",
-    "count": "<b class=\"key\">Tony Deng</b>: <b>Singer-Songwriter</b>",
+    "count": "<b class=\"key\">Tony D</b>: <b>Singer-Songwriter</b>",
     "outNow": "New album <strong>Overthinking</strong> out now",
     "playLabel": "Play",
     "pauseLabel": "Pause",
@@ -82,44 +82,29 @@
     },
     "overthinking": {
       "title": "Overthinking"
-    },
-    "bluesky": {
-      "title": "bluesky"
-    },
-    "pozhen": {
-      "title": "pozhen"
-    },
-    "shiming": {
-      "title": "shiming"
-    },
-    "tiankong": {
-      "title": "tiankong"
-    },
-    "weifeng": {
-      "title": "weifeng"
     }
   },
   "sections": {
     "music": {
       "num": "01",
       "title": "Releases",
-      "desc": "Two albums and eleven singles, released since 2021. Every track written, composed and performed by Tony."
+      "desc": "Two albums and eleven singles, released since 2021.<br>Every track written, composed and performed by Tony."
     },
     "videos": {
       "num": "02",
       "title": "Visuals",
-      "desc": "Original songs, shot and cut for the channel. Press one and the player loads in place — nothing from YouTube runs until you do.",
+      "desc": "",
       "more": "More visuals"
     },
     "about": {
       "num": "03",
       "title": "About",
-      "desc": "Jinan to Beijing to New York to Seattle — and a home studio the whole way through."
+      "desc": "Jinan to Beijing to New York to Seattle to Nashville — a life lived alongside music."
     },
     "milestones": {
       "num": "04",
       "title": "Milestones",
-      "desc": "Five years, from a first single to a global release.",
+      "desc": "From the first single onward...",
       "more": "See more"
     },
     "$pressComment": "Section 05 is In the Making. The key, the page file (press.html) and the #press anchor keep their old names so existing links still resolve; only what readers see changed.",
@@ -189,8 +174,7 @@
         },
         {
           "label": "Apple Music",
-          "url": "",
-          "missing": true
+          "url": "https://music.apple.com/us/album/saturn-diary/1802467636"
         }
       ]
     },
@@ -237,11 +221,11 @@
     },
     "look-in-the-mirror": {
       "title": "Look in the Mirror",
-      "sub": "2024 · 2M+ streams"
+      "sub": "2024 · Official video"
     },
     "her": {
       "title": "HER",
-      "sub": "2024 · 1M+ streams"
+      "sub": "2024 · Official video"
     },
     "i-do": {
       "title": "I Do",
@@ -308,34 +292,13 @@
     "captionWide": "Lead guitarist, School of Rock House Band",
     "altBottom": "Tony D portrait",
     "prose": [
-      "<strong>Tony Deng</strong> was born in Jinan, Shandong in 2007 and spent his early childhood between Jinan and Beijing before moving to New York at nine. He now lives in Seattle, and is in the Class of 2026 at Newport High School, Bellevue.",
+      "<strong>Tony Deng</strong> was born in Jinan, Shandong in October 2007 and spent his childhood between Jinan and Beijing, moving to New York at nine and to Seattle at ten. He now studies songwriting at Belmont University&rsquo;s Mike Curb College of Entertainment &amp; Music Business, in Nashville.",
       "He grew up inside a home studio built and run by his father — a producer, recording and mixing engineer, and formerly a lead guitarist and songwriter himself. Instruments and recording gear were simply what the house was made of. Tony studied piano, guzheng, violin and cello, but guitar has always been the one. He has perfect pitch, which his father discovered when Tony restrung a guitar and tuned it accurately without a tuner.",
       "He started writing in 2019, during the pandemic, when school stopped and there was little to do but practise. On Mother&rsquo;s Day at thirteen he decided to write his mum a song; two hours later the lyrics, the music and the demo were done. It was about her rules, his frustrations, and a deal to trade the song for two pairs of basketball shoes. Most of his songs start somewhere that ordinary."
     ],
-    "quote": "Music is how I often express myself.",
+    "quote": "Music is how I express myself — and how I connect with the world.",
     "proseAfterQuote": [
-      "At thirteen he became lead guitarist of the House Band at School of Rock in the Seattle area, playing venues including the Hard Rock Café, and was admitted to Berklee College of Music&rsquo;s Guitar Summer Program as a middle school student — returning three years running. In May 2025 he signed an exclusive global publishing deal with UMPG, and that October released <em>Overthinking</em> worldwide through Universal Music Group."
-    ],
-    "influencesHeading": "Influences",
-    "influences": [
-      {
-        "label": "The Beatles"
-      },
-      {
-        "label": "Oasis"
-      },
-      {
-        "label": "Coldplay"
-      },
-      {
-        "label": "Amy Winehouse"
-      },
-      {
-        "label": "Jeff Buckley"
-      },
-      {
-        "label": "Daniel Caesar"
-      }
+      "At thirteen he wrote and recorded his first original song, <em>Be Mine</em>, and became lead guitarist of the House Band at School of Rock in the Seattle area, playing venues including the Hard Rock Café; that same year he was admitted to Berklee College of Music&rsquo;s Guitar Summer Program as a middle school student. In 2023 he released his first original album, <em>Saturn Diary</em>. In May 2025 he signed an exclusive global publishing agreement with Universal Music Publishing Group, and that October his second album, <em>Overthinking</em>, was released worldwide by Universal Music Group."
     ],
     "profileHeading": "Profile",
     "facts": [
@@ -345,11 +308,11 @@
       },
       {
         "term": "Based",
-        "value": "Seattle, Washington"
+        "value": "Nashville, Tennessee"
       },
       {
-        "term": "School",
-        "value": "Newport High School, Bellevue — Class of 2026"
+        "term": "Studying",
+        "value": "Belmont University — Songwriting, Mike Curb College of Entertainment &amp; Music Business"
       },
       {
         "term": "Instruments",
@@ -378,8 +341,7 @@
     "oh-mother": "<b>Oh, Mother</b> — Weekly Winner, John Lennon Songwriting Contest",
     "isc-finalist": "Finalist — International Songwriting Competition",
     "masc-gasc-finalist": "Finalist — Mid-Atlantic Song Contest · Great American Song Contest",
-    "uksc-semi": "Semi-Finalist — UK Songwriting Contest",
-    "saturn-diary": "<b>Saturn Diary</b> — debut album, May 2023",
+      "saturn-diary": "<b>Saturn Diary</b> — debut album, May 2023",
     "time-will-speak": "<b>Time Will Speak</b> — Semi-Finalist, UK Songwriting Contest",
     "ode-to-joy": "Composed <b lang=\"zh\">欢乐颂歌</b> (Ode to Joy) for the band <span lang=\"zh\">折耳根</span> — officially released",
     "look-in-the-mirror": "<b>Look in the Mirror</b> — Champion, International Youth Music Competition",
@@ -490,10 +452,9 @@
   },
   "stats": [
     { "value": "2", "label": "Albums" },
-    { "value": "11", "label": "Singles" },
-    { "value": "2M+", "label": "Look in the Mirror &middot; QQ Music", "url": "https://youtu.be/Z-EP0Qwl2xw" },
-    { "value": "1M+", "label": "HER &middot; NetEase", "url": "https://youtu.be/NwpjbcHqua4" }
+    { "value": "11", "label": "Singles" }
   ],
+  "comingSoon": "Coming Soon",
   "playlistsHeading": "More on YouTube",
   "singlesNav": {
     "prev": "Earlier singles",
