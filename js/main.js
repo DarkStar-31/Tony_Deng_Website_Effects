@@ -1310,6 +1310,60 @@ class SinglesYears {
 
 
 /* ---------------------------------------------------------
+   Orbit — In the Making's ring of photos, turned by scrolling
+
+   Scroll-linked, never hijacked: the page scrolls normally through a tall
+   block while its stage stays pinned, and this only turns how far through
+   the block the reader is into one angle the stylesheet places every card
+   from. The cover in the middle never moves. It eases towards that point rather than jumping to it, so a flick of
+   the wheel coasts instead of stepping.
+   --------------------------------------------------------- */
+class Orbit {
+  constructor (sel = '[data-orbit]', turns = 1.25) {
+    this.root = document.querySelector(sel);
+    if (!this.root || REDUCED) return;
+    this.stage = this.root.querySelector('.orbit__stage');
+    this.scene = this.root.querySelector('.orbit__scene');
+    this.up = this.root.querySelector('[data-to-top]');
+    this.turns = turns;
+    this.target = 0;
+    this.now = 0;
+    this.raf = 0;
+
+    this.root.classList.add('is-live');
+    this.tick = this.tick.bind(this);
+    const read = () => {
+      const box = this.root.getBoundingClientRect();
+      // The stage pins below the nav, not at the top of the window, so the
+      // run is measured from there - otherwise the last stretch of the turn
+      // happened with the stage already sliding up under the nav.
+      const pin = parseFloat(getComputedStyle(this.stage).top) || 0;
+      const run = this.root.offsetHeight - this.stage.offsetHeight;
+      this.target = run > 0 ? Math.min(1, Math.max(0, (pin - box.top) / run)) : 0;
+      // The way back up is offered once the stage has pinned - the ring
+      // starts high enough on the page to fill the screen before any
+      // scrolling, and a "back to top" button at the top is noise - and for
+      // as long as the ring still holds the middle of the screen after.
+      if (this.up) {
+        this.up.classList.toggle('is-on', box.top <= pin + 1 && box.bottom > innerHeight / 2);
+      }
+      if (!this.raf) this.raf = requestAnimationFrame(this.tick);
+    };
+    addEventListener('scroll', read, { passive: true });
+    addEventListener('resize', read);
+    read();
+  }
+
+  tick () {
+    const gap = this.target - this.now;
+    this.now = Math.abs(gap) < 1e-4 ? this.target : this.now + gap * 0.1;
+    this.scene.style.setProperty('--spin', `${(this.now * this.turns * 360).toFixed(2)}deg`);
+    this.raf = this.now === this.target ? 0 : requestAnimationFrame(this.tick);
+  }
+}
+
+
+/* ---------------------------------------------------------
    boot
    --------------------------------------------------------- */
 document.addEventListener('DOMContentLoaded', () => {
@@ -1335,6 +1389,7 @@ document.addEventListener('DOMContentLoaded', () => {
   new CursorGlow('.glow');
   new PressStage('#pressStage');
   new SinglesYears();
+  new Orbit();
   new ScrollSpy();
   new VideoFacade();
 

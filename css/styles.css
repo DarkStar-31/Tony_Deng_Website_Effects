@@ -1261,19 +1261,106 @@ img{ display:block; max-width:100%; }
 .tl__list b{ color:var(--bone); font-weight:600; }
 
 /* ================= IN THE MAKING ================= */
-/* Section 05 is prose and nothing else. Every other section fills the width
-   with a rail or a grid, so this one would read as an orphaned sentence
-   against the left edge; holding it to the heading's own 38rem column keeps
-   the two reading as one block. */
-.making__prose{ max-width:38rem; }
-.making__prose p{
-  color:#B9B2AB; margin-bottom:1.15rem; text-wrap:pretty;
+
+/* ---- the orbit ----
+   One flat ring of photos, tipped towards the viewer (--lean) and then
+   turned so its long axis runs top-left to bottom-right (--tilt). Scrolling
+   turns the ring (--spin, written by Orbit in main.js), so the near side of
+   it sweeps down that diagonal. Each card undoes the ring's rotations after
+   it has been carried out to the rim, so it always faces the reader instead
+   of showing its back half the time.
+
+   Everything sits in one 3D context, cover included, so the browser does the
+   depth sorting: cards on the near side pass in front of the cover and the
+   far side goes behind it, with no z-index bookkeeping.
+
+   The block is only made tall once the script is running (.is-live). With JS
+   off or reduced motion it is a still ring one screen high. */
+.orbit{
+  /* Radius and card size are held to the screen's height as well as its
+     width: the near side of the ring swings low and comes forward, and on a
+     short screen it used to run out of the bottom of the stage. */
+  --r:min(44vw, 32rem, 42vh);      /* ring radius */
+  --tilt:26deg;
+  --lean:-20deg;
+  --card:clamp(4.5rem, min(11vw, 15vh), 9rem);
+  --cover:clamp(8rem, min(18vw, 26vh), 15rem);
+  position:relative;
+  margin-top:clamp(2rem,6vh,4rem);
+  margin-inline:calc(-1 * var(--pad));   /* full bleed: cards fly past the gutter */
 }
-.making__prose p:first-of-type{
-  font-family:var(--f-serif); font-size:1.32rem; line-height:1.5;
-  color:var(--bone);
+.orbit.is-live{ height:300vh; }
+.orbit__stage{
+  position:sticky; top:var(--nav-h);
+  height:min(80vh, 46rem);
+  display:grid; place-items:center;
+  perspective:calc(var(--r) * 3);
+  /* Sideways only. Clipping top and bottom cut cards off along a hard line
+     above the footer as the stage let go at the end. */
+  overflow-x:hidden; overflow-x:clip;
 }
-.making__prose p:last-of-type{ margin-bottom:0; }
+@supports (overflow-x:clip){ .orbit__stage{ overflow-y:visible; } }
+.orbit.is-live .orbit__stage{ height:calc(100vh - var(--nav-h)); height:calc(100svh - var(--nav-h)); }
+.orbit__scene{
+  --spin:0deg;
+  position:relative; width:0; height:0;
+  transform-style:preserve-3d;
+}
+.orbit__centre,
+.orbit__card{
+  position:absolute; left:0; top:0;
+  /* the scene is a zero-width point, so the site-wide img{max-width:100%}
+     would shrink every one of these to nothing */
+  max-width:none;
+  border-radius:6px;
+  box-shadow:0 1.2rem 3rem rgba(0,0,0,.55);
+}
+.orbit__centre{
+  width:var(--cover); aspect-ratio:1; object-fit:cover;
+  margin:calc(var(--cover) / -2) 0 0 calc(var(--cover) / -2);
+}
+/* Cards keep their own shape - square covers, tall posters, wide banners -
+   fitted inside a box a little wider than it is tall, so a banner reads as
+   a banner without dwarfing everything else. Since their height is unknown
+   until they load, they are centred by the translate at the head of the
+   transform rather than by a margin. Being leftmost it is applied last,
+   after the card has been carried out to the rim. */
+.orbit__card{
+  --a:calc(var(--i) * 360deg / var(--n) + var(--spin));
+  width:auto; height:auto;
+  max-width:calc(var(--card) * 1.7); max-height:calc(var(--card) * 1.25);
+  transform:
+    translate(-50%, -50%)
+    rotateZ(var(--tilt)) rotateX(var(--lean))
+    rotateY(var(--a)) translateZ(var(--r)) rotateY(calc(-1 * var(--a)))
+    rotateX(calc(-1 * var(--lean))) rotateZ(calc(-1 * var(--tilt)));
+  /* dimmer on the far side, but never to black - the card straight behind
+     the cover would otherwise show as a dark box over its top edge.
+     Browsers without CSS trig drop this line and simply show every card at
+     full brightness. */
+  filter:brightness(calc(.62 + .38 * cos(var(--a))));
+}
+
+/* The way back up from the ring, pinned bottom-right while the ring holds
+   the screen. Orbit in main.js turns it on; with no script the ring is not
+   tall and there is nothing to climb back out of. `visibility` waits for the
+   fade so the button cannot be tabbed to while it is invisible. */
+.to-top{
+  position:fixed; right:clamp(1rem, 3vw, 2rem); bottom:clamp(1rem, 3vw, 2rem);
+  z-index:150;
+  padding:.75rem 1.15rem;
+  border-radius:999px;
+  background:var(--bone); color:var(--ink);
+  font-size:.74rem; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+  text-decoration:none;
+  box-shadow:0 .6rem 1.6rem rgba(0,0,0,.45);
+  opacity:0; visibility:hidden; transform:translateY(.6rem);
+  transition:opacity .3s var(--ease), transform .3s var(--ease), visibility 0s linear .3s;
+}
+.to-top.is-on{
+  opacity:1; visibility:visible; transform:none;
+  transition-delay:0s;
+}
 
 
 /* ================= PRESS ================= */

@@ -835,9 +835,43 @@ def render_milestones(loc: dict, shared: dict, full: bool = False) -> list[str]:
     return out
 
 
-def render_making(loc: dict) -> list[str]:
-    """Section 05, "In the Making" - a placeholder page while the notes that
-    belong here are still being written.
+def render_orbit(loc: dict, shared: dict) -> list[str]:
+    """A ring of photos circling an album cover, turned by scrolling.
+
+    Plain CSS 3D, driven by `Orbit` in main.js: the script only writes how far
+    through the block the reader is, and the stylesheet places every card from
+    that. The cards are real <img>s laid out at rest, so with JS off (or with
+    reduced motion) this is a still ring rather than an empty tall box.
+    """
+    p = loc["assetPrefix"]
+    orb = shared["orbit"]
+    rel = next(r for r in shared["releases"] if r["id"] == orb["centre"])
+    alt = loc["releases"][orb["centre"]]["alt"]
+    out = [
+        '  <div class="orbit" data-orbit>',
+        '    <div class="orbit__stage">',
+        f'      <div class="orbit__scene" style="--n:{len(orb["photos"])}">',
+        f'        <img class="orbit__centre" src="{p}{rel["art"]}" alt="{attr(alt)}">',
+    ]
+    for i, photo in enumerate(orb["photos"]):
+        out.append(
+            f'        <img class="orbit__card" style="--i:{i}" src="{p}{photo}"'
+            ' alt="" aria-hidden="true" decoding="async">'
+        )
+    # Outside the stage on purpose: the stage carries a perspective, which
+    # would make it the box a position:fixed child is pinned to.
+    out += [
+        "      </div>",
+        "    </div>",
+        f'    <a class="to-top" href="#top" data-to-top>&uarr;&#160;{loc["footer"]["backToTop"]}</a>',
+        "  </div>",
+    ]
+    return out
+
+
+def render_making(loc: dict, shared: dict) -> list[str]:
+    """Section 05, "In the Making" - the heading and the orbit, until the
+    notes that belong here are written.
 
     The file is `making.html`, but the content key and the `#press` anchor
     keep their old names: the coverage this section used to carry is still
@@ -845,21 +879,12 @@ def render_making(loc: dict) -> list[str]:
     dormant rather than deleted, and existing links to #press still land
     somewhere sensible. `render_press_rail` and `PressStage` are unused for
     now and kept for when that coverage is placed somewhere else.
-
-    Unlike every other section this is prose and nothing else, so the body
-    is held to the same 38rem column as the heading above it rather than
-    running the full width a rail or a grid would want.
     """
     out = [
         "<!-- ================= 05 IN THE MAKING ================= -->",
         '<section class="section section--lead" id="press">',
-    ] + section_head(loc, "press") + [
-        "",
-        '  <div class="making__prose">',
-    ]
-    for para in loc["making"]["body"]:
-        out.append(f'    <p class="reveal">{para}</p>')
-    out += ["  </div>", "</section>"]
+    ] + section_head(loc, "press") + [""]
+    out += render_orbit(loc, shared) + ["</section>"]
     return out
 
 
@@ -980,7 +1005,7 @@ def render_page(loc: dict, shared: dict, page: str) -> str:
     else:
         blocks = [
             render_nav(loc, page),
-            render_making(loc),
+            render_making(loc, shared),
         ]
 
     # Every page finishes the same way: the copyright line, then the contact

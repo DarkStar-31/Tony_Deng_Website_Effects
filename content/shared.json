@@ -9,6 +9,22 @@
     "aboutWide": "img/live-hardrock.webp",
     "aboutBottom": "img/portrait-dark.webp"
   },
+  "$orbit": "In the Making's scroll ring. `centre` is a release id - its cover and alt text are reused from `releases`, so the ring circles the same artwork the homepage and music page show. `photos` go round it in this order; they are decorative and carry no alt text.",
+  "orbit": {
+    "centre": "saturn",
+    "photos": [
+      "img/orbit/overthinking-white.webp",
+      "img/orbit/banner-curiosity.webp",
+      "img/orbit/hi-cyan.webp",
+      "img/orbit/poster-her.webp",
+      "img/orbit/her-road.webp",
+      "img/orbit/banner-overthinking.webp",
+      "img/orbit/hi-magenta.webp",
+      "img/orbit/poster-wide.webp",
+      "img/orbit/her-clouds.webp",
+      "img/orbit/mask-green.webp"
+    ]
+  },
   "$tracks": "Every audio file on disk. `playlists` picks which of these the hero player queues, per locale - the two are separate so a file can sit here unused rather than having to be deleted.",
   "tracks": [
     {
