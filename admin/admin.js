@@ -18,7 +18,7 @@ const state = {
   headSha: null,
   files: null,
   dirty: false,
-  tab: 'videos',
+  tab: 'home',
   status: null,
 };
 
@@ -244,30 +244,95 @@ function uploadButton(dir, label, onDone) {
 
 // ---------------------------------------------------------------- tabs
 
+/* One tab per page of the site, in the order the nav has them.
+ *
+ * The tabs used to be named after the shapes in the JSON - Videos, Releases,
+ * Milestones, Images, Hero & nav - which meant knowing which file a thing
+ * lived in before you could find it. They are now named after the pages, so
+ * "change the wording under Music" is one tab, and each page's own title,
+ * heading, text and pictures sit together the way they do on the page.
+ *
+ * Milestones are inside About and the images sit with whatever references
+ * them, because that is how the pages are actually put together.
+ */
 const TABS = [
-  { id: 'videos', label: 'Videos', render: renderVideos },
-  { id: 'releases', label: 'Releases', render: renderReleases },
-  { id: 'about', label: 'About', render: renderAbout },
-  { id: 'milestones', label: 'Milestones', render: renderMilestones },
-  { id: 'press', label: 'Press', render: renderPress },
-  { id: 'contact', label: 'Contact & footer', render: renderContact },
-  { id: 'page', label: 'Hero & nav', render: renderPage },
-  { id: 'images', label: 'Images', render: renderImages },
+  { id: 'home', label: 'Tony D', render: renderHome },
+  { id: 'music', label: 'Music', render: renderMusic },
+  { id: 'visuals', label: 'Visuals', render: renderVisuals },
+  { id: 'about', label: 'About', render: renderAboutPage },
+  { id: 'making', label: 'In the Making', render: renderMaking },
+  { id: 'contact', label: 'Contact & footer', render: renderContactPage },
   { id: 'raw', label: 'Raw JSON', render: renderRaw },
 ];
+
+/* Tab names are editable: double-click one and type.
+ *
+ * A rename is stored in `shared.adminTabs`, keyed by tab id, and only when it
+ * differs from the built-in name above - so the defaults can be improved later
+ * without every site carrying a frozen copy of them, and renaming a tab back
+ * to its default removes the override rather than pinning it.
+ *
+ * It lives in shared.json rather than in this browser because the admin has
+ * two editors: a name only one of them could see would be worse than no
+ * renaming at all. That does mean a rename is a content change like any other
+ * - it marks the panel dirty, and it takes Save draft and Publish to stick.
+ * build.py ignores the key, so it never reaches the pages.
+ */
+const DEFAULT_TAB_LABEL = Object.fromEntries(TABS.map((t) => [t.id, t.label]));
+
+function tabLabel(id) {
+  const names = state.files ? SHARED().adminTabs : null;
+  return (names && names[id]) || DEFAULT_TAB_LABEL[id];
+}
+
+function setTabLabel(id, label) {
+  const shared = SHARED();
+  const names = shared.adminTabs || (shared.adminTabs = {});
+  if (label === DEFAULT_TAB_LABEL[id]) delete names[id];
+  else names[id] = label;
+  if (!Object.keys(names).length) delete shared.adminTabs;
+}
+
+// The page keys build.py uses. `press` is the In the Making page: the file is
+// making.html but the key kept its old name, so that existing #press links
+// still land somewhere sensible. See render_making in build.py.
+const PAGE_KEY = { home: 'home', music: 'music', visuals: 'videos',
+                   about: 'about', making: 'press' };
+
+/** Title and meta description for one page. */
+function pageMeta(tabId) {
+  const key = PAGE_KEY[tabId];
+  return card('Browser tab & search results', null, el('div', {},
+    bi('Page title', 'title', (l) => LOC(l).pages[key]),
+    bi('Meta description', 'description', (l) => LOC(l).pages[key], { multiline: true, rows: 2 }),
+  ));
+}
+
+/** The numbered heading at the top of one section, in both locales. */
+function sectionHeading(key) {
+  const en = LOC('en').sections[key];
+  const zh = LOC('zh').sections[key];
+  if (!en || !zh) return null;
+  return card('Section heading', null, el('div', {},
+    el('span', { className: 'hint' }, `#${key}`),
+    row(
+      field('Number', input(en, 'num', { mono: true })),
+      field('Title', input(en, 'title'), null, LANGS[0]),
+      field('Title', input(zh, 'title', { lang: 'zh-Hans' }), null, LANGS[1]),
+    ),
+    row(
+      field('Description', input(en, 'desc', { multiline: true, rows: 2 }), null, LANGS[0]),
+      field('Description', input(zh, 'desc', { multiline: true, rows: 2, lang: 'zh-Hans' }), null, LANGS[1]),
+    ),
+  ));
+}
 
 // ---------------------------------------------------------------- videos
 
 function renderVideos() {
   const shared = SHARED();
   const rerender = () => renderPanel();
-  const out = [
-    intro(
-      'Each tile is a link with a poster until someone clicks it — nothing loads from YouTube or Bilibili on page load. ' +
-      'The <b>Bilibili BV id</b> is the one to fill in when a video goes up on B站: a tile with an empty BV id stays an ' +
-      'ordinary outbound link on the Chinese page instead of becoming a player that cannot load in China.',
-    ),
-  ];
+  const out = [];
 
   shared.videos.forEach((v, i) => {
     const enV = LOC('en').videos[v.id] || (LOC('en').videos[v.id] = { title: '', sub: '' });
@@ -391,7 +456,7 @@ function linksEditor(locale, obj) {
 function renderReleases() {
   const shared = SHARED();
   const rerender = () => renderPanel();
-  const out = [intro('Albums and singles cards in section 01. The Chinese page deliberately leads with NetEase and QQ Music, so each language keeps its own link list and its own order.')];
+  const out = [];
 
   shared.releases.forEach((r, i) => {
     const enR = LOC('en').releases[r.id];
@@ -468,7 +533,7 @@ function renderAbout() {
   const rerender = () => renderPanel();
   const enA = LOC('en').about;
   const zhA = LOC('zh').about;
-  const out = [intro('Section 03. The bio is the part of the site most likely to be read by a label or a journalist — every claim here should be something the resume PDF actually supports.')];
+  const out = [];
 
   out.push(card('Bio paragraphs', null, el('div', {},
     row(paragraphList('en', enA, 'prose', 'Paragraph'), paragraphList('zh', zhA, 'prose', '段落')),
@@ -480,24 +545,6 @@ function renderAbout() {
     row(paragraphList('en', enA, 'proseAfterQuote', 'Paragraph'),
         paragraphList('zh', zhA, 'proseAfterQuote', '段落')),
   )));
-
-  // Influences — a per-locale list, because the Chinese page gives the
-  // Chinese rendering of bands that have one and leaves the rest in English.
-  const infl = el('div', {}, ...LANGS.map((lang) => {
-    const list = (lang.code === 'en' ? enA : zhA).influences;
-    return el('div', { style: 'flex:1' },
-      el('span', { className: 'hint' }, `Influences (${lang.label})`),
-      ...list.map((item, i) => row(
-        field('Name', input(item, 'label', { lang: lang.attr })),
-        field('lang attr', input(item, 'lang', { mono: true, dropWhenEmpty: true })),
-        el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
-                       onclick: () => { list.splice(i, 1); markDirty(); rerender(); } }, '×'),
-      )),
-      el('button', { className: 'btn btn--small', type: 'button',
-                     onclick: () => { list.push({ label: '' }); markDirty(); rerender(); } }, '+ name'),
-    );
-  }));
-  out.push(card('Influences', null, el('div', { className: 'row' }, infl)));
 
   // Profile table
   const facts = el('div', { className: 'row' }, ...LANGS.map((lang) => {
@@ -517,7 +564,6 @@ function renderAbout() {
   out.push(card('Profile table', null, facts));
 
   out.push(card('Headings', null, el('div', {},
-    bi('Influences heading', 'influencesHeading', (l) => (l === 'en' ? enA : zhA)),
     bi('Profile heading', 'profileHeading', (l) => (l === 'en' ? enA : zhA)),
   )));
 
@@ -536,7 +582,7 @@ function renderAbout() {
 function renderMilestones() {
   const shared = SHARED();
   const rerender = () => renderPanel();
-  const out = [intro('Section 04, the timeline. Each bullet exists once and carries an English and a Chinese wording, so a new award is one entry rather than two.')];
+  const out = [];
 
   shared.milestones.forEach((yearRow, yi) => {
     const items = yearRow.items.map((itemId, ii) => {
@@ -607,7 +653,7 @@ function renderMilestones() {
 function renderPress() {
   const shared = SHARED();
   const rerender = () => renderPanel();
-  const out = [intro('Not currently shown on the site — section 05 is now In the Making. This coverage is kept here so it can be placed somewhere else later; edits are saved but will not appear until it is rendered again. The English page shows the original Chinese headline with an English gloss underneath — those glosses are translations for readers, not official titles, so keep them descriptive rather than authoritative.')];
+  const out = [];
 
   shared.press.forEach((item, i) => {
     const enP = LOC('en').press[item.id] || (LOC('en').press[item.id] = { src: '', title: '', gloss: '' });
@@ -643,7 +689,7 @@ function renderPress() {
 function renderContact() {
   const shared = SHARED();
   const rerender = () => renderPanel();
-  const out = [intro('Section 06 and the footer. The email here is the public-facing management address — it appears on both pages and in the mailto link.')];
+  const out = [];
 
   out.push(card('Shared', null, el('div', {},
     row(
@@ -697,42 +743,13 @@ function renderContact() {
   return out;
 }
 
-// ---------------------------------------------------------------- page
+// ---------------------------------------------------------------- chrome
 
-function renderPage() {
-  const rerender = () => renderPanel();
-  const out = [intro('The masthead and the numbered heading at the top of every section.')];
+/* Pieces of the site that are not one section's own: the nav, and the two
+ * boxes that exist on the Chinese page only. */
 
-  out.push(card('Browser tab & search results', null, el('div', {},
-    bi('Page title', 'title', (l) => LOC(l).head),
-    bi('Meta description', 'description', (l) => LOC(l).head, { multiline: true, rows: 2 }),
-  )));
-
-  out.push(card('Hero', null, el('div', {},
-    bi('Eyebrow', 'eyebrow', (l) => LOC(l).hero),
-    bi('Hidden heading (screen readers)', 'srTitle', (l) => LOC(l).hero,
-       { hint: 'The logo is an image, so this is the real <code>h1</code> text.' }),
-    bi('Subheading', 'sub', (l) => LOC(l).hero, { multiline: true, rows: 3 }),
-    bi('Play button label', 'playLabel', (l) => LOC(l).hero),
-    bi('Hero image alt', 'imageAlt', (l) => LOC(l).hero),
-  )));
-
-  const sectionKeys = Object.keys(LOC('en').sections);
-  out.push(card('Section headings', null, el('div', {}, ...sectionKeys.map((key) =>
-    el('div', { style: 'margin-bottom:14px' },
-      el('span', { className: 'hint' }, `#${key}`),
-      row(
-        field('Number', input(LOC('en').sections[key], 'num', { mono: true })),
-        field('Title', input(LOC('en').sections[key], 'title'), null, LANGS[0]),
-        field('Title', input(LOC('zh').sections[key], 'title', { lang: 'zh-Hans' }), null, LANGS[1]),
-      ),
-      row(
-        field('Description', input(LOC('en').sections[key], 'desc', { multiline: true, rows: 2 }), null, LANGS[0]),
-        field('Description', input(LOC('zh').sections[key], 'desc', { multiline: true, rows: 2, lang: 'zh-Hans' }), null, LANGS[1]),
-      ),
-    )))));
-
-  out.push(card('Navigation', null, el('div', {},
+function navCard() {
+  return card('Navigation', null, el('div', {},
     bi('Skip-to-content link', 'skip', (l) => LOC(l).nav),
     ...LOC('en').nav.links.map((_, i) => row(
       field('Link target', input(LOC('en').nav.links[i], 'href', { mono: true })),
@@ -743,7 +760,13 @@ function renderPage() {
       field('Contact button', input(LOC('en').nav.cta, 'label'), null, LANGS[0]),
       field('Contact button', input(LOC('zh').nav.cta, 'label', { lang: 'zh-Hans' }), null, LANGS[1]),
     ),
-  )));
+  ));
+}
+
+/** The notice above the Chinese video grid, and the flags on tiles with no BV id. */
+function bilibiliCards() {
+  const rerender = () => renderPanel();
+  const out = [];
 
   const notice = LOC('zh').notice;
   if (notice) {
@@ -779,58 +802,33 @@ function renderPage() {
 
 // ---------------------------------------------------------------- images
 
-function renderImages() {
-  const shared = SHARED();
+/* The image grids. There is no longer an Images tab: a picture is edited on
+ * the tab for the page it appears on, so that replacing the live photo does
+ * not mean hunting through every image on the site to find it. */
+
+const UPLOAD_NOTE =
+  'Uploads commit to the draft branch straight away, so a new picture is on the preview URL immediately — ' +
+  'but it will 404 in this admin until you publish, because this page loads previews from the live site.';
+
+/**
+ * A grid of replaceable images. Each item is `{ label, path, dir, set }`;
+ * `set` takes the new path and writes it wherever that image is referenced.
+ */
+function imageGrid(items) {
   const rerender = () => renderPanel();
-  const out = [intro(
-    'Every image the pages reference. Uploads commit to the draft branch straight away, so a new photo is visible on ' +
-    'the preview URL immediately — but it will 404 in this admin until you publish, because this page loads previews ' +
-    'from the live site.',
-  )];
+  return el('div', { className: 'imggrid' }, ...items.map((it) =>
+    el('div', { className: 'imgcard' },
+      el('img', { src: '/' + it.path, alt: '', loading: 'lazy' }),
+      el('div', { className: 'imgcard__body' },
+        el('div', { className: 'imgcard__name' }, it.label),
+        el('div', { className: 'imgcard__path' }, it.path),
+        uploadButton(it.dir || 'img', 'Replace', (path) => { it.set(path); markDirty(); rerender(); })))));
+}
 
-  const named = [
-    ['Hero portrait', 'hero'],
-    ['About — top portrait', 'aboutTop'],
-    ['About — live photo', 'aboutWide'],
-    ['About — bottom portrait', 'aboutBottom'],
-    ['Handwritten logo', 'ink'],
-  ];
-
-  const grid = el('div', { className: 'imggrid' },
-    ...named.map(([label, key]) =>
-      el('div', { className: 'imgcard' },
-        el('img', { src: '/' + shared.images[key], alt: '', loading: 'lazy' }),
-        el('div', { className: 'imgcard__body' },
-          el('div', { className: 'imgcard__name' }, label),
-          el('div', { className: 'imgcard__path' }, shared.images[key]),
-          uploadButton('img', 'Replace', (path) => { shared.images[key] = path; markDirty(); rerender(); })))),
-    ...shared.releases.map((r) =>
-      el('div', { className: 'imgcard' },
-        el('img', { src: '/' + r.art, alt: '', loading: 'lazy' }),
-        el('div', { className: 'imgcard__body' },
-          el('div', { className: 'imgcard__name' }, `Cover — ${r.id}`),
-          el('div', { className: 'imgcard__path' }, r.art),
-          uploadButton('img', 'Replace', (path) => { r.art = path; markDirty(); rerender(); })))),
-  );
-
-  out.push(card('Photos & covers', null, grid));
-
-  const posters = el('div', { className: 'imggrid' },
-    ...shared.videos.map((v) =>
-      el('div', { className: 'imgcard' },
-        el('img', { src: '/' + v.poster, alt: '', loading: 'lazy' }),
-        el('div', { className: 'imgcard__body' },
-          el('div', { className: 'imgcard__name' }, LOC('en').videos[v.id]?.title || v.id),
-          el('div', { className: 'imgcard__path' }, v.poster),
-          uploadButton('img/video', 'Replace', (path) => { v.poster = path; markDirty(); rerender(); })))),
-  );
-  out.push(card('Video posters', null, posters));
-
-  out.push(card('Why posters are self-hosted', null, el('p', { className: 'hint' },
-    'These used to be hot-linked from i.ytimg.com, which is blocked in mainland China — the Chinese page showed ' +
-    'thirteen broken images. Keep them local; do not paste a YouTube thumbnail URL into the poster field.')));
-
-  return out;
+function imageCard(title, items, note) {
+  return card(title, null, el('div', {},
+    el('p', { className: 'hint' }, note || UPLOAD_NOTE),
+    imageGrid(items)));
 }
 
 // ---------------------------------------------------------------- raw
@@ -863,17 +861,241 @@ function renderRaw() {
   return out;
 }
 
+// ---------------------------------------------------------------- pages
+
+/* The seven tabs, each one a page of the site.
+ *
+ * These are compositions, not new editors: the section renderers above still
+ * do the work, and a tab decides which of them belong to its page and in what
+ * order. Adding a section to a page is a line here rather than a new form.
+ */
+
+function renderHome() {
+  return [
+    intro(
+      'The top of the site — the masthead, the portrait and the chrome every page carries. ' +
+      'The homepage also shows a trimmed version of Music, Visuals, About and the timeline; ' +
+      'that text is edited on their own tabs and changes in both places at once.',
+    ),
+    pageMeta('home'),
+    card('Hero', null, el('div', {},
+      bi('Eyebrow', 'eyebrow', (l) => LOC(l).hero),
+      bi('Hidden heading (screen readers)', 'srTitle', (l) => LOC(l).hero,
+         { hint: 'The logo is an image, so this is the real <code>h1</code> text.' }),
+      bi('Subheading', 'sub', (l) => LOC(l).hero, { multiline: true, rows: 3 }),
+      bi('Play button label', 'playLabel', (l) => LOC(l).hero),
+      bi('Hero image alt', 'imageAlt', (l) => LOC(l).hero),
+    )),
+    imageCard('Hero images', [
+      { label: 'Hero portrait', path: SHARED().images.hero,
+        set: (v) => { SHARED().images.hero = v; } },
+      { label: 'Handwritten logo', path: SHARED().images.ink,
+        set: (v) => { SHARED().images.ink = v; } },
+    ]),
+    navCard(),
+  ];
+}
+
+function renderMusic() {
+  return [
+    intro(
+      'The Music page, and the shortened version of it on the homepage. The Chinese page deliberately ' +
+      'leads with NetEase and QQ Music, so each language keeps its own link list and its own order.',
+    ),
+    pageMeta('music'),
+    sectionHeading('music'),
+    ...renderReleases(),
+    imageCard('Covers', SHARED().releases.map((r) => ({
+      label: LOC('en').releases[r.id]?.title || r.id,
+      path: r.art,
+      set: (v) => { r.art = v; },
+    }))),
+  ];
+}
+
+function renderVisuals() {
+  return [
+    intro(
+      'The Visuals page. Each tile is a link with a poster until someone clicks it — nothing loads from ' +
+      'YouTube or Bilibili on page load. The <b>Bilibili BV id</b> is the one to fill in when a video goes up ' +
+      'on B站: a tile with an empty BV id stays an ordinary outbound link on the Chinese page instead of ' +
+      'becoming a player that cannot load in China.',
+    ),
+    pageMeta('visuals'),
+    sectionHeading('videos'),
+    ...renderVideos(),
+    imageCard('Video posters', SHARED().videos.map((v) => ({
+      label: LOC('en').videos[v.id]?.title || v.id,
+      path: v.poster,
+      dir: 'img/video',
+      set: (val) => { v.poster = val; },
+    })), 'These used to be hot-linked from i.ytimg.com, which is blocked in mainland China — the Chinese ' +
+         'page showed thirteen broken images. Keep them local; do not paste a YouTube thumbnail URL here.'),
+    ...bilibiliCards(),
+  ];
+}
+
+function renderAboutPage() {
+  return [
+    intro(
+      'The About page. The bio is the part of the site most likely to be read by a label or a journalist — ' +
+      'every claim here should be something the resume PDF actually supports.',
+    ),
+    pageMeta('about'),
+    sectionHeading('about'),
+    ...renderAbout(),
+    imageCard('Photographs', [
+      { label: 'Top portrait', path: SHARED().images.aboutTop,
+        set: (v) => { SHARED().images.aboutTop = v; } },
+      { label: 'Live photo', path: SHARED().images.aboutWide,
+        set: (v) => { SHARED().images.aboutWide = v; } },
+      { label: 'Bottom portrait', path: SHARED().images.aboutBottom,
+        set: (v) => { SHARED().images.aboutBottom = v; } },
+    ]),
+    intro(
+      'The timeline, at the foot of the same page. Each bullet exists once and carries an English and a ' +
+      'Chinese wording, so a new award is one entry rather than two.',
+    ),
+    sectionHeading('milestones'),
+    ...renderMilestones(),
+  ];
+}
+
+function renderMaking() {
+  const shared = SHARED();
+  const rerender = () => renderPanel();
+  const out = [
+    intro(
+      'The In the Making page. It carries its heading and the scroll orbit; the notes that belong ' +
+      'underneath have not been written yet.',
+    ),
+    pageMeta('making'),
+    sectionHeading('press'),
+  ];
+
+  const orbit = shared.orbit;
+  if (orbit) {
+    const centre = el('select', {});
+    shared.releases.forEach((r) => {
+      const opt = el('option', { value: r.id }, LOC('en').releases[r.id]?.title || r.id);
+      if (r.id === orbit.centre) opt.selected = true;
+      centre.append(opt);
+    });
+    centre.addEventListener('change', () => { orbit.centre = centre.value; markDirty(); rerender(); });
+
+    out.push(card('Scroll orbit', null, el('div', {},
+      field('Centre', centre,
+            'The still cover in the middle of the ring. Its artwork and alt text come from that release, ' +
+            'so the ring circles something the rest of the site already shows.'),
+      el('p', { className: 'hint' },
+        'The ring, in the order it goes round. These are decorative and carry no alt text. ' + UPLOAD_NOTE),
+      el('div', { className: 'imggrid' }, ...orbit.photos.map((path, i) =>
+        el('div', { className: 'imgcard' },
+          el('img', { src: '/' + path, alt: '', loading: 'lazy' }),
+          el('div', { className: 'imgcard__body' },
+            el('div', { className: 'imgcard__path' }, path),
+            listControls(orbit.photos, i, rerender))))),
+      uploadButton('img/orbit', '+ Add a photo',
+                   (path) => { orbit.photos.push(path); markDirty(); rerender(); }),
+    )));
+  }
+
+  out.push(intro(
+    'Press coverage, not shown anywhere on the site at the moment. It is kept so it can be placed ' +
+    'somewhere else later — edits save, but will not appear until it is rendered again. The English page ' +
+    'shows the original Chinese headline with an English gloss underneath; those glosses are translations ' +
+    'for readers, not official titles, so keep them descriptive rather than authoritative.',
+  ));
+  out.push(...renderPress());
+  return out;
+}
+
+function renderContactPage() {
+  return [
+    intro(
+      'The contact block and the footer, which finish every page. The email here is the public-facing ' +
+      'management address — it appears in both languages and in the mailto link.',
+    ),
+    sectionHeading('contact'),
+    ...renderContact(),
+  ];
+}
+
 // ---------------------------------------------------------------- shell
 
 function renderTabs() {
   const nav = document.getElementById('tabs');
-  nav.replaceChildren(...TABS.map((tab) =>
-    el('button', {
+  nav.replaceChildren(...TABS.map((tab) => {
+    const btn = el('button', {
       type: 'button',
       role: 'tab',
+      'data-tab': tab.id,
+      title: 'Double-click to rename',
       'aria-selected': String(tab.id === state.tab),
-      onclick: () => { state.tab = tab.id; renderTabs(); renderPanel(); window.scrollTo(0, 0); },
-    }, tab.label)));
+      onclick: () => selectTab(tab.id),
+      ondblclick: () => renameTab(btn, tab.id),
+    }, tabLabel(tab.id));
+    return btn;
+  }));
+}
+
+/* Selecting a tab moves the underline in place rather than rebuilding the bar.
+ * A rebuild would replace the button between the two halves of a double-click,
+ * leaving the rename to happen on a node no longer in the document. */
+function selectTab(id) {
+  if (state.tab === id) return;
+  state.tab = id;
+  for (const btn of document.getElementById('tabs').children) {
+    btn.setAttribute('aria-selected', String(btn.dataset.tab === state.tab));
+  }
+  renderPanel();
+  window.scrollTo(0, 0);
+}
+
+/** Edit a tab's name in place. Enter or clicking away keeps it, Escape does not. */
+function renameTab(btn, id) {
+  if (btn.isContentEditable) return;
+  const before = tabLabel(id);
+
+  // plaintext-only keeps pasted markup out; not every browser has it yet.
+  btn.contentEditable = 'plaintext-only';
+  if (btn.contentEditable !== 'plaintext-only') btn.contentEditable = 'true';
+  btn.classList.add('is-editing');
+  btn.focus();
+
+  const range = document.createRange();
+  range.selectNodeContents(btn);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+
+  let done = false;
+  const finish = (keep) => {
+    if (done) return;
+    done = true;
+    btn.removeEventListener('keydown', onKey);
+    btn.removeEventListener('blur', onBlur);
+    btn.contentEditable = 'false';
+    btn.classList.remove('is-editing');
+    window.getSelection().removeAllRanges();
+
+    const next = btn.textContent.replace(/\s+/g, ' ').trim();
+    if (keep && next && next !== before) {
+      setTabLabel(id, next);
+      markDirty();
+    }
+    // Whether kept, cancelled or left empty, the button shows what is stored.
+    btn.textContent = tabLabel(id);
+  };
+
+  const onKey = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+  };
+  const onBlur = () => finish(true);
+
+  btn.addEventListener('keydown', onKey);
+  btn.addEventListener('blur', onBlur);
 }
 
 function renderPanel() {

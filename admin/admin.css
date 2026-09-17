@@ -85,9 +85,16 @@ body {
 
 /* ------------------------------------------------------------- tabs */
 
+/* The tabs are renamable, so their widths cannot be set by hand: the bar is a
+   grid whose columns each take `max-content` first and then an equal share of
+   whatever is left over. Rename a tab and the row re-balances on its own -
+   every tab keeps the same amount of breathing space around its text, and a
+   long name takes the room it needs from the slack rather than from the tab
+   beside it. No JS measures anything. */
 .tabs {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(max-content, 1fr);
   gap: 2px;
   padding: 0 20px;
   border-bottom: 1px solid var(--line);
@@ -97,6 +104,12 @@ body {
   z-index: 19;
 }
 
+/* Below this the seven names no longer fit on one row at a readable size, so
+   the bar goes back to wrapping and each tab is as wide as its own text. */
+@media (max-width: 820px) {
+  .tabs { display: flex; flex-wrap: wrap; }
+}
+
 .tabs button {
   padding: 11px 14px;
   border: 0;
@@ -104,10 +117,24 @@ body {
   background: none;
   color: var(--dim);
   font: 600 13px/1 var(--f-sans);
+  text-align: center;
+  white-space: nowrap;
   cursor: pointer;
 }
 .tabs button:hover { color: var(--bone); }
 .tabs button[aria-selected="true"] { color: var(--bone); border-bottom-color: var(--magenta); }
+
+/* Being edited. The caret needs somewhere to sit, so the tab takes a ground
+   and loses the pointer cursor; `white-space` relaxes to normal so a name
+   being typed cannot push the row wider than the window. */
+.tabs button.is-editing {
+  background: var(--ink-3);
+  color: var(--bone);
+  outline: 1px solid var(--magenta);
+  outline-offset: -1px;
+  white-space: normal;
+  cursor: text;
+}
 
 /* ------------------------------------------------------------- layout */
 
