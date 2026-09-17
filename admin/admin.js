@@ -316,13 +316,16 @@ function sectionHeading(key) {
   return card('Section heading', null, el('div', {},
     el('span', { className: 'hint' }, `#${key}`),
     row(
-      field('Number', input(en, 'num', { mono: true })),
+      ...('num' in en ? [field('Number', input(en, 'num', { mono: true }))] : []),
       field('Title', input(en, 'title'), null, LANGS[0]),
       field('Title', input(zh, 'title', { lang: 'zh-Hans' }), null, LANGS[1]),
     ),
     row(
-      field('Description', input(en, 'desc', { multiline: true, rows: 2 }), null, LANGS[0]),
-      field('Description', input(zh, 'desc', { multiline: true, rows: 2, lang: 'zh-Hans' }), null, LANGS[1]),
+      field('Description', input(en, 'desc', { multiline: true, rows: 2 }),
+            'Stays on one line when the window is wide enough. Press Enter where you want it to break instead.',
+            LANGS[0]),
+      field('Description', input(zh, 'desc', { multiline: true, rows: 2, lang: 'zh-Hans' }),
+            '窗口够宽时保持一行；如需换行，在想换行的位置按回车。', LANGS[1]),
     ),
   ));
 }
@@ -702,6 +705,32 @@ function renderContact() {
     bi('Who to contact', 'who', (l) => LOC(l).contact),
   )));
 
+  if (LOC('en').contact.form && LOC('zh').contact.form) {
+    const form = (l) => LOC(l).contact.form;
+    out.push(card('Message window', null, el('div', {},
+      el('p', { className: 'hint', html:
+        'The window the "Message Tony" button opens. Sending is not connected online yet, so on the ' +
+        'deployed site it shows the error line; the local preview accepts messages. ' +
+        '<code>{to}</code> and <code>{email}</code> are filled in for you — leave them in.' }),
+      bi('Button', 'open', form),
+      bi('Window title', 'title', form),
+      bi('Introduction', 'intro', form, { multiline: true, rows: 2 }),
+      bi('Message label', 'messageLabel', form),
+      bi('Name label', 'nameLabel', form),
+      bi('Name hint', 'nameHint', form),
+      bi('Email/phone label', 'replyLabel', form),
+      bi('Email/phone hint', 'replyHint', form, { multiline: true, rows: 2 }),
+      bi('Send button', 'send', form),
+      bi('Cancel button', 'cancel', form),
+      bi('Close button (screen readers)', 'close', form),
+      bi('While sending', 'sending', form),
+      bi('After sending', 'sent', form, { multiline: true, rows: 2 }),
+      bi('If it fails', 'error', form, { multiline: true, rows: 2 }),
+      bi('No message written', 'needMessage', form),
+      bi('No email or phone', 'needReply', form),
+    )));
+  }
+
   LANGS.forEach((lang) => {
     const contact = LOC(lang.code).contact;
     const cols = contact.columns;
@@ -891,6 +920,8 @@ function renderHome() {
         set: (v) => { SHARED().images.hero = v; } },
       { label: 'Handwritten logo', path: SHARED().images.ink,
         set: (v) => { SHARED().images.ink = v; } },
+      { label: 'Handwritten name (takes turns with the logo)', path: SHARED().images.inkName,
+        set: (v) => { SHARED().images.inkName = v; } },
     ]),
     navCard(),
   ];
@@ -958,6 +989,13 @@ function renderAboutPage() {
     ),
     sectionHeading('milestones'),
     ...renderMilestones(),
+    intro(
+      'Press &amp; Mentions, which closes the page. The English page shows an English title with a gloss ' +
+      'underneath; those are descriptions for readers, not official headlines, so keep them descriptive ' +
+      'rather than authoritative.',
+    ),
+    sectionHeading('coverage'),
+    ...renderPress(),
   ];
 }
 
@@ -967,7 +1005,7 @@ function renderMaking() {
   const out = [
     intro(
       'The In the Making page. It carries its heading and the scroll orbit; the notes that belong ' +
-      'underneath have not been written yet.',
+      'underneath have not been written yet. Press coverage moved to the foot of the About page.',
     ),
     pageMeta('making'),
     sectionHeading('press'),
@@ -1000,13 +1038,6 @@ function renderMaking() {
     )));
   }
 
-  out.push(intro(
-    'Press coverage, not shown anywhere on the site at the moment. It is kept so it can be placed ' +
-    'somewhere else later — edits save, but will not appear until it is rendered again. The English page ' +
-    'shows the original Chinese headline with an English gloss underneath; those glosses are translations ' +
-    'for readers, not official titles, so keep them descriptive rather than authoritative.',
-  ));
-  out.push(...renderPress());
   return out;
 }
 

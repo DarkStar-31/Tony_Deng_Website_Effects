@@ -518,7 +518,12 @@ img{ display:block; max-width:100%; }
 /* resting state is VISIBLE; the keyframes supply the hidden start via
    fill-mode `both`, so a skipped animation can never strand the logo. */
 .ink{
-  width:min(30rem, 74vw);
+  /* the image was trimmed to its first stroke (it used to carry ~17% of
+     empty margin on the left), so this is the old 30rem / 74vw scaled by
+     444/544 - same size lettering, now flush with the text below. Then
+     taken up about a third on top of that, so it is the first thing on the
+     page the eye lands on. */
+  width:min(33rem, 82vw);
   filter:drop-shadow(0 6px 26px rgba(0,0,0,.55));
   /* 9.5s cycle: draws in over ~1.9s, rests ~6.6s, wipes off, redraws.
      Percentages are scaled to hold the draw itself at ~1.9s — retune them
@@ -541,6 +546,35 @@ img{ display:block; max-width:100%; }
    is that pausing restarts the cycle rather than resuming it, so the
    wordmark draws itself on again - which reads as the page waking back up. */
 .is-playing .ink{ animation:none; }
+
+/* ---- the song title and his name, taking turns ----
+   Both share one box: the title sets its size, the name is laid over it and
+   scaled to fit. Each gets a 6s turn of a 12s loop - the same 1.9s stroke as
+   above, a shorter hold, the same wipe - and is off for the other one's
+   turn; the name starts half the loop late. Nothing in JS - the clock is the animation itself.
+
+   The name's resting state is hidden, the title's is drawn. So anything that
+   drops the animation (playing, reduced motion) leaves exactly one wordmark
+   up, and it is the song. */
+.inks{ position:relative; display:block; width:min(33rem, 82vw); }
+.inks .ink{ display:block; width:100%; }
+.inks--pair .ink{ animation:ink-turn 12s var(--ease) .35s infinite both; }
+.inks--pair .ink--name{
+  position:absolute; inset:0; height:100%;
+  object-fit:contain; object-position:left center;
+  clip-path:inset(0 100% 0 0);
+  animation-delay:6.35s;
+}
+.is-playing .inks--pair .ink{ animation:none; }
+@keyframes ink-turn{
+  /* of 12s: draw 1.9s, hold 3.35s, wipe 0.75s - so 50% is one turn */
+  0%    { clip-path:inset(0 100% 0 0); }
+  15.8% { clip-path:inset(0 -2% 0 0);  }
+  43.7% { clip-path:inset(0 -2% 0 0);  }
+  50%   { clip-path:inset(0 0 0 100%); }
+  /* gone for the other one's turn */
+  100%  { clip-path:inset(0 0 0 100%); }
+}
 @keyframes ink-draw{
   /* draw on, left to right */
   0%   { clip-path:inset(0 100% 0 0); }
@@ -806,7 +840,12 @@ img{ display:block; max-width:100%; }
   border-top:1px solid var(--line);
   border-bottom:1px solid var(--line);
 }
-.section__head{ max-width:38rem; margin-bottom:3.2rem; }
+.section__head{ margin-bottom:3.2rem; }
+/* 3.2rem was tuned under a standfirst that wrapped to two lines. On one line
+   it left about a line's worth of dead air above the content, so a head that
+   ends in a description closes up. A bare title (Visuals) keeps the full gap,
+   and a browser without :has() simply keeps the old spacing. */
+.section__head:has(> .section__desc){ margin-bottom:1.75rem; }
 .section__num{
   font-size:.72rem; letter-spacing:.24em; color:var(--magenta);
   display:block; margin-bottom:.9rem;
@@ -846,7 +885,11 @@ img{ display:block; max-width:100%; }
 .is-playing .section__num{
   text-shadow:0 0 12px rgba(250,39,159,.6);
 }
-.section__desc{ color:var(--bone-dim); }
+/* Wide enough that a one-sentence standfirst like About's route (Jinan to
+   ... Nashville) stays on one line on a desktop window - the old 38rem cap
+   on the whole head broke it one word short. When it does have to wrap,
+   balance evens the lines instead of stranding the last word. */
+.section__desc{ color:var(--bone-dim); max-width:60rem; text-wrap:balance; }
 
 /* ---- cards ---- */
 .cards{
@@ -1364,10 +1407,9 @@ img{ display:block; max-width:100%; }
 
 
 /* ================= PRESS ================= */
-/* Dormant: the coverage this styles is still in the content files but is not
-   rendered anywhere at the moment. Kept for when it is placed again. */
+/* Press & Mentions, the cards that close the About page (render_press). */
 .press{
-  list-style:none;
+  list-style:none; padding:0; margin:0;
   display:grid; gap:1rem;
   grid-template-columns:repeat(auto-fill,minmax(min(20rem,100%),1fr));
 }
@@ -1389,8 +1431,73 @@ img{ display:block; max-width:100%; }
   font-size:.63rem; letter-spacing:.2em; text-transform:uppercase;
   color:var(--magenta);
 }
+/* the same tracking-and-caps treatment as .contact__who, and for the same
+   reason: 微博 at .63rem with wide tracking is a smudge */
+html[lang^="zh"] .press__src{ font-size:.78rem; letter-spacing:.08em; }
 .press__title{ font-size:1.02rem; font-weight:600; color:var(--bone); }
 .press__gloss{ font-size:.82rem; color:var(--bone-dim); }
+
+/* ================= MESSAGE WINDOW ================= */
+/* The "message Tony" <dialog>. Native modal: the browser handles the top
+   layer, focus trapping and Escape; this only has to look like the site. */
+.msg{
+  width:min(36rem, calc(100vw - 2rem)); max-height:calc(100dvh - 2rem);
+  padding:0; margin:auto;
+  background:var(--ink-2); color:var(--bone);
+  border:1px solid var(--line); border-radius:16px;
+  box-shadow:0 30px 80px rgba(0,0,0,.6);
+}
+.msg::backdrop{ background:rgba(6,5,7,.72); backdrop-filter:blur(4px); }
+.msg[open]{ animation:msg-in .35s var(--ease); }
+@keyframes msg-in{ from{ opacity:0; transform:translateY(12px); } }
+.msg__form{ display:grid; gap:1.1rem; padding:clamp(1.25rem,4vw,2rem); }
+.msg__head{ display:flex; align-items:start; justify-content:space-between; gap:1rem; }
+.msg__title{
+  margin:0; font-family:var(--f-serif); font-weight:400;
+  font-size:clamp(1.6rem,4vw,2.1rem); line-height:1.1;
+}
+.msg__close{
+  flex:none; width:2.2rem; height:2.2rem; border-radius:50%;
+  border:1px solid var(--line); background:transparent; color:var(--bone-dim);
+  font-size:1.3rem; line-height:1; cursor:pointer;
+  transition:color .25s var(--ease), border-color .25s var(--ease);
+}
+.msg__close:hover,
+.msg__close:focus-visible{ color:var(--bone); border-color:var(--bone); }
+.msg__fields{ display:grid; gap:1rem; }
+.msg__intro{ margin:0; color:var(--bone-dim); font-size:.95rem; }
+.msg__row{ display:grid; gap:1rem; grid-template-columns:1fr 1fr; }
+@media (max-width:560px){ .msg__row{ grid-template-columns:1fr; } }
+.msg__field{ display:grid; gap:.45rem; }
+.msg__label{
+  font-size:.68rem; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--bone-dim);
+}
+.msg__label .muted{ letter-spacing:.08em; text-transform:none; opacity:.7; }
+html[lang^="zh"] .msg__label{ font-size:.84rem; letter-spacing:.06em; text-transform:none; }
+.msg__field input,
+.msg__field textarea{
+  width:100%; box-sizing:border-box;
+  font:inherit; font-size:1rem; color:var(--bone);
+  padding:.75rem .9rem; border-radius:10px;
+  background:rgba(237,230,220,.04); border:1px solid var(--line);
+  transition:border-color .25s var(--ease), background .25s var(--ease);
+}
+.msg__field textarea{ resize:vertical; min-height:8rem; }
+.msg__field input:focus,
+.msg__field textarea:focus{
+  outline:none; border-color:var(--magenta); background:rgba(237,230,220,.07);
+}
+.msg__hint{ margin:-.4rem 0 0; font-size:.8rem; color:var(--bone-dim); }
+.msg__trap{ position:absolute; left:-9999px; width:1px; height:1px; opacity:0; }
+.msg__status{ margin:0; font-size:.92rem; color:var(--bone); }
+.msg__status:empty{ display:none; }
+.msg__status.is-error{ color:#ff6fbf; }
+.msg__actions{ display:flex; justify-content:flex-end; gap:.7rem; flex-wrap:wrap; }
+.msg__send:disabled{ opacity:.6; cursor:progress; transform:none; }
+/* once it has gone, the fields and the send button step aside for the note */
+.msg__form.is-sent .msg__fields,
+.msg__form.is-sent .msg__send{ display:none; }
 
 /* ================= CONTACT ================= */
 .contact{
@@ -1404,8 +1511,12 @@ img{ display:block; max-width:100%; }
    Zhang" and the two left edges lined up while the right ones did not.
    Tuned by eye: the exact match depends on how two different strings
    happen to render, and it is a different pair of strings in Chinese. */
-.contact__mail{
+.contact__actions{
+  display:flex; flex-wrap:wrap; gap:.7rem; align-items:center;
   margin-top:1.8rem;
+}
+.contact__msg{ font-size:.82rem; padding:.85rem 1.2rem; }
+.contact__mail{
   font-size:.82rem;
   padding:.85rem .95rem;
   word-break:break-all;
@@ -1761,7 +1872,7 @@ html[lang^="zh"] .contact__who{
 }
 
 @media (max-height:780px){
-  .ink{ width:min(23rem,60vw); }
+  .ink, .inks{ width:min(25rem,62vw); }
   .hero__eyebrow{ margin-bottom:1.1rem; }
   .hero__title{ margin-bottom:1.1rem; }
   .hero__sub{ margin-bottom:.8rem; }
@@ -1770,7 +1881,7 @@ html[lang^="zh"] .contact__who{
   .hero__inner{ padding-bottom:clamp(4.5rem,9vh,6.5rem); }
 }
 @media (max-height:620px){
-  .ink{ width:min(17rem,48vw); }
+  .ink, .inks{ width:min(18.5rem,50vw); }
   .hero__sub{ font-size:.95rem; }
   .hero__count{ font-size:1.1rem; }
   .hero__wave{ height:80px; }
@@ -1890,6 +2001,7 @@ html[lang^="zh"] .contact__who{
     scroll-behavior:auto !important;
   }
   .ink{ animation:none !important; clip-path:none !important; }
+  .ink--name{ display:none; }
   /* a .001ms transition would make the record jump out rather than slide,
      so it simply stays in the sleeve */
   .card__disc{ transform:none !important; }

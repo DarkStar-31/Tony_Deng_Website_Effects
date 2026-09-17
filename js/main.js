@@ -924,6 +924,94 @@ class MobileNav {
 
 
 /* ---------------------------------------------------------
+   MessageDialog — the "message Tony" window in the contact block
+   --------------------------------------------------------- */
+class MessageDialog {
+  constructor () {
+    this.dialog = document.getElementById('msgDialog');
+    // an old browser with no <dialog> keeps the buttons hidden and the
+    // email address as the way in, rather than a button that does nothing
+    if (!this.dialog || typeof this.dialog.showModal !== 'function') return;
+
+    this.form   = this.dialog.querySelector('[data-msg]');
+    this.status = this.dialog.querySelector('.msg__status');
+    this.send   = this.dialog.querySelector('.msg__send');
+    this.T      = JSON.parse(this.form.dataset.strings || '{}');
+
+    document.querySelectorAll('[data-msg-open]').forEach((b) => {
+      b.hidden = false;
+      b.addEventListener('click', () => this.open());
+    });
+    this.dialog.querySelectorAll('[data-msg-close]')
+      .forEach((b) => b.addEventListener('click', () => this.dialog.close()));
+    // a click on the backdrop lands on the <dialog> itself
+    this.dialog.addEventListener('click', (e) => { if (e.target === this.dialog) this.dialog.close(); });
+    this.dialog.addEventListener('close', () => {
+      document.body.classList.remove('is-locked');
+      // a sent message is done with; one still being written is kept
+      if (this.form.classList.contains('is-sent')) this.reset();
+    });
+    this.form.addEventListener('submit', (e) => { e.preventDefault(); this.submit(); });
+  }
+
+  open () {
+    this.dialog.showModal();
+    document.body.classList.add('is-locked');
+    this.form.elements.message.focus();
+  }
+
+  reset () {
+    this.form.reset();
+    this.form.classList.remove('is-sent');
+    this.say('');
+  }
+
+  say (text, isError = false) {
+    this.status.textContent = text;
+    this.status.classList.toggle('is-error', isError);
+  }
+
+  async submit () {
+    const f = this.form.elements;
+    const message = f.message.value.trim();
+    const replyTo = f.replyTo.value.trim();
+
+    if (!message) { this.say(this.T.needMessage, true); f.message.focus(); return; }
+    // loose on purpose: an address with an @ and a dot, or a phone number
+    // written any of the usual ways - the Worker does the real checking
+    const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyTo);
+    const phone = /^\+?[\d\s().-]+$/.test(replyTo) && replyTo.replace(/\D/g, '').length >= 6;
+    if (!email && !phone) { this.say(this.T.needReply, true); f.replyTo.focus(); return; }
+
+    this.send.disabled = true;
+    this.say(this.T.sending);
+    try {
+      const res = await fetch(this.form.action, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message, replyTo,
+          name: f.name.value.trim(),
+          website: f.website.value,
+          lang: document.documentElement.lang,
+          page: location.pathname,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body.ok) throw new Error(body.error || res.status);
+      this.form.classList.add('is-sent');
+      this.say(this.T.sent.replace('{to}', replyTo));
+      this.dialog.querySelector('.msg__actions [data-msg-close]').focus();
+    } catch {
+      this.say(this.T.error.replace('{email}', this.form.dataset.email), true);
+    } finally {
+      this.send.disabled = false;
+    }
+  }
+}
+
+
+/* ---------------------------------------------------------
    ScrollSpy — marks the nav link for the section in view
    --------------------------------------------------------- */
 class ScrollSpy {
@@ -1385,6 +1473,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // because every item in it is something you are meant to be able to click
   new Ticker('#playlistRailTrack', 24, '.rail__set', '.rail');
   new MobileNav('#nav', '#navBurger');
+  new MessageDialog();
   new NavGlow('#nav');
   new CursorGlow('.glow');
   new PressStage('#pressStage');

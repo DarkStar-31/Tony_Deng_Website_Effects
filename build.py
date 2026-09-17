@@ -179,7 +179,20 @@ def render_hero(loc: dict, shared: dict) -> list[str]:
         "",
         '    <h1 class="hero__title">',
         f'      <span class="sr-only">{hero["srTitle"]}</span>',
-        f'      <img class="ink" src="{p}{shared["images"]["ink"]}" alt="" aria-hidden="true">',
+    ]
+    # The song title in his handwriting, taking turns with his name in the
+    # same hand: the client wants a new artist's name tied to the song. Both
+    # images share one box and the stylesheet times the hand-over, so with no
+    # `inkName` set this is the single wordmark it always was.
+    name = shared["images"].get("inkName")
+    out += [
+        f'      <span class="inks{" inks--pair" if name else ""}" aria-hidden="true">',
+        f'        <img class="ink" src="{p}{shared["images"]["ink"]}" alt="">',
+    ]
+    if name:
+        out.append(f'        <img class="ink ink--name" src="{p}{name}" alt="">')
+    out += [
+        "      </span>",
         "    </h1>",
         "",
     ]
@@ -304,6 +317,12 @@ def render_playlist(loc: dict, shared: dict) -> list[str]:
     ]
 
 
+def with_breaks(text: str) -> str:
+    """A line break typed in the admin (Enter in a textarea) becomes a real
+    one. Without it a standfirst runs on one line wherever there is room."""
+    return text.replace("\r\n", "\n").replace("\n", "<br>")
+
+
 def section_head(loc: dict, key: str, href: str | None = None) -> list[str]:
     """`href` makes the heading itself the way through, with no extra label."""
     sec = loc["sections"][key]
@@ -312,12 +331,17 @@ def section_head(loc: dict, key: str, href: str | None = None) -> list[str]:
         title = f'<a class="section__link" href="{attr(href)}">{title}</a>'
     out = [
         '  <div class="section__head reveal">',
-        f'    <span class="section__num">{sec["num"]}</span>',
+    ]
+    # unnumbered sections belong to the page above them rather than being
+    # one of the site's six
+    if sec.get("num"):
+        out.append(f'    <span class="section__num">{sec["num"]}</span>')
+    out += [
         f'    <h2 class="section__title">{title}</h2>',
     ]
     # a standfirst is optional - Visuals carries none
     if sec.get("desc"):
-        out.append(f'    <p class="section__desc">{sec["desc"]}</p>')
+        out.append(f'    <p class="section__desc">{with_breaks(sec["desc"])}</p>')
     out.append("  </div>")
     return out
 
@@ -541,6 +565,32 @@ def render_press_rail(loc: dict, shared: dict) -> list[str]:
             "        </a>",
         ]
     out += ["      </span>", "    </div>", "  </div>"]
+    return out
+
+
+def render_press(loc: dict, shared: dict) -> list[str]:
+    """Press and Weibo coverage, closing the About page.
+
+    The client asked for it under About rather than a page of its own. It is
+    the full list as cards, not the looping rail: at the foot of a page
+    people have scrolled to on purpose, every item should be readable.
+    """
+    out = [
+        "<!-- ================= PRESS & MENTIONS (about page) ================= -->",
+        '<section class="section" id="coverage">',
+    ] + section_head(loc, "coverage") + ["", '  <ul class="press">']
+    for item in shared["press"]:
+        c = loc["press"][item["id"]]
+        out += [
+            '    <li class="press__item reveal">',
+            f'      <a href="{attr(item["url"])}" target="_blank" rel="noopener">',
+            f'        <span class="press__src">{c["src"]}</span>',
+            f'        <span class="press__title"{lang_attr(c.get("titleLang"))}>{c["title"]}</span>',
+        ]
+        if c.get("gloss"):
+            out.append(f'        <span class="press__gloss">{c["gloss"]}</span>')
+        out += ["      </a>", "    </li>"]
+    out += ["  </ul>", "</section>"]
     return out
 
 
@@ -874,11 +924,9 @@ def render_making(loc: dict, shared: dict) -> list[str]:
     notes that belong here are written.
 
     The file is `making.html`, but the content key and the `#press` anchor
-    keep their old names: the coverage this section used to carry is still
-    in `shared["press"]` and both locales,
-    dormant rather than deleted, and existing links to #press still land
-    somewhere sensible. `render_press_rail` and `PressStage` are unused for
-    now and kept for when that coverage is placed somewhere else.
+    keep their old names, so existing links to #press still land somewhere
+    sensible. The coverage this section used to carry now closes the About
+    page (`render_press`); `render_press_rail` and `PressStage` are unused.
     """
     out = [
         "<!-- ================= 05 IN THE MAKING ================= -->",
@@ -899,8 +947,19 @@ def render_contact(loc: dict, shared: dict) -> list[str]:
         '    <div class="contact__lead reveal">',
         f'      <span class="section__num">{sec["num"]}</span>',
         f'      <h2 class="section__title">{sec["title"]}</h2>',
-        f'      <p class="section__desc">{sec["desc"]}</p>',
-        f'      <a class="btn btn--play contact__mail" href="mailto:{attr(email)}">{email}</a>',
+        f'      <p class="section__desc">{with_breaks(sec["desc"])}</p>',
+        '      <div class="contact__actions">',
+        f'        <a class="btn btn--play contact__mail" href="mailto:{attr(email)}">{email}</a>',
+    ]
+    form = c.get("form")
+    if form:
+        # hidden until main.js has a <dialog> to open; with JS off the email
+        # above is the way in, and a button that does nothing would not be
+        out.append(
+            f'        <button class="btn btn--ghost contact__msg" type="button" data-msg-open hidden>{form["open"]}</button>'
+        )
+    out += [
+        "      </div>",
         f'      <p class="contact__who">{c["who"]}</p>',
         "    </div>",
         "",
@@ -928,8 +987,61 @@ def render_contact(loc: dict, shared: dict) -> list[str]:
                 out.append(f'          <li>{item["label"]}{muted}</li>')
         out += ["        </ul>", "      </div>"]
 
-    out += ["    </div>", "  </div>", "</section>"]
+    out += ["    </div>", "  </div>"]
+    if form:
+        out += render_message_dialog(form, shared)
+    out.append("</section>")
     return out
+
+
+def render_message_dialog(form: dict, shared: dict) -> list[str]:
+    """The "message Tony" window opened from the contact block.
+
+    It posts JSON to `shared["messageEndpoint"]`. What happens after that -
+    who reads it, how the copy and Tony's reply reach the sender - is the
+    Worker's job and is not built yet; `tools/devserver.py` stands in for it
+    locally. The strings JS writes (sending, sent, errors) ride in on data-
+    attributes so they follow the page's language like everything else.
+    """
+    strings = {k: form[k] for k in ("sending", "sent", "error", "needMessage", "needReply")}
+    return [
+        "",
+        '  <dialog class="msg" id="msgDialog" aria-labelledby="msgTitle">',
+        f'    <form class="msg__form" method="post" action="{attr(shared["messageEndpoint"])}" novalidate',
+        f'          data-msg data-email="{attr(shared["contactEmail"])}"',
+        f"          data-strings='{attr(json.dumps(strings, ensure_ascii=False))}'>",
+        '      <div class="msg__head">',
+        f'        <h3 class="msg__title" id="msgTitle">{form["title"]}</h3>',
+        f'        <button class="msg__close" type="button" data-msg-close aria-label="{attr(form["close"])}">&times;</button>',
+        "      </div>",
+        '      <div class="msg__fields">',
+        f'        <p class="msg__intro">{form["intro"]}</p>',
+        '        <label class="msg__field">',
+        f'          <span class="msg__label">{form["messageLabel"]}</span>',
+        '          <textarea name="message" rows="6" maxlength="2000" required></textarea>',
+        "        </label>",
+        '        <div class="msg__row">',
+        '          <label class="msg__field">',
+        f'            <span class="msg__label">{form["nameLabel"]} <span class="muted">{form["nameHint"]}</span></span>',
+        '            <input name="name" type="text" autocomplete="name" maxlength="80">',
+        "          </label>",
+        '          <label class="msg__field">',
+        f'            <span class="msg__label">{form["replyLabel"]}</span>',
+        '            <input name="replyTo" type="text" autocomplete="email" maxlength="120" required>',
+        "          </label>",
+        "        </div>",
+        f'        <p class="msg__hint">{form["replyHint"]}</p>',
+        # a field people cannot see and bots fill in
+        '        <input class="msg__trap" name="website" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">',
+        "      </div>",
+        '      <p class="msg__status" role="status" aria-live="polite"></p>',
+        '      <div class="msg__actions">',
+        f'        <button class="btn btn--ghost" type="button" data-msg-close>{form["cancel"]}</button>',
+        f'        <button class="btn btn--play msg__send" type="submit">{form["send"]}</button>',
+        "      </div>",
+        "    </form>",
+        "  </dialog>",
+    ]
 
 
 def render_footer(loc: dict, shared: dict) -> list[str]:
@@ -1001,6 +1113,7 @@ def render_page(loc: dict, shared: dict, page: str) -> str:
             render_nav(loc, page),
             render_about(loc, shared, full=True),
             render_milestones(loc, shared, full=True),
+            render_press(loc, shared),
         ]
     else:
         blocks = [

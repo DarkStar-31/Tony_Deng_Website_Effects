@@ -119,6 +119,21 @@ class Handler(SimpleHTTPRequestHandler):
             dest.write_bytes(base64.b64decode(body.get("contentBase64", "")))
             return self.send_json({"ok": True, "commit": "local", "path": path})
 
+        if self.path == "/api/message":
+            # Stands in for the not-yet-built message Worker: logs to the
+            # terminal and to messages.local.jsonl (gitignored), so the
+            # contact window can be tried end to end.
+            body = self.read_json()
+            if body.get("website"):
+                return self.send_json({"ok": True})
+            if not str(body.get("message", "")).strip() or not str(body.get("replyTo", "")).strip():
+                return self.send_json({"error": "message and replyTo are required"}, 400)
+            entry = {k: body.get(k) for k in ("name", "replyTo", "message", "lang", "page")}
+            with (ROOT / "messages.local.jsonl").open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+            sys.stderr.write(f"  message from {entry['replyTo']}: {entry['message'][:60]!r}\n")
+            return self.send_json({"ok": True})
+
         if self.path in ("/api/admin/login", "/api/admin/logout"):
             # No auth locally: any sign-in succeeds, so the form can be tried.
             return self.send_json({"ok": True, "email": FAKE_USER, "canPublish": True})

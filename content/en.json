@@ -88,7 +88,7 @@
     "music": {
       "num": "01",
       "title": "Releases",
-      "desc": "Two albums and eleven singles, released since 2021.<br>Every track written, composed and performed by Tony."
+      "desc": "Two albums and eleven singles, released since 2021. Every track written, composed and performed by Tony."
     },
     "videos": {
       "num": "02",
@@ -112,6 +112,10 @@
       "num": "05",
       "title": "In the Making",
       "desc": "New songs in progress — notes from the studio as they take shape."
+    },
+    "coverage": {
+      "title": "Press &amp; Mentions",
+      "desc": "Coverage and posts about Tony, from Weibo and the press."
     },
     "contact": {
       "num": "06",
@@ -392,6 +396,24 @@
     }
   },
   "contact": {
+    "form": {
+      "open": "Message Tony",
+      "title": "Send Tony a message",
+      "intro": "Write to Tony directly. We&rsquo;ll send a copy of your message to you, and let you know when Tony replies.",
+      "messageLabel": "Your message",
+      "nameLabel": "Your name",
+      "nameHint": "optional",
+      "replyLabel": "Email or phone number",
+      "replyHint": "Your copy, and any reply, goes here. It is never shown on the site.",
+      "send": "Send",
+      "cancel": "Cancel",
+      "close": "Close",
+      "sending": "Sending…",
+      "sent": "Sent. A copy is on its way to {to}, and you’ll hear there if Tony replies.",
+      "error": "That didn’t go through. Please try again, or email {email}.",
+      "needMessage": "Write a message first.",
+      "needReply": "Enter an email address or a phone number, so the copy has somewhere to go."
+    },
     "who": "Management — Ms. Zhang",
     "columns": [
       {

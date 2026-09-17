@@ -88,7 +88,7 @@
     "music": {
       "num": "01",
       "title": "音乐作品",
-      "desc": "两张专辑，十一首单曲，自 2021 年起陆续发行。<br>全部作品均由 Tony 本人作词、作曲并演唱。"
+      "desc": "两张专辑，十一首单曲，自 2021 年起陆续发行。全部作品均由 Tony 本人作词、作曲并演唱。"
     },
     "videos": {
       "num": "02",
@@ -112,6 +112,10 @@
       "num": "05",
       "title": "创作手记",
       "desc": "新歌创作中——记录它们成形的过程。"
+    },
+    "coverage": {
+      "title": "媒体报道",
+      "desc": "关于 Tony 的报道与微博动态。"
     },
     "contact": {
       "num": "06",
@@ -408,6 +412,24 @@
     }
   },
   "contact": {
+    "form": {
+      "open": "给 Tony 留言",
+      "title": "给 Tony 留言",
+      "intro": "直接写给 Tony。留言副本会发送给你，Tony 回复时也会通知你。",
+      "messageLabel": "留言内容",
+      "nameLabel": "你的称呼",
+      "nameHint": "选填",
+      "replyLabel": "邮箱或手机号",
+      "replyHint": "留言副本和回复都会发到这里，不会在网站上公开。",
+      "send": "发送",
+      "cancel": "取消",
+      "close": "关闭",
+      "sending": "发送中…",
+      "sent": "已发送。留言副本将发送至 {to}，Tony 回复时也会发到这里。",
+      "error": "发送失败，请稍后重试，或发邮件至 {email}。",
+      "needMessage": "请先填写留言内容。",
+      "needReply": "请填写邮箱或手机号，以便接收留言副本。"
+    },
     "who": "经纪事务 — 张女士",
     "columns": [
       {
