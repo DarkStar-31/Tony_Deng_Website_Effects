@@ -1,5 +1,22 @@
 # Setting up the admin
 
+> **Current setup (September 2026): no domain yet.** The admin API runs
+> inside the site Worker itself (`main` in the root `wrangler.toml`, which
+> only runs for `/api/admin/*`), and sign-in is one shared password rather
+> than Cloudflare Access. Anyone with the password can edit *and* publish. Everything below about Access, Worker routes and
+> `workers/admin/wrangler.toml` describes the setup for once a domain
+> exists, and is not what is deployed. To switch it on today:
+>
+> 1. Push, and make sure the site Worker actually rebuilds.
+> 2. Cloudflare dashboard → Workers & Pages → the site Worker → Settings →
+>    Variables and Secrets → add two values, each of type **Secret**:
+>    - `GITHUB_TOKEN` — fine-grained PAT, only this repo, Contents: Read and write
+>    - `ADMIN_PASSWORD` — the one shared password (never commit it; the repos are public)
+> 3. Open `/admin/` on the workers.dev address and sign in.
+>
+> Weaker than Access: anyone who finds `/admin/` can try passwords, so use
+> a long one. Moving back to Access once there is a domain is the upgrade.
+
 The admin lets Tony and you edit every word, image and video on both pages
 from a browser, with no GitHub account and no git. This document is the
 one-time setup.

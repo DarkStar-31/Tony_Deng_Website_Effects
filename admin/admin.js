@@ -1116,7 +1116,7 @@ function renderStatus() {
 
   if (state.dirty) bits.push('<span class="warn">unsaved changes</span>');
   if (s) {
-    bits.push(`signed in as <b>${s.email}</b>`);
+    bits.push('signed in');
     if (s.ahead > 0) bits.push(`<b>${s.ahead}</b> change${s.ahead === 1 ? '' : 's'} waiting to publish`);
     else if (!state.dirty) bits.push('live site is up to date');
     if (!s.canPublish) bits.push('edit &amp; preview only');
@@ -1168,7 +1168,10 @@ async function save() {
     await refreshStatus();
   } catch (err) {
     btn.disabled = false;
-    toast(err.message, 'bad', err.detail);
+    toast(err.message, 'bad',
+          err.status === 401
+            ? 'Your changes are still on this page. Open the admin in a new tab, sign in, then come back and press Save draft again.'
+            : err.detail);
   }
 }
 
@@ -1178,7 +1181,7 @@ async function publish() {
   btn.disabled = true;
   try {
     await api('/publish', { method: 'POST' });
-    toast('Published', 'good', 'Cloudflare Pages is rebuilding — the live site updates in under a minute.');
+    toast('Published', 'good', 'Cloudflare is rebuilding — the live site updates in a minute or two.');
     await refreshStatus();
   } catch (err) {
     toast(err.message, 'bad', err.detail);
@@ -1207,10 +1210,68 @@ document.getElementById('reloadBtn').addEventListener('click', async () => {
   toast('Reloaded from the draft branch');
 });
 
-load().catch((err) => {
-  document.getElementById('panel').replaceChildren(
-    el('p', { className: 'intro' },
-      `Could not load content: ${err.message}${err.detail ? ' — ' + err.detail : ''}`),
+// ---------------------------------------------------------------- sign in
+
+function showLogin(message) {
+  const password = el('input', { type: 'password', autocomplete: 'current-password', required: true });
+  const error = el('p', { className: 'hint login__error' }, message || '');
+  const submit = el('button', { className: 'btn btn--go', type: 'submit' }, 'Sign in');
+
+  const form = el('form', { className: 'card login' },
+    el('div', { className: 'card__head' }, el('span', { className: 'card__title' }, 'Sign in')),
+    el('div', { className: 'card__body' },
+      field('Password', password),
+      error,
+      submit,
+    ),
   );
-  document.getElementById('status').textContent = 'Not connected';
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    submit.disabled = true;
+    error.textContent = '';
+    try {
+      await api('/login', {
+        method: 'POST',
+        body: JSON.stringify({ password: password.value }),
+      });
+      await start();
+    } catch (err) {
+      error.textContent = err.message;
+      submit.disabled = false;
+      password.select();
+    }
+  });
+
+  document.getElementById('tabs').replaceChildren();
+  document.getElementById('panel').replaceChildren(form);
+  document.getElementById('status').textContent = 'Not signed in';
+  document.getElementById('saveBtn').disabled = true;
+  document.getElementById('publishBtn').disabled = true;
+  document.getElementById('logoutBtn').hidden = true;
+  password.focus();
+}
+
+async function start() {
+  try {
+    await load();
+    document.getElementById('logoutBtn').hidden = false;
+  } catch (err) {
+    if (err.status === 401) return showLogin(err.detail);
+    document.getElementById('panel').replaceChildren(
+      el('p', { className: 'intro' },
+        `Could not load content: ${err.message}${err.detail ? ' — ' + err.detail : ''}`),
+    );
+    document.getElementById('status').textContent = 'Not connected';
+  }
+}
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  if (state.dirty && !confirm('Sign out and discard your unsaved changes?')) return;
+  try { await api('/logout', { method: 'POST' }); } catch { /* signed out either way */ }
+  state.dirty = false;
+  state.status = null;
+  showLogin('Signed out.');
 });
+
+start();

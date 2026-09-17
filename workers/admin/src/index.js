@@ -1,23 +1,30 @@
 /**
  * Admin API for the Tony D site.
  *
- * Authentication is Cloudflare Access. Authorisation is this file: Access
- * proves *who* the caller is, and PUBLISHERS decides whether they may push
- * to the live site or only to the draft branch.
+ * This runs inside the site's own Worker: the root wrangler.toml points
+ * `main` here and only sends /api/admin/* to this script, so every other
+ * request is served straight from the static assets. That is what lets the
+ * admin work on a bare *.workers.dev address, where a separate Worker route
+ * is impossible.
+ *
+ * Authentication is one shared password, kept in a Worker secret and
+ * answered with a signed, HttpOnly session cookie. It is a stopgap until the
+ * site has its own domain and can go behind Cloudflare Access — Access on
+ * workers.dev would lock the public site as well. Everyone who knows the
+ * password can edit and publish; there is no per-person identity.
  *
  * The browser never talks to GitHub. It posts JSON here, and this Worker
  * commits with a token it holds server-side — which is what makes the admin
  * usable from mainland China, where api.github.com is slow and unreliable
  * but the Cloudflare edge is reachable.
  *
- * Bindings (see wrangler.toml):
- *   ACCESS_TEAM_DOMAIN  yourteam.cloudflareaccess.com
- *   ACCESS_AUD          Application Audience tag of the Access app
- *   GITHUB_REPO         DarkStar-31/Tony_Deng_Website
- *   LIVE_BRANCH         main
- *   DRAFT_BRANCH        draft
- *   PUBLISHERS          comma-separated emails allowed to publish
- *   GITHUB_TOKEN        secret — fine-grained PAT, Contents: read & write
+ * Bindings (see the root wrangler.toml):
+ *   ASSETS          the static site, for anything that is not the API
+ *   GITHUB_REPO     owner/repo the admin commits to
+ *   LIVE_BRANCH     main
+ *   DRAFT_BRANCH    draft
+ *   GITHUB_TOKEN    secret — fine-grained PAT, Contents: read & write
+ *   ADMIN_PASSWORD  secret — the one password for /admin
  */
 
 const CONTENT_FILES = ['content/shared.json', 'content/en.json', 'content/zh.json'];
@@ -43,9 +50,12 @@ class HttpError extends Error {
   }
 }
 
-// ------------------------------------------------------------ Access JWT
+// ------------------------------------------------------------ login
 
-let certsCache = { at: 0, keys: null };
+const COOKIE = 'tony_admin';
+const SESSION_SECONDS = 7 * 24 * 3600;
+
+const enc = new TextEncoder();
 
 function b64urlToBytes(input) {
   let s = input.replace(/-/g, '+').replace(/_/g, '/');
@@ -56,79 +66,91 @@ function b64urlToBytes(input) {
   return out;
 }
 
-function decodeSegment(segment) {
-  return JSON.parse(new TextDecoder().decode(b64urlToBytes(segment)));
+function bytesToB64url(bytes) {
+  let bin = '';
+  for (const b of new Uint8Array(bytes)) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-async function accessKeys(env) {
-  if (certsCache.keys && Date.now() - certsCache.at < 3600_000) return certsCache.keys;
-  const res = await fetch(`https://${env.ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs`);
-  if (!res.ok) throw new HttpError(502, 'Could not fetch Cloudflare Access signing keys');
-  const { keys } = await res.json();
-  certsCache = { at: Date.now(), keys };
-  return keys;
-}
-
-/**
- * Verify the Access assertion properly rather than trusting the
- * Cf-Access-Authenticated-User-Email header. The header is only meaningful on
- * a route Access actually covers; if this Worker is ever reachable on a route
- * that is not covered, an unverified header would let anyone through.
- */
-async function authenticate(request, env) {
-  const token =
-    request.headers.get('Cf-Access-Jwt-Assertion') ||
-    (request.headers.get('Cookie') || '').match(/CF_Authorization=([^;]+)/)?.[1];
-
-  if (!token) {
-    throw new HttpError(401, 'Not signed in', 'No Access token on the request — this route must sit behind a Cloudflare Access application.');
+function requireSecret(env, name) {
+  if (!env[name]) {
+    throw new HttpError(500, `The ${name} secret is not set`,
+      'Cloudflare dashboard → this Worker → Settings → Variables and Secrets.');
   }
+  return env[name];
+}
 
-  const [headerB64, payloadB64, sigB64] = token.split('.');
-  if (!sigB64) throw new HttpError(401, 'Malformed Access token');
-
-  const header = decodeSegment(headerB64);
-  const payload = decodeSegment(payloadB64);
-
-  const jwk = (await accessKeys(env)).find((k) => k.kid === header.kid);
-  if (!jwk) throw new HttpError(401, 'Access token signed by an unknown key');
-
+async function hmac(env, text) {
   const key = await crypto.subtle.importKey(
-    'jwk',
-    { kty: jwk.kty, n: jwk.n, e: jwk.e, alg: 'RS256', ext: true },
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false,
-    ['verify'],
+    // Keyed on the password and the token together, so changing the password
+    // signs everyone out and there is no third secret to set.
+    'raw', enc.encode(`${requireSecret(env, 'ADMIN_PASSWORD')}
+${requireSecret(env, 'GITHUB_TOKEN')}`),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
   );
+  return new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode(text)));
+}
 
-  const valid = await crypto.subtle.verify(
-    'RSASSA-PKCS1-v1_5',
-    key,
-    b64urlToBytes(sigB64),
-    new TextEncoder().encode(`${headerB64}.${payloadB64}`),
-  );
-  if (!valid) throw new HttpError(401, 'Access token signature failed verification');
+/** Compare two strings without leaking where they differ through timing. */
+async function sameText(env, a, b) {
+  const [x, y] = await Promise.all([hmac(env, a), hmac(env, b)]);
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
+}
 
-  const now = Math.floor(Date.now() / 1000);
-  if (payload.exp && payload.exp < now) throw new HttpError(401, 'Access token expired — reload the page');
-  if (payload.nbf && payload.nbf > now + 60) throw new HttpError(401, 'Access token not yet valid');
+const ADMIN = { email: 'admin', canPublish: true };
 
-  const aud = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
-  if (!aud.includes(env.ACCESS_AUD)) throw new HttpError(403, 'Access token is for a different application');
+function sessionCookie(value, maxAge) {
+  return `${COOKIE}=${value}; Path=/api/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
+}
 
-  if (payload.iss !== `https://${env.ACCESS_TEAM_DOMAIN}`) {
-    throw new HttpError(403, 'Access token issued by a different team');
+async function handleLogin(request, env) {
+  const { password } = await request.json().catch(() => ({}));
+
+  if (!(await sameText(env, String(password || ''), requireSecret(env, 'ADMIN_PASSWORD')))) {
+    // Slows guessing down a little. It is per request, not per attacker, so
+    // it is no substitute for a long password.
+    await new Promise((r) => setTimeout(r, 1000));
+    throw new HttpError(401, 'Wrong password');
   }
 
-  const email = (payload.email || '').toLowerCase();
-  if (!email) throw new HttpError(403, 'Access token carries no email');
+  const payload = bytesToB64url(enc.encode(JSON.stringify({
+    exp: Math.floor(Date.now() / 1000) + SESSION_SECONDS,
+  })));
+  const token = `${payload}.${bytesToB64url(await hmac(env, payload))}`;
 
-  const publishers = (env.PUBLISHERS || '')
-    .split(',')
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
+  const res = json({ ok: true, ...ADMIN });
+  res.headers.append('Set-Cookie', sessionCookie(token, SESSION_SECONDS));
+  return res;
+}
 
-  return { email, canPublish: publishers.includes(email) };
+function handleLogout() {
+  const res = json({ ok: true });
+  res.headers.append('Set-Cookie', sessionCookie('', 0));
+  return res;
+}
+
+async function authenticate(request, env) {
+  const token = (request.headers.get('Cookie') || '').match(/(?:^|;\s*)tony_admin=([^;]+)/)?.[1];
+  if (!token) throw new HttpError(401, 'Not signed in');
+
+  const [payload, sig] = token.split('.');
+  if (!sig || !(await sameText(env, sig, bytesToB64url(await hmac(env, payload))))) {
+    throw new HttpError(401, 'Not signed in', 'The session was not recognised — sign in again.');
+  }
+
+  let data;
+  try {
+    data = JSON.parse(new TextDecoder().decode(b64urlToBytes(payload)));
+  } catch {
+    throw new HttpError(401, 'Not signed in');
+  }
+  if (!data.exp || data.exp < Date.now() / 1000) {
+    throw new HttpError(401, 'Not signed in', 'Your session expired — sign in again.');
+  }
+
+  return ADMIN;
 }
 
 // ------------------------------------------------------------ GitHub
@@ -228,7 +250,9 @@ async function commitFiles(env, { branch, files, message, author, expectedHead }
       message,
       tree: newTree.sha,
       parents: [head],
-      author: { name: author.split('@')[0], email: author, date: new Date().toISOString() },
+      // Everyone shares one password, so there is no real person to credit.
+      // `.invalid` can never be a real address, so no GitHub account gets it.
+      author: { name: `Site ${author}`, email: `${author}@tony-deng-website.invalid`, date: new Date().toISOString() },
     }),
   });
 
@@ -389,16 +413,33 @@ async function handlePublish(env, user) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // wrangler.toml only runs this script for /api/admin/*, but if that
+    // pattern ever widens the site must still be served.
+    if (!url.pathname.startsWith('/api/admin/')) return env.ASSETS.fetch(request);
+
     const path = url.pathname.replace(/^\/api\/admin/, '');
 
     try {
+      // The cookie is SameSite=Strict already; refusing cross-site writes
+      // outright is a second, independent guard against forged requests.
+      const origin = request.headers.get('Origin');
+      if (request.method !== 'GET' && origin && origin !== url.origin) {
+        throw new HttpError(403, 'Cross-site request refused');
+      }
+
+      if (request.method === 'POST' && path === '/login') return await handleLogin(request, env);
+      if (request.method === 'POST' && path === '/logout') return handleLogout();
+
       const user = await authenticate(request, env);
 
-      if (request.method === 'GET' && path === '/status') return handleStatus(env, user);
-      if (request.method === 'GET' && path === '/content') return handleContent(env);
-      if (request.method === 'PUT' && path === '/content') return handleSave(request, env, user);
-      if (request.method === 'POST' && path === '/upload') return handleUpload(request, env, user);
-      if (request.method === 'POST' && path === '/publish') return handlePublish(env, user);
+      // `return await`, not `return`: a bare returned promise would reject
+      // outside this try, and the error would reach the browser as a bare 500.
+      if (request.method === 'GET' && path === '/status') return await handleStatus(env, user);
+      if (request.method === 'GET' && path === '/content') return await handleContent(env);
+      if (request.method === 'PUT' && path === '/content') return await handleSave(request, env, user);
+      if (request.method === 'POST' && path === '/upload') return await handleUpload(request, env, user);
+      if (request.method === 'POST' && path === '/publish') return await handlePublish(env, user);
 
       throw new HttpError(404, `No admin route for ${request.method} ${path}`);
     } catch (err) {

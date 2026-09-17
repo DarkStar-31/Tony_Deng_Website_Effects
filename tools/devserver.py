@@ -119,6 +119,10 @@ class Handler(SimpleHTTPRequestHandler):
             dest.write_bytes(base64.b64decode(body.get("contentBase64", "")))
             return self.send_json({"ok": True, "commit": "local", "path": path})
 
+        if self.path in ("/api/admin/login", "/api/admin/logout"):
+            # No auth locally: any sign-in succeeds, so the form can be tried.
+            return self.send_json({"ok": True, "email": FAKE_USER, "canPublish": True})
+
         if self.path == "/api/admin/publish":
             self.rebuild()
             return self.send_json({"ok": True, "commit": "local"})

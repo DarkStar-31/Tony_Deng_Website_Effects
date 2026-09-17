@@ -15,11 +15,36 @@
 # the deploy command `npx wrangler deploy` then uploads what this points at.
 # dist/ is gitignored on purpose, so it only ever exists as build output.
 #
-# There is no `main` script: this Worker serves assets and nothing else.
-# The admin API Worker is separate, with its own config in workers/admin/,
-# and is deployed on its own — it is not part of this deployment.
+# The admin API runs inside this same Worker. `main` is the admin script,
+# but `run_worker_first` hands it /api/admin/* only; every other request is
+# answered from dist/ without the script running at all, so the public site
+# costs nothing extra and cannot be broken by the admin.
+#
+# It lives here rather than in its own Worker because a separate Worker can
+# only be attached to a path on a custom domain, and this site is still on
+# workers.dev. Once there is a domain, it can move back behind Cloudflare
+# Access — see the note at the top of workers/admin/src/index.js.
 name = "tony-deng-website-effects"
+main = "workers/admin/src/index.js"
 compatibility_date = "2026-08-01"
 
 [assets]
 directory = "./dist"
+binding = "ASSETS"
+run_worker_first = ["/api/admin/*"]
+
+[vars]
+# This copy of the admin must never write to the live repository - it is
+# pointed at the effects one, so saving from the effects admin edits the
+# experiment rather than the site that is actually published.
+GITHUB_REPO = "DarkStar-31/Tony_Deng_Website_Effects"
+LIVE_BRANCH = "main"
+DRAFT_BRANCH = "draft"
+
+# Two secrets, never in this file. Set them in the Cloudflare dashboard:
+# this Worker -> Settings -> Variables and Secrets -> Add -> type Secret.
+#   GITHUB_TOKEN    fine-grained PAT, only this repo, Contents: read & write
+#   ADMIN_PASSWORD  the password for /admin; changing it signs everyone out
+# Secrets survive deploys; plain variables added in the dashboard do not,
+# which is why the ones above live here. Both repos are public, so the
+# password must never be written into this file.

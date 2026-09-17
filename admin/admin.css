@@ -311,3 +311,11 @@ input[lang="zh-Hans"], textarea[lang="zh-Hans"] { font-family: "PingFang SC", "M
   .vidrow__thumb { width: 100%; flex: none; }
   .bar__status { display: none; }
 }
+
+/* ---------------------------------------------------------------- sign in */
+
+.login { max-width: 380px; margin: 48px auto; }
+.login .card__body { display: grid; gap: 12px; }
+.login .btn { justify-self: start; }
+.login__error:empty { display: none; }
+.login__error { color: #FF6B93; }
