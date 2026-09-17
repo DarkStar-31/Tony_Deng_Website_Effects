@@ -186,23 +186,39 @@
       "singlesByYear": [
         {
           "year": "2025",
-          "tracks": ["I Do", "Curiosity"]
+          "tracks": [
+            "I Do",
+            "Curiosity"
+          ]
         },
         {
           "year": "2024",
-          "tracks": ["Look in the Mirror", "HER", "If It&rsquo;s True"]
+          "tracks": [
+            "Look in the Mirror",
+            "HER",
+            "If It&rsquo;s True"
+          ]
         },
         {
           "year": "2023",
-          "tracks": ["Time Will Speak"]
+          "tracks": [
+            "Time Will Speak"
+          ]
         },
         {
           "year": "2022",
-          "tracks": ["Oh, Mother", "How It Feels Like"]
+          "tracks": [
+            "Oh, Mother",
+            "How It Feels Like"
+          ]
         },
         {
           "year": "2021",
-          "tracks": ["One Day", "It&rsquo;s Raining", "Be Mine"]
+          "tracks": [
+            "One Day",
+            "It&rsquo;s Raining",
+            "Be Mine"
+          ]
         }
       ],
       "links": [
@@ -341,7 +357,7 @@
     "oh-mother": "<b>Oh, Mother</b> — Weekly Winner, John Lennon Songwriting Contest",
     "isc-finalist": "Finalist — International Songwriting Competition",
     "masc-gasc-finalist": "Finalist — Mid-Atlantic Song Contest · Great American Song Contest",
-      "saturn-diary": "<b>Saturn Diary</b> — debut album, May 2023",
+    "saturn-diary": "<b>Saturn Diary</b> — debut album, May 2023",
     "time-will-speak": "<b>Time Will Speak</b> — Semi-Finalist, UK Songwriting Contest",
     "ode-to-joy": "Composed <b lang=\"zh\">欢乐颂歌</b> (Ode to Joy) for the band <span lang=\"zh\">折耳根</span> — officially released",
     "look-in-the-mirror": "<b>Look in the Mirror</b> — Champion, International Youth Music Competition",
@@ -451,8 +467,14 @@
     "press": "Press coverage"
   },
   "stats": [
-    { "value": "2", "label": "Albums" },
-    { "value": "11", "label": "Singles" }
+    {
+      "value": "2",
+      "label": "Albums"
+    },
+    {
+      "value": "11",
+      "label": "Singles"
+    }
   ],
   "comingSoon": "Coming Soon",
   "playlistsHeading": "More on YouTube",

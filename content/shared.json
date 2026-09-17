@@ -38,8 +38,12 @@
   ],
   "$playlists": "Keyed by the locale's `lang` up to the first dash. An id here must exist in `tracks`; an empty list falls the player back to its synthesised pad.",
   "playlists": {
-    "en": ["i-do"],
-    "zh": ["overthinking"]
+    "en": [
+      "i-do"
+    ],
+    "zh": [
+      "overthinking"
+    ]
   },
   "releases": [
     {
