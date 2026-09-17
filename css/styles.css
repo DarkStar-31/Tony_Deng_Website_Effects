@@ -1405,6 +1405,40 @@ img{ display:block; max-width:100%; }
   transition-delay:0s;
 }
 
+/* Up and down arrows at the right edge while a ring holds the screen. Each
+   press scrolls to bring the next picture round to the front (Orbit in
+   main.js). Shown and hidden on the same terms as the back-to-top pill. */
+.orbit-nav{
+  position:fixed; right:clamp(.75rem, 2.5vw, 2rem); top:50%; z-index:150;
+  display:grid; gap:.6rem;
+  opacity:0; visibility:hidden; transform:translate(.6rem, -50%);
+  transition:opacity .3s var(--ease), transform .3s var(--ease), visibility 0s linear .3s;
+}
+.orbit-nav.is-on{
+  opacity:1; visibility:visible; transform:translate(0, -50%);
+  transition-delay:0s;
+}
+.orbit-nav__btn{
+  width:3rem; height:3rem; border-radius:50%;
+  display:grid; place-items:center; padding:0;
+  color:var(--bone); cursor:pointer;
+  background:rgba(11,10,12,.6); backdrop-filter:blur(6px);
+  border:1px solid rgba(237,230,220,.3);
+  box-shadow:0 .6rem 1.6rem rgba(0,0,0,.4);
+  transition:background .25s var(--ease), border-color .25s var(--ease),
+             color .25s var(--ease), transform .25s var(--ease);
+}
+.orbit-nav__btn svg{
+  width:1.3rem; height:1.3rem;
+  fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round;
+}
+.orbit-nav__btn:hover,
+.orbit-nav__btn:focus-visible{
+  background:var(--magenta); border-color:var(--magenta); color:#fff;
+}
+.orbit-nav__btn[data-orbit-step="-1"]:hover{ transform:translateY(-2px); }
+.orbit-nav__btn[data-orbit-step="1"]:hover{ transform:translateY(2px); }
+
 
 /* ================= PRESS ================= */
 /* Press & Mentions, the cards that close the About page (render_press). */
@@ -1436,6 +1470,221 @@ img{ display:block; max-width:100%; }
 html[lang^="zh"] .press__src{ font-size:.78rem; letter-spacing:.08em; }
 .press__title{ font-size:1.02rem; font-weight:600; color:var(--bone); }
 .press__gloss{ font-size:.82rem; color:var(--bone-dim); }
+
+/* ================= SUBHEADS ================= */
+/* A heading inside a section - Now Recording on In the Making. Smaller than
+   a section title, with a rule running out to the edge so it reads as a
+   divider as well as a label. */
+.subhead{
+  display:flex; align-items:center; gap:1.1rem;
+  margin:clamp(3rem,7vw,5rem) 0 clamp(1.25rem,3vw,2rem);
+  font-family:var(--f-serif); font-weight:400;
+  font-size:clamp(1.9rem,4vw,2.9rem); line-height:1.05; color:var(--bone);
+}
+.subhead::after{ content:""; flex:1; height:1px; background:var(--line); }
+
+/* ================= PHOTOS ================= */
+/* Twelve columns, and each row as tall as a column is wide (container
+   query units), so a photo spanning 4 columns and 5 rows is a 4:5 picture.
+   `dense` backfills any hole with a later, smaller photo. Spans come from
+   PHOTO_SPANS in build.py.
+
+   Under 720px it becomes two plain columns instead. Six grid columns left
+   gaps whatever the spans, and would again every time a photo is added in a
+   different order; columns cannot leave a gap, and each photo keeps the same
+   shape through aspect-ratio, so it is only the sizes that even out. */
+.gallery-wrap{ container-type:inline-size; }
+.gallery{
+  --cols:12;
+  --gap:clamp(.5rem,1.1vw,.95rem);
+  display:grid; gap:var(--gap);
+  grid-template-columns:repeat(var(--cols), minmax(0,1fr));
+  grid-auto-rows:5.5rem;                                   /* no container units */
+  grid-auto-rows:calc((100cqw - (var(--cols) - 1) * var(--gap)) / var(--cols));
+  grid-auto-flow:row dense;
+}
+.photo{
+  grid-column:span var(--c); grid-row:span var(--r);
+  position:relative; margin:0; overflow:hidden;
+  border-radius:12px; border:1px solid var(--line); background:var(--ink-2);
+}
+@container (max-width:720px){
+  .gallery{ display:block; columns:2; column-gap:var(--gap); }
+  .photo{
+    display:block; width:100%;
+    aspect-ratio:var(--c) / var(--r);
+    margin:0 0 var(--gap); break-inside:avoid;
+  }
+}
+.photo img{
+  width:100%; height:100%; object-fit:cover;
+  transition:transform .8s var(--ease), filter .5s var(--ease);
+}
+.photo__cap{
+  position:absolute; inset:auto 0 0 0;
+  display:grid; gap:.2rem;
+  padding:2.2rem .9rem .8rem;
+  background:linear-gradient(to top, rgba(8,7,9,.82), transparent);
+  pointer-events:none;
+  transition:opacity .35s var(--ease), transform .35s var(--ease);
+}
+.photo__tag{
+  font-size:.6rem; letter-spacing:.18em; text-transform:uppercase; color:var(--magenta);
+}
+html[lang^="zh"] .photo__tag{ font-size:.72rem; letter-spacing:.06em; }
+.photo__title{ font-size:.9rem; font-weight:600; color:var(--bone); line-height:1.3; }
+/* With a pointer, the caption waits for it; on touch it is simply there. */
+@media (hover:hover){
+  .photo__cap{ opacity:0; transform:translateY(.4rem); }
+  .photo:hover .photo__cap,
+  .photo:focus-within .photo__cap{ opacity:1; transform:none; }
+  .photo:hover img{ transform:scale(1.035); }
+}
+/* the whole picture is the button, for the ones with more to say */
+.photo__open{
+  position:absolute; inset:0; z-index:1;
+  border:0; padding:0; margin:0; background:transparent;
+  cursor:zoom-in; border-radius:inherit;
+}
+.photo__open:focus-visible{ outline:2px solid var(--magenta); outline-offset:-3px; }
+.photo__badge{
+  position:absolute; top:.6rem; right:.6rem;
+  width:1.9rem; height:1.9rem; border-radius:50%;
+  display:grid; place-items:center;
+  font-size:1.15rem; line-height:1; color:#fff;
+  background:rgba(11,10,12,.55); backdrop-filter:blur(4px);
+  border:1px solid rgba(237,230,220,.35);
+  transition:background .3s var(--ease), border-color .3s var(--ease), transform .3s var(--ease);
+}
+.photo__open:hover .photo__badge,
+.photo__open:focus-visible .photo__badge{
+  background:var(--magenta); border-color:var(--magenta); transform:rotate(90deg);
+}
+
+/* ---- videos in the same grid ----
+   A video cell is the ordinary tile, stretched to fill its span, with the
+   title laid over the bottom of the poster the way a photo's caption is -
+   except always showing, since a video with no name is not much use. */
+.photo--video .vid{ position:relative; display:block; height:100%; }
+.photo--video .vid__frame{ height:100%; aspect-ratio:auto; border:0; border-radius:0; }
+.photo--video .vid__frame iframe{ border-radius:0; }
+.photo--video .vid__meta{
+  position:absolute; inset:auto 0 0 0; z-index:1;
+  padding:2.4rem .9rem .75rem;
+  background:linear-gradient(to top, rgba(8,7,9,.85), transparent);
+  pointer-events:none;
+  transition:opacity .35s var(--ease);
+}
+.photo--video .vid__title{ font-size:.92rem; }
+.photo--video .vid__sub{ font-size:.6rem; margin-top:.15rem; }
+.photo--video .vid__play{ width:48px; height:48px; }
+.photo--video .vid__flag{ top:.6rem; bottom:auto; }
+/* Played, it takes the whole row: twelve columns by seven rows is as near
+   16:9 as the grid gets. The caption steps off so it cannot sit over the
+   player's own controls. */
+.photo.is-playing{ grid-column:1 / -1; grid-row:span 7; }
+.photo.is-playing .vid__meta{ opacity:0; }
+@container (max-width:720px){
+  /* half a phone's width at 2:1 is too short to hold the title, its line
+     and the Bilibili flag without them overlapping */
+  .photo--video{ aspect-ratio:4 / 3; }
+  .photo--video .vid__meta{ padding:1.6rem .6rem .55rem; }
+  .photo--video .vid__title{ font-size:.8rem; }
+  .photo--video .vid__flag{ top:.45rem; left:.45rem; padding:.2rem .5rem; font-size:.58rem; }
+  .photo--video .vid__play{ width:40px; height:40px; }
+  .photo.is-playing{ column-span:all; aspect-ratio:16 / 9; }
+}
+
+/* ================= NOW RECORDING ================= */
+.making__block .subhead{ margin-top:clamp(1rem,3vw,2rem); }
+.making__lede{ max-width:44rem; color:#B9B2AB; margin:0; }
+/* A ring photo with a description is a button: it answers the pointer.
+   Only the outline and brightness change - the transform belongs to the
+   orbit and cannot take a hover scale on top without fighting it. */
+.orbit__card[data-lens]{ cursor:zoom-in; }
+.orbit__card[data-lens]:hover,
+.orbit__card[data-lens]:focus-visible{
+  outline:2px solid var(--magenta); outline-offset:4px;
+  filter:brightness(1.12);
+}
+
+/* ================= LENS ================= */
+/* The detail view. main.js flies a copy of the picture from where it sat to
+   the middle of the screen, then opens this card outward from its centre
+   line while the picture slides into its slot. The dialog itself is a
+   transparent full-screen layer; the veil is the dimming. */
+.lens{
+  position:fixed; inset:0;
+  width:100%; height:100%; max-width:none; max-height:none;
+  margin:0; padding:clamp(.75rem,3vw,2rem); border:0;
+  background:transparent; color:var(--bone);
+  overflow:hidden;
+}
+.lens[open]{ display:grid; place-items:center; }
+.lens::backdrop{ background:transparent; }
+.lens__veil{
+  position:absolute; inset:0;
+  background:rgba(6,5,7,.8); backdrop-filter:blur(6px);
+}
+.lens__card{
+  --ar:1;
+  position:relative;
+  display:grid; align-items:center;
+  grid-template-columns:auto minmax(15rem, 24rem);
+  gap:clamp(1.25rem,3vw,2.5rem);
+  padding:clamp(1rem,2.4vw,1.75rem);
+  max-height:100%;
+  background:var(--ink-2);
+  border:1px solid var(--line); border-radius:18px;
+  box-shadow:0 40px 100px rgba(0,0,0,.65);
+}
+.lens__media{
+  aspect-ratio:var(--ar);
+  width:min(46vw, 40rem, calc(72vh * var(--ar)), calc(72svh * var(--ar)));
+}
+.lens__img{
+  display:block; width:100%; height:100%; object-fit:cover;
+  max-width:none; border-radius:10px;
+}
+.lens__body{ align-self:center; max-height:72vh; overflow:auto; padding-right:.25rem; }
+.lens__kicker{
+  margin:0 0 .6rem;
+  font-size:.66rem; letter-spacing:.2em; text-transform:uppercase; color:var(--magenta);
+}
+html[lang^="zh"] .lens__kicker{ font-size:.8rem; letter-spacing:.06em; }
+.lens__title{
+  margin:0 0 1rem;
+  font-family:var(--f-serif); font-weight:400;
+  font-size:clamp(1.7rem,3.2vw,2.4rem); line-height:1.08;
+}
+.lens__text{ margin:0 0 .9rem; color:#B9B2AB; font-size:.95rem; line-height:1.65; }
+.lens__close{
+  position:absolute; top:.7rem; right:.7rem; z-index:2;
+  width:2.2rem; height:2.2rem; border-radius:50%;
+  border:1px solid var(--line); background:rgba(11,10,12,.6); color:var(--bone-dim);
+  font-size:1.3rem; line-height:1; cursor:pointer;
+  transition:color .25s var(--ease), border-color .25s var(--ease);
+}
+.lens__close:hover,
+.lens__close:focus-visible{ color:var(--bone); border-color:var(--bone); }
+/* the copy that flies; it lives in the dialog so it sits above the veil */
+.lens__flier{
+  position:fixed; z-index:3; margin:0; max-width:none;
+  object-fit:cover; border-radius:10px;
+  box-shadow:0 30px 80px rgba(0,0,0,.6);
+  pointer-events:none; will-change:transform;
+  transform-origin:0 0;
+}
+/* narrow: picture above, words below, and the card opens top-and-bottom */
+@media (max-width:760px){
+  .lens__card{ grid-template-columns:minmax(0,1fr); width:100%; }
+  .lens__media{
+    justify-self:center;
+    width:min(100%, calc(46vh * var(--ar)), calc(46svh * var(--ar)));
+  }
+  .lens__body{ max-height:38vh; max-height:38svh; }
+  .lens__title{ padding-right:2rem; }
+}
 
 /* ================= MESSAGE WINDOW ================= */
 /* The "message Tony" <dialog>. Native modal: the browser handles the top

@@ -392,6 +392,7 @@ function renderVideos() {
         row(
           check('Feature tile (large, above the grid)', v, 'feature', rerender),
           field('Poster path', input(v, 'poster', { mono: true })),
+          v.feature ? null : field('Size in the grid', choice(v, 'size', PHOTO_SIZES)),
         ),
         el('details', {}, el('summary', { className: 'hint' }, 'Language attributes'),
            row(
@@ -860,6 +861,245 @@ function imageCard(title, items, note) {
     imageGrid(items)));
 }
 
+// ---------------------------------------------------------------- photos
+
+/* The shapes build.py's PHOTO_SPANS knows, with the width:height each one is
+ * cut to. An uploaded photo is given the nearest one automatically; the
+ * picture is cropped to fill its slot, so a close match loses very little. */
+const PHOTO_SHAPES = [
+  ['square', 1, 'Square'], ['portrait', 4 / 5, 'Portrait (4:5)'], ['tall', 2 / 3, 'Tall (2:3)'],
+  ['landscape', 3 / 2, 'Landscape (3:2)'], ['wide', 2, 'Wide (2:1)'], ['panorama', 3, 'Panorama (3:1)'],
+];
+const PHOTO_SIZES = [['s', 'Small'], ['m', 'Medium'], ['l', 'Large']];
+
+function choice(obj, key, options, onChange) {
+  const node = el('select', {});
+  options.forEach(([value, label]) => {
+    // labels can be authored HTML ("Live &amp; behind the scenes"), so they go in as markup
+    const opt = el('option', { value, html: label });
+    if (obj[key] === value) opt.selected = true;
+    node.append(opt);
+  });
+  node.addEventListener('change', () => { obj[key] = node.value; markDirty(); if (onChange) onChange(); });
+  return node;
+}
+
+/** The nearest shape to an image file's own proportions. */
+function shapeOf(file) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const r = img.naturalWidth / img.naturalHeight;
+      URL.revokeObjectURL(url);
+      let best = PHOTO_SHAPES[0];
+      for (const s of PHOTO_SHAPES) {
+        if (Math.abs(Math.log(r / s[1])) < Math.abs(Math.log(r / best[1]))) best = s;
+      }
+      resolve(best[0]);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve('square'); };
+    img.src = url;
+  });
+}
+
+const DESC_HINT =
+  'Optional. Write something and the picture opens into a card with this text when it is clicked; ' +
+  'leave it empty and it stays a still picture. A blank line starts a new paragraph.';
+
+/* The Visuals grid's order: photos and videos in one list. build.py adds
+ * anything missing from it at the end, so this shows the same fill-in -
+ * what you see here is exactly what the page shows. */
+function visualsOrderCard() {
+  const shared = SHARED();
+  const rerender = () => renderPanel();
+  const photos = new Map((shared.photos || []).map((p) => [`photo:${p.id}`, p]));
+  const videos = new Map(shared.videos.filter((v) => !v.feature).map((v) => [`video:${v.id}`, v]));
+  const order = (shared.visualsOrder || []).filter((r, i, a) => (photos.has(r) || videos.has(r)) && a.indexOf(r) === i);
+  for (const r of [...photos.keys(), ...videos.keys()]) if (!order.includes(r)) order.push(r);
+
+  const move = (i, to) => {
+    if (to < 0 || to >= order.length) return;
+    const [r] = order.splice(i, 1);
+    order.splice(to, 0, r);
+    shared.visualsOrder = order;
+    markDirty();
+    rerender();
+  };
+  const rows = order.map((ref, i) => {
+    const isPhoto = photos.has(ref);
+    const item = isPhoto ? photos.get(ref) : videos.get(ref);
+    const label = isPhoto
+      ? (LOC('en').photos?.[item.id]?.caption || item.id)
+      : (LOC('en').videos[item.id]?.title || item.id);
+    const shape = isPhoto ? `${item.shape} · ${item.size}` : `video · ${item.size || 's'}`;
+    return el('div', { style: 'display:flex;align-items:center;gap:10px;padding:5px 0;border-top:1px solid var(--line)' },
+      el('span', { className: 'mono', style: 'width:2.2em;opacity:.6' }, String(i + 1)),
+      el('img', { src: '/' + (isPhoto ? item.src : item.poster), alt: '', loading: 'lazy',
+                  style: 'width:56px;height:36px;object-fit:cover;border-radius:4px' }),
+      el('span', { style: 'flex:1;min-width:0' }, el('span', { html: label }), ' ',
+         el('small', { className: 'hint' }, shape)),
+      el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: 'Earlier', onclick: () => move(i, i - 1) }, '↑'),
+      el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: 'Later', onclick: () => move(i, i + 1) }, '↓'));
+  });
+  return card('Grid order', null, el('details', {},
+    el('summary', { className: 'hint' }, `${order.length} pieces — open to reorder`),
+    el('p', { className: 'hint' },
+      'Top to bottom here is left-to-right, row by row on the page. The grid fills gaps with later, ' +
+      'smaller pieces, so a big piece followed by several small ones packs best.'),
+    ...rows));
+}
+
+function renderPhotos() {
+  const shared = SHARED();
+  const rerender = () => renderPanel();
+  if (!shared.photos) shared.photos = [];
+  for (const l of ['en', 'zh']) {
+    if (!LOC(l).photos) LOC(l).photos = {};
+    if (!LOC(l).photoTags) LOC(l).photoTags = {};
+  }
+  const tagKeys = Object.keys(LOC('en').photoTags);
+  const out = [
+    intro(
+      'One grid under the title video holds the photos and the videos together. Its order is set in ' +
+      '<b>Grid order</b> below; the grid packs the pieces, so mixing shapes and sizes is what makes it look ' +
+      'designed. The gradient pictures are placeholders — use <b>Replace</b> as the real photos arrive.',
+    ),
+    visualsOrderCard(),
+    card('Photo categories', null, el('div', {},
+      ...tagKeys.map((k) => bi(`Category: ${k}`, k, (l) => LOC(l).photoTags)),
+      bi('"Open" label (screen readers)', 'open', (l) => LOC(l).lens),
+      bi('"Close" label (screen readers)', 'close', (l) => LOC(l).lens),
+    )),
+  ];
+
+  shared.photos.forEach((ph, i) => {
+    const enP = LOC('en').photos[ph.id] || (LOC('en').photos[ph.id] = { caption: '' });
+    const zhP = LOC('zh').photos[ph.id] || (LOC('zh').photos[ph.id] = { caption: '' });
+    const opens = (enP.desc || zhP.desc) ? el('span', { className: 'live' }, 'opens') : null;
+    const title = el('span', {}, enP.caption || '(no caption)', ' ', opens, el('small', {}, ph.id));
+
+    const body = el('div', { className: 'vidrow' },
+      el('div', {},
+        el('img', { className: 'vidrow__thumb', src: '/' + ph.src, alt: '', loading: 'lazy',
+                    style: 'aspect-ratio:auto;max-height:180px;object-fit:contain' }),
+        el('div', { style: 'margin-top:8px' },
+          uploadButton('img/photos', 'Replace', async (path, file) => {
+            ph.src = path;
+            ph.shape = await shapeOf(file);
+            markDirty();
+            rerender();
+          }))),
+      el('div', { className: 'vidrow__fields' },
+        row(
+          field('Shape', choice(ph, 'shape', PHOTO_SHAPES.map(([v, , label]) => [v, label])),
+                'Set automatically when you upload.'),
+          field('Size', choice(ph, 'size', PHOTO_SIZES)),
+          field('Category', choice(ph, 'tag', tagKeys.map((k) => [k, LOC('en').photoTags[k]]))),
+        ),
+        bi('Caption', 'caption', (l) => (l === 'en' ? enP : zhP)),
+        bi('Description', 'desc', (l) => (l === 'en' ? enP : zhP),
+           { multiline: true, rows: 4, dropWhenEmpty: true, hint: DESC_HINT }),
+      ));
+
+    const remove = el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
+      onclick: () => {
+        if (!confirm('Remove this photo? It disappears from both languages.')) return;
+        shared.photos.splice(i, 1);
+        delete LOC('en').photos[ph.id];
+        delete LOC('zh').photos[ph.id];
+        shared.visualsOrder = (shared.visualsOrder || []).filter((r) => r !== `photo:${ph.id}`);
+        markDirty();
+        rerender();
+      } }, 'Remove');
+    out.push(card(title, remove, body));
+  });
+
+  out.push(el('div', { style: 'margin-bottom:24px' },
+    uploadButton('img/photos', '+ Add a photo', async (path, file) => {
+      const id = newId('photo', shared.photos.map((p) => p.id));
+      shared.photos.push({ id, src: path, shape: await shapeOf(file), size: 'm', tag: tagKeys[0] || '' });
+      (shared.visualsOrder || (shared.visualsOrder = [])).push(`photo:${id}`);
+      LOC('en').photos[id] = { caption: '' };
+      LOC('zh').photos[id] = { caption: '' };
+      markDirty();
+      rerender();
+    })));
+  return out;
+}
+
+// ---------------------------------------------------------------- recording
+
+function renderRecording() {
+  const shared = SHARED();
+  const rec = shared.recording;
+  if (!rec) return [];
+  const rerender = () => renderPanel();
+  for (const l of ['en', 'zh']) {
+    if (!LOC(l).recording) LOC(l).recording = { title: '', photos: {} };
+    if (!LOC(l).recording.photos) LOC(l).recording.photos = {};
+  }
+
+  const out = [
+    card('Now Recording', null, el('div', {},
+      el('p', { className: 'hint' },
+        'The block at the top of In the Making: a heading, a line of text, and a second ring that turns ' +
+        'as the page scrolls. It sits above the original ring, which is edited further down.'),
+      bi('Heading', 'title', (l) => LOC(l).recording),
+      bi('Text', 'desc', (l) => LOC(l).recording, { multiline: true, rows: 2 }),
+      el('div', { className: 'vidrow', style: 'margin-top:10px' },
+        el('div', {},
+          el('img', { className: 'vidrow__thumb', src: '/' + rec.centre, alt: '',
+                      style: 'aspect-ratio:1' }),
+          el('div', { style: 'margin-top:8px' },
+            uploadButton('img/recording', 'Replace centre', (path) => {
+              rec.centre = path; markDirty(); rerender();
+            }))),
+        el('div', { className: 'vidrow__fields' },
+          el('p', { className: 'hint' }, 'The still picture in the middle of the ring, shown square.'),
+          bi('Centre description (alt text)', 'centreAlt', (l) => LOC(l).recording))),
+    )),
+  ];
+
+  rec.photos.forEach((ph, i) => {
+    const enP = LOC('en').recording.photos[ph.id] || (LOC('en').recording.photos[ph.id] = { caption: '' });
+    const zhP = LOC('zh').recording.photos[ph.id] || (LOC('zh').recording.photos[ph.id] = { caption: '' });
+    const opens = (enP.desc || zhP.desc) ? el('span', { className: 'live' }, 'opens') : null;
+    const title = el('span', {}, enP.caption || '(no caption)', ' ', opens, el('small', {}, `ring · ${ph.id}`));
+    const body = el('div', { className: 'vidrow' },
+      el('div', {},
+        el('img', { className: 'vidrow__thumb', src: '/' + ph.src, alt: '', loading: 'lazy',
+                    style: 'aspect-ratio:auto;max-height:160px;object-fit:contain' }),
+        el('div', { style: 'margin-top:8px' },
+          uploadButton('img/recording', 'Replace', (path) => { ph.src = path; markDirty(); rerender(); }))),
+      el('div', { className: 'vidrow__fields' },
+        el('p', { className: 'hint' },
+          'Any shape works: the ring keeps each picture’s own proportions.'),
+        bi('Caption', 'caption', (l) => (l === 'en' ? enP : zhP),
+           { hint: 'The heading of the card it opens into. Not shown on the ring itself.' }),
+        bi('Description', 'desc', (l) => (l === 'en' ? enP : zhP),
+           { multiline: true, rows: 3, dropWhenEmpty: true, hint: DESC_HINT }),
+      ));
+    out.push(card(title, listControls(rec.photos, i, rerender, {
+      onDelete: (gone) => {
+        delete LOC('en').recording.photos[gone.id];
+        delete LOC('zh').recording.photos[gone.id];
+      },
+    }), body));
+  });
+
+  out.push(el('div', { style: 'margin-bottom:24px' },
+    uploadButton('img/recording', '+ Add a ring photo', (path) => {
+      const id = newId('ring', rec.photos.map((p) => p.id));
+      rec.photos.push({ id, src: path });
+      LOC('en').recording.photos[id] = { caption: '' };
+      LOC('zh').recording.photos[id] = { caption: '' };
+      markDirty();
+      rerender();
+    })));
+  return out;
+}
+
 // ---------------------------------------------------------------- raw
 
 function renderRaw() {
@@ -954,6 +1194,8 @@ function renderVisuals() {
     ),
     pageMeta('visuals'),
     sectionHeading('videos'),
+    ...renderPhotos(),
+    intro('The videos: the title video at the top of the page, and the grid under the Videos heading.'),
     ...renderVideos(),
     imageCard('Video posters', SHARED().videos.map((v) => ({
       label: LOC('en').videos[v.id]?.title || v.id,
@@ -1009,6 +1251,7 @@ function renderMaking() {
     ),
     pageMeta('making'),
     sectionHeading('press'),
+    ...renderRecording(),
   ];
 
   const orbit = shared.orbit;

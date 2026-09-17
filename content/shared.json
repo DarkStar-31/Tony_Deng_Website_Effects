@@ -27,6 +27,48 @@
       "img/orbit/mask-green.webp"
     ]
   },
+  "$recording": "In the Making's Now Recording block: a second ring above the first. `centre` is an image path (not a release id - the song it is for is not out yet). A ring photo whose locale entry has a `desc` can be clicked open; the rest are decorative.",
+  "recording": {
+    "centre": "img/placeholder/ring-centre.webp",
+    "photos": [
+      {
+        "id": "ring-01",
+        "src": "img/placeholder/ring-01.webp"
+      },
+      {
+        "id": "ring-02",
+        "src": "img/placeholder/ring-02.webp"
+      },
+      {
+        "id": "ring-03",
+        "src": "img/placeholder/ring-03.webp"
+      },
+      {
+        "id": "ring-04",
+        "src": "img/placeholder/ring-04.webp"
+      },
+      {
+        "id": "ring-05",
+        "src": "img/placeholder/ring-05.webp"
+      },
+      {
+        "id": "ring-06",
+        "src": "img/placeholder/ring-06.webp"
+      },
+      {
+        "id": "ring-07",
+        "src": "img/placeholder/ring-07.webp"
+      },
+      {
+        "id": "ring-08",
+        "src": "img/placeholder/ring-08.webp"
+      },
+      {
+        "id": "ring-09",
+        "src": "img/placeholder/ring-09.webp"
+      }
+    ]
+  },
   "$tracks": "Every audio file on disk. `playlists` picks which of these the hero player queues, per locale - the two are separate so a file can sit here unused rather than having to be deleted.",
   "tracks": [
     {
@@ -40,8 +82,12 @@
   ],
   "$playlists": "Keyed by the locale's `lang` up to the first dash. An id here must exist in `tracks`; an empty list falls the player back to its synthesised pad.",
   "playlists": {
-    "en": ["i-do"],
-    "zh": ["overthinking"]
+    "en": [
+      "i-do"
+    ],
+    "zh": [
+      "overthinking"
+    ]
   },
   "releases": [
     {
@@ -75,84 +121,234 @@
       "yt": "Z-EP0Qwl2xw",
       "bv": "",
       "poster": "img/video/Z-EP0Qwl2xw.webp",
-      "feature": false
+      "feature": false,
+      "size": "s"
     },
     {
       "id": "her",
       "yt": "NwpjbcHqua4",
       "bv": "",
       "poster": "img/video/NwpjbcHqua4.webp",
-      "feature": false
+      "feature": false,
+      "size": "s"
     },
     {
       "id": "i-do",
       "yt": "4BrMzNiupXQ",
       "bv": "",
       "poster": "img/video/4BrMzNiupXQ.webp",
-      "feature": false
+      "feature": false,
+      "size": "s"
     },
     {
       "id": "its-raining",
       "yt": "R5OQh-loln4",
       "bv": "",
       "poster": "img/video/R5OQh-loln4.webp",
-      "feature": false
+      "feature": false,
+      "size": "m"
     },
     {
       "id": "curiosity",
       "yt": "_KBXlZYRx8E",
       "bv": "",
       "poster": "img/video/_KBXlZYRx8E.webp",
-      "feature": false
+      "feature": false,
+      "size": "m"
     },
     {
       "id": "if-its-true",
       "yt": "VeyHXexUB8Y",
       "bv": "",
       "poster": "img/video/VeyHXexUB8Y.webp",
-      "feature": false
+      "feature": false,
+      "size": "s"
     },
     {
       "id": "time-will-speak",
       "yt": "xOxKN4OKFsw",
       "bv": "",
       "poster": "img/video/xOxKN4OKFsw.webp",
-      "feature": false
+      "feature": false,
+      "size": "s"
     },
     {
       "id": "saturn-diary",
       "yt": "VSP5IlXHq8E",
       "bv": "",
       "poster": "img/video/VSP5IlXHq8E.webp",
-      "feature": false
+      "feature": false,
+      "size": "s"
     },
     {
       "id": "how-it-feels-like",
       "yt": "foud-nkltS8",
       "bv": "",
       "poster": "img/video/foud-nkltS8.webp",
-      "feature": false
+      "feature": false,
+      "size": "m"
     },
     {
       "id": "oh-mother",
       "yt": "f55cIm9AYd4",
       "bv": "",
       "poster": "img/video/f55cIm9AYd4.webp",
-      "feature": false
+      "feature": false,
+      "size": "m"
     },
     {
       "id": "one-day",
       "yt": "CiVWFo4Mlbg",
       "bv": "",
       "poster": "img/video/CiVWFo4Mlbg.webp",
-      "feature": false
+      "feature": false,
+      "size": "m"
     },
     {
       "id": "be-mine",
       "yt": "5qcaCLkbfys",
       "bv": "",
       "poster": "img/video/5qcaCLkbfys.webp",
-      "feature": false
+      "feature": false,
+      "size": "m"
+    }
+  ],
+  "$visualsOrder": "The one grid under the title video on Visuals, photos and videos together, in this order. Entries are photo:<id> or video:<id>. Anything left out is added at the end; a video with `feature` is the big one above the grid and is not listed here. Videos take `size` s, m or l (VIDEO_SPANS in build.py).",
+  "visualsOrder": [
+    "photo:photo-01",
+    "photo:photo-02",
+    "photo:photo-03",
+    "photo:photo-04",
+    "video:look-in-the-mirror",
+    "video:her",
+    "video:i-do",
+    "photo:photo-05",
+    "photo:photo-06",
+    "video:its-raining",
+    "video:curiosity",
+    "photo:photo-07",
+    "photo:photo-08",
+    "photo:photo-09",
+    "photo:photo-10",
+    "video:if-its-true",
+    "video:time-will-speak",
+    "video:saturn-diary",
+    "photo:photo-11",
+    "photo:photo-12",
+    "video:how-it-feels-like",
+    "video:oh-mother",
+    "photo:photo-13",
+    "photo:photo-14",
+    "photo:photo-15",
+    "video:one-day",
+    "video:be-mine"
+  ],
+  "$photos": "The Photos grid on the Visuals page, in order. `shape` (square, portrait, tall, landscape, wide, panorama) and `size` (s, m, l) pick the slot in build.py's PHOTO_SPANS; the picture is cropped to fill it. `tag` is one of the keys in each locale's photoTags. A photo whose locale entry has a `desc` opens into the detail view when clicked; one without stays a still picture.",
+  "photos": [
+    {
+      "id": "photo-01",
+      "src": "img/placeholder/photo-01.webp",
+      "shape": "portrait",
+      "size": "l",
+      "tag": "portrait"
+    },
+    {
+      "id": "photo-02",
+      "src": "img/placeholder/photo-02.webp",
+      "shape": "landscape",
+      "size": "m",
+      "tag": "studio"
+    },
+    {
+      "id": "photo-03",
+      "src": "img/placeholder/photo-03.webp",
+      "shape": "portrait",
+      "size": "s",
+      "tag": "portrait"
+    },
+    {
+      "id": "photo-04",
+      "src": "img/placeholder/photo-04.webp",
+      "shape": "portrait",
+      "size": "s",
+      "tag": "live"
+    },
+    {
+      "id": "photo-05",
+      "src": "img/placeholder/photo-05.webp",
+      "shape": "wide",
+      "size": "m",
+      "tag": "studio"
+    },
+    {
+      "id": "photo-06",
+      "src": "img/placeholder/photo-06.webp",
+      "shape": "square",
+      "size": "m",
+      "tag": "press"
+    },
+    {
+      "id": "photo-07",
+      "src": "img/placeholder/photo-07.webp",
+      "shape": "tall",
+      "size": "m",
+      "tag": "portrait"
+    },
+    {
+      "id": "photo-08",
+      "src": "img/placeholder/photo-08.webp",
+      "shape": "square",
+      "size": "l",
+      "tag": "live"
+    },
+    {
+      "id": "photo-09",
+      "src": "img/placeholder/photo-09.webp",
+      "shape": "tall",
+      "size": "s",
+      "tag": "studio"
+    },
+    {
+      "id": "photo-10",
+      "src": "img/placeholder/photo-10.webp",
+      "shape": "tall",
+      "size": "s",
+      "tag": "press"
+    },
+    {
+      "id": "photo-11",
+      "src": "img/placeholder/photo-11.webp",
+      "shape": "panorama",
+      "size": "m",
+      "tag": "live"
+    },
+    {
+      "id": "photo-12",
+      "src": "img/placeholder/photo-12.webp",
+      "shape": "square",
+      "size": "s",
+      "tag": "portrait"
+    },
+    {
+      "id": "photo-13",
+      "src": "img/placeholder/photo-13.webp",
+      "shape": "wide",
+      "size": "s",
+      "tag": "studio"
+    },
+    {
+      "id": "photo-14",
+      "src": "img/placeholder/photo-14.webp",
+      "shape": "wide",
+      "size": "s",
+      "tag": "live"
+    },
+    {
+      "id": "photo-15",
+      "src": "img/placeholder/photo-15.webp",
+      "shape": "wide",
+      "size": "s",
+      "tag": "press"
     }
   ],
   "milestones": [

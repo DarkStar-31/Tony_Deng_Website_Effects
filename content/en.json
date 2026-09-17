@@ -190,23 +190,39 @@
       "singlesByYear": [
         {
           "year": "2025",
-          "tracks": ["I Do", "Curiosity"]
+          "tracks": [
+            "I Do",
+            "Curiosity"
+          ]
         },
         {
           "year": "2024",
-          "tracks": ["Look in the Mirror", "HER", "If It&rsquo;s True"]
+          "tracks": [
+            "Look in the Mirror",
+            "HER",
+            "If It&rsquo;s True"
+          ]
         },
         {
           "year": "2023",
-          "tracks": ["Time Will Speak"]
+          "tracks": [
+            "Time Will Speak"
+          ]
         },
         {
           "year": "2022",
-          "tracks": ["Oh, Mother", "How It Feels Like"]
+          "tracks": [
+            "Oh, Mother",
+            "How It Feels Like"
+          ]
         },
         {
           "year": "2021",
-          "tracks": ["One Day", "It&rsquo;s Raining", "Be Mine"]
+          "tracks": [
+            "One Day",
+            "It&rsquo;s Raining",
+            "Be Mine"
+          ]
         }
       ],
       "links": [
@@ -345,7 +361,7 @@
     "oh-mother": "<b>Oh, Mother</b> — Weekly Winner, John Lennon Songwriting Contest",
     "isc-finalist": "Finalist — International Songwriting Competition",
     "masc-gasc-finalist": "Finalist — Mid-Atlantic Song Contest · Great American Song Contest",
-      "saturn-diary": "<b>Saturn Diary</b> — debut album, May 2023",
+    "saturn-diary": "<b>Saturn Diary</b> — debut album, May 2023",
     "time-will-speak": "<b>Time Will Speak</b> — Semi-Finalist, UK Songwriting Contest",
     "ode-to-joy": "Composed <b lang=\"zh\">欢乐颂歌</b> (Ode to Joy) for the band <span lang=\"zh\">折耳根</span> — officially released",
     "look-in-the-mirror": "<b>Look in the Mirror</b> — Champion, International Youth Music Competition",
@@ -464,6 +480,115 @@
       }
     ]
   },
+  "$photos": "Captions for shared.photos, by id. `desc` is optional: with one, the photo opens into the detail view; blank lines split it into paragraphs.",
+  "photos": {
+    "photo-01": {
+      "caption": "Lorem ipsum dolor",
+      "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur."
+    },
+    "photo-02": {
+      "caption": "Sit amet consectetur",
+      "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."
+    },
+    "photo-03": {
+      "caption": "Adipiscing elit"
+    },
+    "photo-04": {
+      "caption": "Sed do eiusmod"
+    },
+    "photo-05": {
+      "caption": "Tempor incididunt",
+      "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur."
+    },
+    "photo-06": {
+      "caption": "Ut labore et dolore"
+    },
+    "photo-07": {
+      "caption": "Magna aliqua",
+      "desc": "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.\n\nNeque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit."
+    },
+    "photo-08": {
+      "caption": "Ut enim ad minim",
+      "desc": "Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur."
+    },
+    "photo-09": {
+      "caption": "Quis nostrud"
+    },
+    "photo-10": {
+      "caption": "Exercitation ullamco"
+    },
+    "photo-11": {
+      "caption": "Laboris nisi ut aliquip",
+      "desc": "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.\n\nNeque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit."
+    },
+    "photo-12": {
+      "caption": "Ex ea commodo"
+    },
+    "photo-13": {
+      "caption": "Duis aute irure",
+      "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur."
+    },
+    "photo-14": {
+      "caption": "In reprehenderit"
+    },
+    "photo-15": {
+      "caption": "Voluptate velit"
+    }
+  },
+  "photoTags": {
+    "portrait": "Official portraits",
+    "studio": "In the studio",
+    "live": "Live &amp; behind the scenes",
+    "press": "Press photos"
+  },
+  "lens": {
+    "open": "Open",
+    "close": "Close"
+  },
+  "orbitNav": {
+    "prev": "Previous image",
+    "next": "Next image"
+  },
+  "recording": {
+    "title": "Now Recording",
+    "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore.",
+    "centreAlt": "Placeholder artwork for the song in progress",
+    "photos": {
+      "ring-01": {
+        "caption": "Sed do eiusmod",
+        "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."
+      },
+      "ring-02": {
+        "caption": "Tempor incididunt",
+        "desc": "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.\n\nNeque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit."
+      },
+      "ring-03": {
+        "caption": "Ut labore et dolore"
+      },
+      "ring-04": {
+        "caption": "Magna aliqua",
+        "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur."
+      },
+      "ring-05": {
+        "caption": "Ut enim ad minim",
+        "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."
+      },
+      "ring-06": {
+        "caption": "Quis nostrud"
+      },
+      "ring-07": {
+        "caption": "Exercitation ullamco",
+        "desc": "Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur."
+      },
+      "ring-08": {
+        "caption": "Laboris nisi ut aliquip"
+      },
+      "ring-09": {
+        "caption": "Ex ea commodo",
+        "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."
+      }
+    }
+  },
   "footer": {
     "copyright": "Tony D · <span lang=\"zh\">邓乐潼</span>",
     "backToTop": "Back to top"
@@ -473,8 +598,14 @@
     "press": "Press coverage"
   },
   "stats": [
-    { "value": "2", "label": "Albums" },
-    { "value": "11", "label": "Singles" }
+    {
+      "value": "2",
+      "label": "Albums"
+    },
+    {
+      "value": "11",
+      "label": "Singles"
+    }
   ],
   "comingSoon": "Coming Soon",
   "playlistsHeading": "More on YouTube",

@@ -198,23 +198,39 @@
       "singlesByYear": [
         {
           "year": "2025",
-          "tracks": ["I Do", "Curiosity"]
+          "tracks": [
+            "I Do",
+            "Curiosity"
+          ]
         },
         {
           "year": "2024",
-          "tracks": ["Look in the Mirror", "HER", "If It&rsquo;s True"]
+          "tracks": [
+            "Look in the Mirror",
+            "HER",
+            "If It&rsquo;s True"
+          ]
         },
         {
           "year": "2023",
-          "tracks": ["Time Will Speak"]
+          "tracks": [
+            "Time Will Speak"
+          ]
         },
         {
           "year": "2022",
-          "tracks": ["Oh, Mother", "How It Feels Like"]
+          "tracks": [
+            "Oh, Mother",
+            "How It Feels Like"
+          ]
         },
         {
           "year": "2021",
-          "tracks": ["One Day", "It&rsquo;s Raining", "Be Mine"]
+          "tracks": [
+            "One Day",
+            "It&rsquo;s Raining",
+            "Be Mine"
+          ]
         }
       ],
       "copyLang": "en",
@@ -361,7 +377,7 @@
     "oh-mother": "<b lang=\"en\">Oh, Mother</b> — 约翰·列侬歌曲创作大赛（JLSC）周冠军",
     "isc-finalist": "决赛入围 — 国际歌曲创作大赛（ISC）",
     "masc-gasc-finalist": "决赛入围 — Mid-Atlantic Song Contest · Great American Song Contest",
-      "saturn-diary": "<b lang=\"en\">Saturn Diary</b> — 首张个人专辑，2023 年 5 月",
+    "saturn-diary": "<b lang=\"en\">Saturn Diary</b> — 首张个人专辑，2023 年 5 月",
     "time-will-speak": "<b lang=\"en\">Time Will Speak</b> — 半决赛入围，英国歌曲创作大赛（UKSC）",
     "ode-to-joy": "为乐队折耳根创作原创歌曲《欢乐颂歌》——正式发行",
     "look-in-the-mirror": "<b lang=\"en\">Look in the Mirror</b> — 国际青少年音乐大赛（IYMC）冠军",
@@ -487,6 +503,115 @@
       }
     ]
   },
+  "$photos": "Captions for shared.photos, by id. `desc` is optional: with one, the photo opens into the detail view; blank lines split it into paragraphs.",
+  "photos": {
+    "photo-01": {
+      "caption": "Lorem ipsum dolor",
+      "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur."
+    },
+    "photo-02": {
+      "caption": "Sit amet consectetur",
+      "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."
+    },
+    "photo-03": {
+      "caption": "Adipiscing elit"
+    },
+    "photo-04": {
+      "caption": "Sed do eiusmod"
+    },
+    "photo-05": {
+      "caption": "Tempor incididunt",
+      "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur."
+    },
+    "photo-06": {
+      "caption": "Ut labore et dolore"
+    },
+    "photo-07": {
+      "caption": "Magna aliqua",
+      "desc": "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.\n\nNeque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit."
+    },
+    "photo-08": {
+      "caption": "Ut enim ad minim",
+      "desc": "Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur."
+    },
+    "photo-09": {
+      "caption": "Quis nostrud"
+    },
+    "photo-10": {
+      "caption": "Exercitation ullamco"
+    },
+    "photo-11": {
+      "caption": "Laboris nisi ut aliquip",
+      "desc": "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.\n\nNeque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit."
+    },
+    "photo-12": {
+      "caption": "Ex ea commodo"
+    },
+    "photo-13": {
+      "caption": "Duis aute irure",
+      "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur."
+    },
+    "photo-14": {
+      "caption": "In reprehenderit"
+    },
+    "photo-15": {
+      "caption": "Voluptate velit"
+    }
+  },
+  "photoTags": {
+    "portrait": "官方肖像",
+    "studio": "录音棚花絮",
+    "live": "现场·幕后",
+    "press": "媒体照片"
+  },
+  "lens": {
+    "open": "查看",
+    "close": "关闭"
+  },
+  "orbitNav": {
+    "prev": "上一张",
+    "next": "下一张"
+  },
+  "recording": {
+    "title": "新歌录制中",
+    "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore.",
+    "centreAlt": "录制中新歌的占位图",
+    "photos": {
+      "ring-01": {
+        "caption": "Sed do eiusmod",
+        "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."
+      },
+      "ring-02": {
+        "caption": "Tempor incididunt",
+        "desc": "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.\n\nNeque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit."
+      },
+      "ring-03": {
+        "caption": "Ut labore et dolore"
+      },
+      "ring-04": {
+        "caption": "Magna aliqua",
+        "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur."
+      },
+      "ring-05": {
+        "caption": "Ut enim ad minim",
+        "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."
+      },
+      "ring-06": {
+        "caption": "Quis nostrud"
+      },
+      "ring-07": {
+        "caption": "Exercitation ullamco",
+        "desc": "Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur."
+      },
+      "ring-08": {
+        "caption": "Laboris nisi ut aliquip"
+      },
+      "ring-09": {
+        "caption": "Ex ea commodo",
+        "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."
+      }
+    }
+  },
   "footer": {
     "copyright": "Tony D · 邓乐潼",
     "backToTop": "返回顶部"
@@ -496,8 +621,14 @@
     "press": "媒体报道"
   },
   "stats": [
-    { "value": "2", "label": "专辑" },
-    { "value": "11", "label": "单曲" }
+    {
+      "value": "2",
+      "label": "专辑"
+    },
+    {
+      "value": "11",
+      "label": "单曲"
+    }
   ],
   "comingSoon": "新歌速递 Coming Soon",
   "playlistsHeading": "更多平台",

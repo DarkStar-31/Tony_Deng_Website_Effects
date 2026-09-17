@@ -1095,9 +1095,9 @@ class VideoFacade {
         const src = useBili ? { kind: 'bilibili', id: bv }
                             : { kind: 'youtube',  id: yt };
 
-        // The feature tile is already full width and sits outside .vids, so
-        // it just loads. A tile in the grid grows into its own row first.
-        const grid = el.closest('.vids');
+        // The feature tile is already full width and sits outside the grid,
+        // so it just loads. A tile in a grid grows into its own row first.
+        const grid = el.closest('.vids, .gallery');
         if (!grid) { this.embed(el, src); return; }
 
         this.morph(grid, () => {
@@ -1106,6 +1106,9 @@ class VideoFacade {
           const open = grid.querySelector('.vid--playing');
           if (open && open !== el) this.collapse(open);
           el.classList.add('vid--playing');
+          // in the Visuals grid the cell is the grid item, so it is the cell
+          // that has to claim the row
+          if (el.parentElement.classList.contains('photo')) el.parentElement.classList.add('is-playing');
           this.embed(el, src);
         });
       });
@@ -1125,7 +1128,8 @@ class VideoFacade {
      own caption, so that caption gets the inverse scale for the same beat
      and stays at its true weight throughout. */
   morph (grid, mutate) {
-    const tiles = [...grid.querySelectorAll('.vid')];
+    // whatever the grid's own items are: tiles in .vids, cells in .gallery
+    const tiles = [...grid.children];
     if (REDUCED || !grid.animate) { mutate(); return; }
 
     const first = new Map(tiles.map(t => [t, t.getBoundingClientRect()]));
@@ -1169,6 +1173,7 @@ class VideoFacade {
      the sound. */
   collapse (el) {
     el.classList.remove('vid--playing');
+    if (el.parentElement.classList.contains('photo')) el.parentElement.classList.remove('is-playing');
     const frame = el.querySelector('.vid__frame');
     if (!frame) return;
     const old = frame.querySelector('iframe');
@@ -1407,8 +1412,8 @@ class SinglesYears {
    the wheel coasts instead of stepping.
    --------------------------------------------------------- */
 class Orbit {
-  constructor (sel = '[data-orbit]', turns = 1.25) {
-    this.root = document.querySelector(sel);
+  constructor (root, turns = 1.25) {
+    this.root = root;
     if (!this.root || REDUCED) return;
     this.stage = this.root.querySelector('.orbit__stage');
     this.scene = this.root.querySelector('.orbit__scene');
@@ -1420,6 +1425,18 @@ class Orbit {
 
     this.root.classList.add('is-live');
     this.tick = this.tick.bind(this);
+
+    // Up/down arrows: step the ring one picture at a time. A step is one
+    // n-th of a turn; the page scrolls exactly as far as that takes.
+    this.nav = this.root.querySelector('[data-orbit-nav]');
+    this.count = this.scene.querySelectorAll('.orbit__card').length || 1;
+    this.aim = null;
+    if (this.nav) {
+      this.nav.hidden = false;
+      this.nav.querySelectorAll('[data-orbit-step]').forEach((b) => {
+        b.addEventListener('click', () => this.step(Number(b.dataset.orbitStep)));
+      });
+    }
     const read = () => {
       const box = this.root.getBoundingClientRect();
       // The stage pins below the nav, not at the top of the window, so the
@@ -1432,9 +1449,9 @@ class Orbit {
       // starts high enough on the page to fill the screen before any
       // scrolling, and a "back to top" button at the top is noise - and for
       // as long as the ring still holds the middle of the screen after.
-      if (this.up) {
-        this.up.classList.toggle('is-on', box.top <= pin + 1 && box.bottom > innerHeight / 2);
-      }
+      const held = box.top <= pin + 1 && box.bottom > innerHeight / 2;
+      if (this.up) this.up.classList.toggle('is-on', held);
+      if (this.nav) this.nav.classList.toggle('is-on', held);
       if (!this.raf) this.raf = requestAnimationFrame(this.tick);
     };
     addEventListener('scroll', read, { passive: true });
@@ -1442,11 +1459,243 @@ class Orbit {
     read();
   }
 
+  /* Scroll so the ring lands on the next (+1) or previous (-1) picture.
+     Presses in quick succession count on from where the last one was
+     headed, not from wherever the smooth scroll has got to so far. Past
+     either end it lets go of the ring: down to what follows, up to the
+     heading above. */
+  step (dir) {
+    const box = this.root.getBoundingClientRect();
+    const pin = parseFloat(getComputedStyle(this.stage).top) || 0;
+    const run = this.root.offsetHeight - this.stage.offsetHeight;
+    if (run <= 0) return;
+    const top = box.top + scrollY;              // the ring's place on the page
+    // the whole run turns the ring `turns` times, one picture per n-th of a
+    // turn, so progress k / (turns * n) puts picture k at the front
+    const span = this.turns * this.count;
+
+    const fresh = !this.aim || performance.now() - this.aim.at > 900;
+    // from between two pictures, "next" is the one just ahead and "previous"
+    // the one just behind, rather than whichever is nearer
+    const at = this.target * span;
+    const k = fresh
+      ? (dir > 0 ? Math.floor(at + 0.02) + 1 : Math.ceil(at - 0.02) - 1)
+      : this.aim.k + dir;
+    this.aim = { k, at: performance.now() };
+
+    let y;
+    if (k > Math.floor(span)) y = top + this.root.offsetHeight - pin;    // past the end
+    else if (k < 0) y = top - innerHeight * 0.45;                        // back above it
+    else y = top - pin + (k / span) * run;
+    scrollTo({ top: Math.max(0, y), behavior: REDUCED ? 'auto' : 'smooth' });
+  }
+
   tick () {
     const gap = this.target - this.now;
     this.now = Math.abs(gap) < 1e-4 ? this.target : this.now + gap * 0.1;
     this.scene.style.setProperty('--spin', `${(this.now * this.turns * 360).toFixed(2)}deg`);
     this.raf = this.now === this.target ? 0 : requestAnimationFrame(this.tick);
+  }
+}
+
+
+/* ---------------------------------------------------------
+   Lens — a picture with something to say opens into a card
+
+   Click a photo (or a ring card) that carries a description and a copy of
+   it lifts off the page, floats to the middle of the screen, and then the
+   card opens outward from its centre line - sideways on a wide screen,
+   top-and-bottom on a narrow one - while the picture settles into its slot
+   and the words come up beside it. Closing runs the same way back, to
+   wherever the original now is.
+
+   The words live in a <template> next to each picture (see lens_template in
+   build.py), so nothing about them is on the page until it is opened. The
+   picture being carried is a separate <img> inside the dialog: the dialog
+   is in the top layer, so anything flying has to be in there too.
+   --------------------------------------------------------- */
+class Lens {
+  constructor () {
+    this.dlg = document.getElementById('lens');
+    if (!this.dlg || typeof this.dlg.showModal !== 'function') return;
+    this.card  = this.dlg.querySelector('.lens__card');
+    this.img   = this.dlg.querySelector('.lens__img');
+    this.body  = this.dlg.querySelector('.lens__body');
+    this.veil  = this.dlg.querySelector('.lens__veil');
+    this.shut  = this.dlg.querySelector('.lens__close');
+    this.state = 'closed';
+    this.D = 1150;   // the whole opening, ms
+
+    document.addEventListener('click', (e) => {
+      const t = e.target.closest('[data-lens]');
+      if (t && !this.dlg.contains(t)) { e.preventDefault(); this.open(t); }
+    });
+    // ring cards are <img role=button>, which the keyboard does not press
+    document.addEventListener('keydown', (e) => {
+      if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('img[data-lens]')) {
+        e.preventDefault(); this.open(e.target);
+      }
+    });
+    this.dlg.addEventListener('cancel', (e) => { e.preventDefault(); this.close(); });
+    this.shut.addEventListener('click', () => this.close());
+    this.veil.addEventListener('click', () => this.close());
+    this.dlg.addEventListener('click', (e) => { if (e.target === this.dlg) this.close(); });
+  }
+
+  // a copy of the picture, laid exactly over the card's picture slot
+  flier (rect) {
+    const f = new Image();
+    f.className = 'lens__flier';
+    f.alt = '';
+    f.src = this.img.src;
+    Object.assign(f.style, {
+      left: `${rect.left}px`, top: `${rect.top}px`,
+      width: `${rect.width}px`, height: `${rect.height}px`,
+    });
+    this.dlg.append(f);
+    return f;
+  }
+
+  // transform (origin top-left) that puts the slot-sized copy over `r`
+  over (slot, r, lift = 0) {
+    return `translate(${r.left - slot.left}px, ${r.top - slot.top + lift}px) ` +
+           `scale(${r.width / slot.width}, ${r.height / slot.height})`;
+  }
+
+  lock (on) {
+    const html = document.documentElement;
+    if (on) {
+      const gutter = innerWidth - html.clientWidth;
+      html.style.overflow = 'hidden';
+      if (gutter > 0) document.body.style.paddingRight = `${gutter}px`;
+    } else {
+      html.style.overflow = '';
+      document.body.style.paddingRight = '';
+    }
+  }
+
+  open (trigger) {
+    if (this.state !== 'closed') return;
+    const tpl = document.getElementById(trigger.dataset.lens);
+    const src = trigger.tagName === 'IMG' ? trigger : trigger.closest('.photo')?.querySelector('img');
+    if (!tpl || !src) return;
+
+    this.trigger = trigger;
+    this.src = src;
+    const from = src.getBoundingClientRect();
+    const ar = src.naturalWidth && src.naturalHeight
+      ? src.naturalWidth / src.naturalHeight
+      : (from.width / from.height) || 1;
+    this.card.style.setProperty('--ar', ar.toFixed(4));
+    this.img.src = src.currentSrc || src.src;
+    this.body.replaceChildren(tpl.content.cloneNode(true));
+
+    this.lock(true);
+    this.dlg.showModal();
+    this.shut.focus({ preventScroll: true });
+    this.dlg.scrollTop = 0;
+
+    if (REDUCED) {
+      this.state = 'open';
+      this.card.animate({ opacity: [0, 1] }, { duration: 200 });
+      return;
+    }
+
+    this.state = 'opening';
+    const D = this.D;
+    const slot = this.img.getBoundingClientRect();
+    const mid = {
+      left: innerWidth / 2 - slot.width / 2, top: innerHeight / 2 - slot.height / 2,
+      width: slot.width, height: slot.height,
+    };
+    const stacked = matchMedia('(max-width:760px)').matches;
+    const fl = this.flier(slot);
+    this.fl = fl;
+    src.style.visibility = 'hidden';
+    this.img.style.visibility = 'hidden';
+
+    this.veil.animate({ opacity: [0, 1] }, { duration: D * 0.4, easing: 'ease-out' });
+
+    // lift off, rise a touch past the middle, settle, then into the slot
+    const flight = fl.animate([
+      { transform: this.over(slot, from), boxShadow: '0 4px 12px rgba(0,0,0,.3)', offset: 0 },
+      { transform: this.over(slot, mid, -14), boxShadow: '0 40px 90px rgba(0,0,0,.7)', offset: 0.4,
+        easing: 'cubic-bezier(.35,0,.25,1)' },
+      { transform: this.over(slot, mid), offset: 0.52, easing: 'cubic-bezier(.65,0,.35,1)' },
+      { transform: 'none', boxShadow: '0 12px 30px rgba(0,0,0,.4)', offset: 1 },
+    ], { duration: D, easing: 'cubic-bezier(.22,.61,.36,1)', fill: 'forwards' });
+
+    // the card opens from its centre line once the picture has arrived
+    const shutClip = stacked ? 'inset(50% 0 50% 0 round 18px)' : 'inset(0 50% 0 50% round 18px)';
+    this.card.animate(
+      { clipPath: [shutClip, 'inset(0 0 0 0 round 18px)'] },
+      { duration: D * 0.5, delay: D * 0.5, easing: 'cubic-bezier(.65,0,.35,1)', fill: 'backwards' },
+    );
+    [...this.body.children, this.shut].forEach((node, i) => {
+      node.animate(
+        { opacity: [0, 1], transform: ['translateY(10px)', 'none'] },
+        { duration: 420, delay: D * 0.78 + i * 70, easing: 'cubic-bezier(.22,.61,.36,1)', fill: 'backwards' },
+      );
+    });
+
+    flight.finished.then(() => {
+      this.img.style.visibility = '';
+      fl.remove();
+      this.fl = null;
+      if (this.state === 'opening') this.state = 'open';
+    }).catch(() => {});
+  }
+
+  async close () {
+    if (this.state === 'closed' || this.state === 'closing') return;
+    if (REDUCED || this.state === 'opening') { this.finish(); return; }
+
+    this.state = 'closing';
+    const slot = this.img.getBoundingClientRect();
+    const home = this.src.getBoundingClientRect();
+    const onScreen = home.width > 0 && home.bottom > 0 && home.top < innerHeight &&
+                     home.right > 0 && home.left < innerWidth;
+    const stacked = matchMedia('(max-width:760px)').matches;
+    const mid = {
+      left: innerWidth / 2 - slot.width / 2, top: innerHeight / 2 - slot.height / 2,
+      width: slot.width, height: slot.height,
+    };
+    const fl = this.flier(slot);
+    this.fl = fl;
+    this.img.style.visibility = 'hidden';
+
+    const out = { duration: 180, easing: 'ease-in', fill: 'forwards' };
+    const runs = [...this.body.children, this.shut]
+      .map((node) => node.animate({ opacity: [1, 0] }, out));
+    const shutClip = stacked ? 'inset(50% 0 50% 0 round 18px)' : 'inset(0 50% 0 50% round 18px)';
+    runs.push(this.card.animate(
+      { clipPath: ['inset(0 0 0 0 round 18px)', shutClip] },
+      { duration: 380, delay: 120, easing: 'cubic-bezier(.65,0,.35,1)', fill: 'forwards' },
+    ));
+    runs.push(onScreen
+      ? fl.animate([
+        { transform: 'none', offset: 0 },
+        { transform: this.over(slot, mid), offset: 0.45, easing: 'cubic-bezier(.65,0,.35,1)' },
+        { transform: this.over(slot, home), boxShadow: '0 4px 12px rgba(0,0,0,.3)', offset: 1 },
+      ], { duration: 820, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' })
+      : fl.animate({ opacity: [1, 0], transform: ['none', 'scale(.9)'] },
+                   { duration: 420, easing: 'ease-in', fill: 'forwards' }));
+    runs.push(this.veil.animate({ opacity: [1, 0] },
+                                { duration: 360, delay: 420, easing: 'ease-in', fill: 'forwards' }));
+
+    await Promise.all(runs.map((a) => a.finished.catch(() => {})));
+    this.finish();
+  }
+
+  finish () {
+    this.dlg.getAnimations({ subtree: true }).forEach((a) => a.cancel());
+    if (this.fl) { this.fl.remove(); this.fl = null; }
+    this.img.style.visibility = '';
+    if (this.src) this.src.style.visibility = '';
+    if (this.dlg.open) this.dlg.close();
+    this.lock(false);
+    this.state = 'closed';
+    if (this.trigger) this.trigger.focus({ preventScroll: true });
   }
 }
 
@@ -1478,7 +1727,9 @@ document.addEventListener('DOMContentLoaded', () => {
   new CursorGlow('.glow');
   new PressStage('#pressStage');
   new SinglesYears();
-  new Orbit();
+  // In the Making has two rings, each turned by its own stretch of scroll
+  document.querySelectorAll('[data-orbit]').forEach((el) => new Orbit(el));
+  new Lens();
   new ScrollSpy();
   new VideoFacade();
 

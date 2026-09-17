@@ -594,6 +594,175 @@ def render_press(loc: dict, shared: dict) -> list[str]:
     return out
 
 
+# The Photos grid is twelve columns whose rows are as tall as a column is
+# wide, so a span of (columns, rows) is also the picture's shape. Each shape
+# comes in three sizes; the placeholders in img/placeholder/ are cut to these.
+PHOTO_SPANS = {
+    "square":    {"s": (3, 3), "m": (4, 4), "l": (6, 6)},
+    "portrait":  {"s": (3, 4), "m": (4, 5), "l": (6, 8)},
+    "tall":      {"s": (2, 3), "m": (4, 6), "l": (6, 9)},
+    "landscape": {"s": (3, 2), "m": (6, 4), "l": (9, 6)},
+    "wide":      {"s": (4, 2), "m": (8, 4), "l": (12, 6)},
+    "panorama":  {"s": (6, 2), "m": (9, 3), "l": (12, 4)},
+}
+# Video tiles in the same grid. 2:1 is the nearest whole-number fit to 16:9;
+# the poster is cropped by a sliver top and bottom. When one is played it
+# takes the whole row (see .photo.is-playing in the stylesheet).
+VIDEO_SPANS = {"s": (4, 2), "m": (6, 3), "l": (8, 4)}
+
+
+def plain(html_text: str) -> str:
+    """Authored HTML reduced to text, for alt and aria-label."""
+    return re.sub(r"<[^>]+>", "", html_text).replace("&amp;", "&")
+
+
+def lens_template(tid: str, kicker: str, title: str, desc: str) -> list[str]:
+    """What the detail view shows for one picture. A <template> is inert, so
+    none of this is on the page until someone opens it. Blank lines in the
+    description split it into paragraphs."""
+    out = [f'<template id="{attr(tid)}">']
+    if kicker:
+        out.append(f'  <p class="lens__kicker">{kicker}</p>')
+    out.append(f'  <h3 class="lens__title">{title}</h3>')
+    for para in re.split(r"\n\s*\n", desc.replace("\r\n", "\n").strip()):
+        out.append(f'  <p class="lens__text">{para.strip().replace(chr(10), "<br>")}</p>')
+    out.append("</template>")
+    return out
+
+
+def render_lens(loc: dict) -> list[str]:
+    """The one detail view a page shares. main.js fills it from a template
+    and animates the picture into it."""
+    return [
+        "<!-- detail view for pictures that carry a description (Lens in main.js) -->",
+        f'<dialog class="lens" id="lens" aria-label="{attr(loc["lens"]["open"])}">',
+        '  <div class="lens__veil"></div>',
+        '  <div class="lens__card">',
+        '    <div class="lens__media"><img class="lens__img" alt=""></div>',
+        '    <div class="lens__body"></div>',
+        f'    <button class="lens__close" type="button" aria-label="{attr(loc["lens"]["close"])}">&times;</button>',
+        "  </div>",
+        "</dialog>",
+    ]
+
+
+def visuals_order(shared: dict) -> list[tuple[str, dict]]:
+    """Every photo and grid video, in shared["visualsOrder"] order. Anything
+    the order does not mention is added at the end, so a newly added photo
+    or video still shows up; a reference to something deleted is skipped."""
+    photos = {ph["id"]: ph for ph in shared.get("photos", [])}
+    videos = {v["id"]: v for v in shared["videos"] if not v.get("feature")}
+    seen, out = set(), []
+    for ref in shared.get("visualsOrder", []):
+        kind, _, key = ref.partition(":")
+        pool = photos if kind == "photo" else videos if kind == "video" else {}
+        if key in pool and ref not in seen:
+            seen.add(ref)
+            out.append((kind, pool[key]))
+    out += [("photo", ph) for k, ph in photos.items() if f"photo:{k}" not in seen]
+    out += [("video", v) for k, v in videos.items() if f"video:{k}" not in seen]
+    return out
+
+
+def render_visuals_grid(loc: dict, shared: dict) -> list[str]:
+    """Visuals: photos and videos together in one packed grid, under the
+    title video. Photos can open into the detail view; videos play in place."""
+    p = loc["assetPrefix"]
+    tags = loc["photoTags"]
+    out = [
+        "",
+        '  <div class="gallery-wrap">',
+        '    <div class="gallery">',
+    ]
+    for kind, ph in visuals_order(shared):
+        if kind == "video":
+            cols, rows = VIDEO_SPANS[ph.get("size", "s")]
+            out.append(f'      <div class="photo photo--video reveal" style="--c:{cols};--r:{rows}">')
+            # the tile's own reveal would double up with its cell's
+            out += [l.replace('class="vid reveal"', 'class="vid"') for l in render_video_tile(loc, ph, 8, False)]
+            out.append("      </div>")
+            continue
+        c = loc["photos"].get(ph["id"], {})
+        cols, rows = PHOTO_SPANS[ph["shape"]][ph["size"]]
+        caption = c.get("caption", "")
+        tag = tags.get(ph.get("tag", ""), "")
+        desc = c.get("desc", "").strip()
+        out += [
+            f'      <figure class="photo reveal" style="--c:{cols};--r:{rows}">',
+            f'        <img src="{p}{ph["src"]}" alt="{attr(plain(caption))}" loading="lazy" decoding="async">',
+            '        <figcaption class="photo__cap">',
+        ]
+        if tag:
+            out.append(f'          <span class="photo__tag">{tag}</span>')
+        out += [f'          <span class="photo__title">{caption}</span>', "        </figcaption>"]
+        if desc:
+            tid = f'lens-{ph["id"]}'
+            label = f'{loc["lens"]["open"]}: {plain(caption)}'
+            out += [
+                f'        <button class="photo__open" type="button" data-lens="{attr(tid)}"'
+                f' aria-haspopup="dialog" aria-label="{attr(label)}">',
+                '          <span class="photo__badge" aria-hidden="true">+</span>',
+                "        </button>",
+            ]
+            out += ["        " + l for l in lens_template(tid, tag, caption, desc)]
+        out.append("      </figure>")
+    out += ["    </div>", "  </div>"]
+    return out
+
+
+def render_recording(loc: dict, shared: dict) -> list[str]:
+    """In the Making > Now Recording: its own heading and a second ring.
+
+    The same markup and stylesheet as render_orbit, with two differences: the
+    centre is an image path rather than a release, and a ring photo that has
+    a description is a button into the detail view instead of decoration.
+    """
+    p = loc["assetPrefix"]
+    rec = shared["recording"]
+    r = loc["recording"]
+    out = [
+        '  <div class="making__block">',
+        f'    <h3 class="subhead reveal">{r["title"]}</h3>',
+    ]
+    if r.get("desc"):
+        out.append(f'    <p class="making__lede reveal">{r["desc"]}</p>')
+    out += [
+        "  </div>",
+        '  <div class="orbit orbit--recording" data-orbit>',
+        '    <div class="orbit__stage">',
+        f'      <div class="orbit__scene" style="--n:{len(rec["photos"])}">',
+        f'        <img class="orbit__centre" src="{p}{rec["centre"]}" alt="{attr(r.get("centreAlt", ""))}">',
+    ]
+    templates = []
+    for i, photo in enumerate(rec["photos"]):
+        c = r["photos"].get(photo["id"], {})
+        desc = c.get("desc", "").strip()
+        src = f'{p}{photo["src"]}'
+        if desc:
+            tid = f'lens-{photo["id"]}'
+            caption = c.get("caption", "")
+            label = f'{loc["lens"]["open"]}: {plain(caption)}'
+            out.append(
+                f'        <img class="orbit__card" style="--i:{i}" src="{src}" alt="{attr(label)}"'
+                f' role="button" tabindex="0" aria-haspopup="dialog" data-lens="{attr(tid)}" decoding="async">'
+            )
+            templates += lens_template(tid, r["title"], caption, desc)
+        else:
+            out.append(
+                f'        <img class="orbit__card" style="--i:{i}" src="{src}"'
+                ' alt="" aria-hidden="true" decoding="async">'
+            )
+    out += [
+        "      </div>",
+        "    </div>",
+        f'    <a class="to-top" href="#top" data-to-top>&uarr;&#160;{loc["footer"]["backToTop"]}</a>',
+    ]
+    out += orbit_nav(loc, 4)
+    out += ["    " + l for l in templates]
+    out.append("  </div>")
+    return out
+
+
 def section_cta(href: str, label: str) -> list[str]:
     return ["", '  <p class="section__cta reveal">', f'    <a href="{attr(href)}">{label}</a>', "  </p>"]
 
@@ -782,12 +951,17 @@ def render_videos(loc: dict, shared: dict, full: bool = False) -> list[str]:
         out.append("</section>")
         return out
 
-    out += ["", '  <div class="vids">']
-    for i, v in enumerate(grid):
-        if i:
-            out.append("")
-        out += render_video_tile(loc, v, 4, False)
-    out.append("  </div>")
+    # Photos and the rest of the videos share one grid under the title video.
+    # Without any photos it is the plain video grid it used to be.
+    if shared.get("photos"):
+        out += render_visuals_grid(loc, shared)
+    else:
+        out += ["", '  <div class="vids">']
+        for i, v in enumerate(grid):
+            if i:
+                out.append("")
+            out += render_video_tile(loc, v, 4, False)
+        out.append("  </div>")
 
     out += ["", '  <div class="playlists reveal">']
     out += render_links(loc["playlists"], 4)
@@ -885,6 +1059,25 @@ def render_milestones(loc: dict, shared: dict, full: bool = False) -> list[str]:
     return out
 
 
+def orbit_nav(loc: dict, pad: int) -> list[str]:
+    """Up and down arrows at the side of the screen while a ring is pinned:
+    each press scrolls just far enough to bring the next picture round to the
+    front. Orbit in main.js shows them and does the scrolling; with no script
+    the ring is not pinned and they stay hidden."""
+    nav = loc.get("orbitNav")
+    if not nav:
+        return []
+    s = " " * pad
+    up = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 15l7-7 7 7"/></svg>'
+    down = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9l7 7 7-7"/></svg>'
+    return [
+        f'{s}<div class="orbit-nav" data-orbit-nav hidden>',
+        f'{s}  <button class="orbit-nav__btn" type="button" data-orbit-step="-1" aria-label="{attr(nav["prev"])}">{up}</button>',
+        f'{s}  <button class="orbit-nav__btn" type="button" data-orbit-step="1" aria-label="{attr(nav["next"])}">{down}</button>',
+        f'{s}</div>',
+    ]
+
+
 def render_orbit(loc: dict, shared: dict) -> list[str]:
     """A ring of photos circling an album cover, turned by scrolling.
 
@@ -914,8 +1107,9 @@ def render_orbit(loc: dict, shared: dict) -> list[str]:
         "      </div>",
         "    </div>",
         f'    <a class="to-top" href="#top" data-to-top>&uarr;&#160;{loc["footer"]["backToTop"]}</a>',
-        "  </div>",
     ]
+    out += orbit_nav(loc, 4)
+    out.append("  </div>")
     return out
 
 
@@ -932,6 +1126,8 @@ def render_making(loc: dict, shared: dict) -> list[str]:
         "<!-- ================= 05 IN THE MAKING ================= -->",
         '<section class="section section--lead" id="press">',
     ] + section_head(loc, "press") + [""]
+    if shared.get("recording"):
+        out += render_recording(loc, shared) + [""]
     out += render_orbit(loc, shared) + ["</section>"]
     return out
 
@@ -1128,6 +1324,9 @@ def render_page(loc: dict, shared: dict, page: str) -> str:
         render_footer(loc, shared),
         render_contact(loc, shared),
     ]
+    # the detail view, on the pages that have pictures to open
+    if page in ("videos", "press") and loc.get("lens"):
+        blocks.append(render_lens(loc))
 
     for block in blocks:
         lines += block
