@@ -1483,6 +1483,50 @@ html[lang^="zh"] .press__src{ font-size:.78rem; letter-spacing:.08em; }
 }
 .subhead::after{ content:""; flex:1; height:1px; background:var(--line); }
 
+/* ---- the Visuals filter ----
+   A head that carries the switch becomes a row: title on the left, filter
+   hard right and sitting on the title's baseline rather than floating in
+   the middle of it. Under 700px the two stack, because three buttons and
+   a 3.9rem serif title do not share a phone's width. */
+.section__head--split{
+  display:flex; align-items:flex-end; justify-content:space-between;
+  gap:1.5rem; flex-wrap:wrap;
+}
+/* the title's own bottom margin would push the filter off the baseline */
+.section__head--split .section__title{ margin-bottom:0; }
+.section__headline{ min-width:0; }
+
+/* Nothing answers a click without JS, so the switch is not shown at all
+   until main.js has set html.js - the whole grid is there either way. */
+.vfilter{ display:none; }
+html.js .vfilter{
+  display:flex; gap:.25rem;
+  padding:.25rem; border:1px solid var(--line); border-radius:999px;
+  background:rgba(11,10,12,.5);
+}
+.vfilter__btn{
+  display:flex; align-items:center; justify-content:center;
+  padding:.55rem 1.15rem; border:0; border-radius:999px;
+  background:transparent; color:var(--bone-dim); cursor:pointer;
+  font:inherit; font-size:.72rem; font-weight:600;
+  letter-spacing:.14em; text-transform:uppercase; white-space:nowrap;
+  transition:color .3s var(--ease), background .3s var(--ease);
+}
+/* uppercase letterspacing on Chinese sets the characters adrift */
+html[lang^="zh"] .vfilter__btn{ font-size:.8rem; letter-spacing:.04em; text-transform:none; }
+.vfilter__btn:hover{ color:var(--bone); }
+.vfilter__btn:focus-visible{ outline:2px solid var(--magenta); outline-offset:2px; }
+.vfilter__btn[aria-pressed="true"]{ background:var(--magenta); color:#fff; }
+/* Wrapping is not enough here: "Visuals" and three short buttons do fit on
+   one line at 430px, and what they fit around is the 02 above the title -
+   the filter landed on top of it. Under 700px the head is a column and the
+   switch becomes a full-width segmented control under the heading. */
+@media (max-width:700px){
+  .section__head--split{ display:block; }
+  html.js .vfilter{ display:flex; margin-top:1.25rem; }
+  .vfilter__btn{ flex:1; padding:.6rem .5rem; }
+}
+
 /* ================= PHOTOS ================= */
 /* Twelve columns, and each row as tall as a column is wide (container
    query units), so a photo spanning 4 columns and 5 rows is a 4:5 picture.
@@ -1559,6 +1603,42 @@ html[lang^="zh"] .photo__tag{ font-size:.72rem; letter-spacing:.06em; }
 .photo__open:hover .photo__badge,
 .photo__open:focus-visible .photo__badge{
   background:var(--magenta); border-color:var(--magenta); transform:rotate(90deg);
+}
+
+/* ---- filtered out ----
+   An attribute rather than a class so it leaves the accessibility tree
+   too. It needs the extra weight because the two-column block layout
+   under 720px sets `display:block` on every .photo. */
+.gallery .photo[hidden]{ display:none; }
+/* The three rules below are written `.js .gallery ...` only to outweigh
+   `.js .reveal.is-in`, which sets `transform:none` and a 0.9s transition
+   and is further down the file. Scroll-reveal has finished with these
+   cells by the time anyone reaches the filter; this is what moves them
+   afterwards.
+
+   On the way out: the cell holds its place for the length of the fade and
+   is only then pulled from the grid, so the rest does not jump ahead of
+   the animation. */
+.js .gallery .photo.is-going{
+  opacity:0; transform:scale(.965); pointer-events:none;
+  transition:opacity .22s var(--ease), transform .22s var(--ease);
+}
+/* On the way in - a kind that was filtered out and is now back. */
+.js .gallery .photo.is-coming{ opacity:0; transform:translateY(14px) scale(.98); }
+/* Staying, but moving: the packer has already written the new spans and
+   VisualsFilter holds every cell at its old position with a transform, so
+   releasing them together slides them into the new arrangement. Only the
+   arriving cells carry a --d, so the ones already on screen start at once
+   and the new ones come in behind them. */
+.js .gallery.is-moving .photo{
+  transition:transform .55s var(--ease), opacity .45s var(--ease);
+  transition-delay:var(--d,0s);
+  will-change:transform;
+}
+@media (prefers-reduced-motion:reduce){
+  .js .gallery .photo.is-going,
+  .js .gallery .photo.is-coming{ opacity:1; transform:none; transition:none; }
+  .js .gallery.is-moving .photo{ transition:none; }
 }
 
 /* ---- videos in the same grid ----

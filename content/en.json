@@ -541,6 +541,12 @@
     "live": "Live &amp; behind the scenes",
     "press": "Press photos"
   },
+  "visualsFilter": {
+    "label": "Filter visuals",
+    "all": "All",
+    "photos": "Photos",
+    "videos": "Videos"
+  },
   "lens": {
     "open": "Open",
     "close": "Close"

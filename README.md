@@ -214,6 +214,38 @@ Posters are **self-hosted** in `img/video/<youtube-id>.webp` (13 files,
 `i.ytimg.com`, which is blocked in mainland China — the Chinese page
 would have shown thirteen broken images.
 
+### The Visuals filter
+
+`videos.html` carries an **All / Photos / Videos** switch beside the
+heading. Its labels are `visualsFilter` in `content/en.json` and
+`content/zh.json`. The switch is only rendered when the grid actually
+holds both kinds, and only shown under `html.js`, since nothing would
+answer a click otherwise. `build.py` counts the two kinds to make that
+first decision, but does not print the counts — three bare words read as
+part of the page, three words and a tally read as a database.
+
+Filtering hides cells with the `hidden` attribute — nothing is fetched or
+re-rendered — and then **re-cuts the spans** so whatever is left still
+tiles the twelve columns exactly. That second part is `packVisuals` in
+`js/main.js`, and it is there because the spans in `content/` were tuned
+by hand against the whole grid: they tile it perfectly, and they stop
+tiling the moment a third of the cells go away. `dense` backfills what it
+can, but a run of free columns too narrow for anything left in the queue
+stays a hole in the middle of the page.
+
+So the packer walks the same first-fit order the browser's dense flow
+uses, and at each step gives the cell its authored width or the free run
+it is placing into, whichever is smaller — swallowing a remainder too
+narrow for anything else to enter. Height then follows from `data-ar`,
+the shape's own proportions, so a portrait stays a portrait. Nothing is
+distorted: every tile is `object-fit:cover`, so a re-cut span moves the
+crop and leaves the picture inside it alone.
+
+On the unfiltered grid it is a no-op — a layout that already tiles never
+hits a remainder rule — which is what keeps the hand-tuned arrangement
+exactly as authored while still covering whatever gets added later
+through the admin.
+
 ### Which back end a page uses
 
 `VideoFacade` reads `<html data-video="...">`:

@@ -564,6 +564,12 @@
     "live": "现场·幕后",
     "press": "媒体照片"
   },
+  "visualsFilter": {
+    "label": "筛选影像",
+    "all": "全部",
+    "photos": "照片",
+    "videos": "视频"
+  },
   "lens": {
     "open": "查看",
     "close": "关闭"

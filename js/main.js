@@ -1701,6 +1701,187 @@ class Lens {
 
 
 /* ---------------------------------------------------------
+   packVisuals — re-cut the gallery spans so a subset still tiles
+
+   The spans in content/ were tuned by hand against the whole grid, and
+   they tile it exactly. Take a third of the cells away and they no longer
+   do: `grid-auto-flow: row dense` will backfill what it can, but a run of
+   free columns that nothing left in the queue is narrow enough to enter
+   stays a hole in the middle of the page.
+
+   So rather than trust the authored widths, work out what each cell can
+   be. This walks the same first-fit-row-major order the browser's dense
+   flow uses, and at each step measures the run of free columns it is
+   about to place into:
+
+     - the cell takes its authored width, or the run, whichever is smaller
+     - a one-column remainder cannot hold anything at all, so the cell
+       swallows it
+     - the last cell swallows a small remainder too, rather than leaving a
+       notch under the middle of the grid
+
+   Its height then follows from `data-ar`, the shape's own proportions, so
+   a portrait stays a portrait. Nothing is distorted by any of this: every
+   tile is `object-fit:cover`, so a re-cut span moves the crop and leaves
+   the picture inside it alone.
+
+   On the unfiltered grid it is a no-op. A layout that already tiles never
+   hits a remainder rule, and `round(c / (c0 / r0))` at `c === c0` is just
+   `r0` again - which is what keeps Tony's hand-tuned arrangement exactly
+   as authored while still covering whatever the admin adds later.
+   --------------------------------------------------------- */
+const GALLERY_COLS = 12;
+
+function packVisuals (cells) {
+  const occ = [];
+  const row = (y) => (occ[y] || (occ[y] = new Array(GALLERY_COLS).fill(false)));
+
+  cells.forEach((cell, n) => {
+    // first free cell, scanning row by row
+    let y = 0, x = 0;
+    for (;; y++) {
+      const line = row(y);
+      x = line.indexOf(false);
+      if (x !== -1) break;
+    }
+    // how far the free run reaches from there
+    const line = row(y);
+    let w = 0;
+    while (x + w < GALLERY_COLS && !line[x + w]) w++;
+
+    let c = Math.max(1, Math.min(cell.c0, w));
+    const remainder = w - c;
+    const last = n === cells.length - 1;
+    if (remainder === 1 || (last && remainder > 0 && remainder <= 3)) c = w;
+    const r = Math.max(1, Math.round(c / cell.ar));
+
+    for (let j = y; j < y + r; j++) {
+      const target = row(j);
+      for (let i = x; i < x + c; i++) target[i] = true;
+    }
+    cell.c = c;
+    cell.r = r;
+  });
+  return cells;
+}
+
+
+/* ---------------------------------------------------------
+   VisualsFilter — All / Photos / Videos over the one grid
+
+   Nothing is fetched or rebuilt: every cell is already on the page, and
+   filtering is the `hidden` attribute plus a re-pack. The move happens in
+   two beats - the leaving cells fade while still holding their places, and
+   only then does the grid re-flow - so the arrangement never jumps out
+   from under the fade.
+   --------------------------------------------------------- */
+class VisualsFilter {
+  /* `facade` is the VideoFacade this grid shares. Filtering away a tile
+     that is playing would otherwise leave its iframe alive inside a
+     `hidden` cell - invisible, and still making sound. */
+  constructor (facade = null, gridSel = '.gallery', barSel = '.vfilter') {
+    this.facade = facade;
+    this.grid = document.querySelector(gridSel);
+    this.bar = document.querySelector(barSel);
+    if (!this.grid || !this.bar) return;
+
+    this.cells = [...this.grid.children].map((el) => ({
+      el,
+      kind: el.dataset.kind,
+      ar: parseFloat(el.dataset.ar) || 1,
+      c0: parseInt(el.style.getPropertyValue('--c'), 10) || 1,
+    }));
+    if (!this.cells.length) return;
+
+    this.mode = 'all';
+    this.busy = false;
+    this.bar.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-filter]');
+      if (btn) this.apply(btn.dataset.filter);
+    });
+  }
+
+  shows (cell) { return this.mode === 'all' || cell.kind === this.mode; }
+
+  apply (mode) {
+    if (this.busy || mode === this.mode) return;
+    this.mode = mode;
+    this.bar.querySelectorAll('[data-filter]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.filter === mode));
+    });
+
+    const leaving = this.cells.filter((c) => !c.el.hidden && !this.shows(c));
+    leaving.forEach((c) => c.el.classList.add('is-going'));
+
+    // Whatever is playing goes back to a poster before the grid moves:
+    // collapse() is what removes the iframe, and so what stops the sound.
+    if (this.facade) {
+      this.grid.querySelectorAll('.vid--playing').forEach((el) => this.facade.collapse(el));
+    }
+
+    if (REDUCED || !leaving.length) { this.settle(); return; }
+    this.busy = true;
+    setTimeout(() => { this.busy = false; this.settle(); }, 220);
+  }
+
+  settle () {
+    const grid = this.grid;
+
+    // FIRST — where everything sits before the grid changes
+    const first = new Map();
+    for (const c of this.cells) {
+      if (!c.el.hidden) first.set(c.el, c.el.getBoundingClientRect());
+    }
+
+    const live = [];
+    for (const c of this.cells) {
+      const on = this.shows(c);
+      c.el.classList.remove('is-going', 'is-coming');
+      c.el.hidden = !on;
+      if (on) live.push(c);
+    }
+    for (const c of packVisuals(live)) {
+      c.el.style.setProperty('--c', c.c);
+      c.el.style.setProperty('--r', c.r);
+    }
+
+    if (REDUCED) return;
+
+    // LAST, then INVERT — hold every cell where it used to be
+    let arriving = 0;
+    for (const c of live) {
+      const was = first.get(c.el);
+      if (!was) {
+        c.el.classList.add('is-coming');
+        c.el.style.setProperty('--d', `${Math.min(arriving++, 12) * 28}ms`);
+        continue;
+      }
+      const now = c.el.getBoundingClientRect();
+      const dx = was.left - now.left;
+      const dy = was.top - now.top;
+      if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+        c.el.style.transform = `translate(${dx}px, ${dy}px)`;
+      }
+    }
+
+    // PLAY — one reflow, then let go of all of them together
+    void grid.offsetWidth;
+    grid.classList.add('is-moving');
+    for (const c of live) {
+      c.el.style.transform = '';
+      c.el.classList.remove('is-coming');
+    }
+
+    clearTimeout(this._done);
+    this._done = setTimeout(() => {
+      grid.classList.remove('is-moving');
+      live.forEach((c) => c.el.style.removeProperty('--d'));
+    }, 950);
+  }
+}
+
+
+/* ---------------------------------------------------------
    boot
    --------------------------------------------------------- */
 document.addEventListener('DOMContentLoaded', () => {
@@ -1731,7 +1912,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('[data-orbit]').forEach((el) => new Orbit(el));
   new Lens();
   new ScrollSpy();
-  new VideoFacade();
+  new VisualsFilter(new VideoFacade());
 
   const year = document.getElementById('year');
   if (year) year.textContent = new Date().getFullYear();

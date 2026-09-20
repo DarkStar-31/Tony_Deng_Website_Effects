@@ -323,25 +323,37 @@ def with_breaks(text: str) -> str:
     return text.replace("\r\n", "\n").replace("\n", "<br>")
 
 
-def section_head(loc: dict, key: str, href: str | None = None) -> list[str]:
-    """`href` makes the heading itself the way through, with no extra label."""
+def section_head(loc: dict, key: str, href: str | None = None,
+                 aside: list[str] | None = None) -> list[str]:
+    """`href` makes the heading itself the way through, with no extra label.
+
+    `aside` is markup that sits to the right of the title on a wide window
+    and drops under it on a narrow one - the Visuals filter is the only
+    thing that uses it."""
     sec = loc["sections"][key]
     title = sec["title"]
     if href:
         title = f'<a class="section__link" href="{attr(href)}">{title}</a>'
+    split = " section__head--split" if aside else ""
     out = [
-        '  <div class="section__head reveal">',
+        f'  <div class="section__head{split} reveal">',
     ]
+    if aside:
+        out.append('    <div class="section__headline">')
+    pad = "      " if aside else "    "
     # unnumbered sections belong to the page above them rather than being
     # one of the site's six
     if sec.get("num"):
-        out.append(f'    <span class="section__num">{sec["num"]}</span>')
+        out.append(f'{pad}<span class="section__num">{sec["num"]}</span>')
     out += [
-        f'    <h2 class="section__title">{title}</h2>',
+        f'{pad}<h2 class="section__title">{title}</h2>',
     ]
     # a standfirst is optional - Visuals carries none
     if sec.get("desc"):
-        out.append(f'    <p class="section__desc">{with_breaks(sec["desc"])}</p>')
+        out.append(f'{pad}<p class="section__desc">{with_breaks(sec["desc"])}</p>')
+    if aside:
+        out.append("    </div>")
+        out += ["    " + l for l in aside]
     out.append("  </div>")
     return out
 
@@ -664,9 +676,49 @@ def visuals_order(shared: dict) -> list[tuple[str, dict]]:
     return out
 
 
+def render_visuals_filter(loc: dict, shared: dict) -> list[str]:
+    """The All / Photos / Videos switch beside the Visuals heading.
+
+    Three plain buttons rather than a <select>: there are only ever three
+    states. With JS off the group is hidden by the stylesheet (it only
+    appears under `html.js`), because nothing would answer a click.
+
+    The counts are still worked out here, but only to decide whether the
+    switch is worth showing at all - they are deliberately not printed."""
+    f = loc.get("visualsFilter")
+    if not f:
+        return []
+    counts = {"photo": 0, "video": 0}
+    for kind, _ in visuals_order(shared):
+        counts[kind] = counts.get(kind, 0) + 1
+    counts["all"] = counts["photo"] + counts["video"]
+    # with nothing to separate - only photos, or only videos - the switch
+    # would be three buttons that all show the same grid
+    if not (counts["photo"] and counts["video"]):
+        return []
+    out = [
+        f'<div class="vfilter" role="group" aria-label="{attr(f["label"])}">',
+    ]
+    for key, which in (("all", "all"), ("photos", "photo"), ("videos", "video")):
+        on = "true" if which == "all" else "false"
+        out += [
+            f'  <button class="vfilter__btn" type="button" data-filter="{which}"'
+            f' aria-pressed="{on}">{f[key]}</button>',
+        ]
+    out.append("</div>")
+    return out
+
+
 def render_visuals_grid(loc: dict, shared: dict) -> list[str]:
     """Visuals: photos and videos together in one packed grid, under the
-    title video. Photos can open into the detail view; videos play in place."""
+    title video. Photos can open into the detail view; videos play in place.
+
+    Each cell carries `data-kind` so the filter can pick it out, and
+    `data-ar` - the shape's own width-over-height - so the packer in
+    main.js can re-cut the spans for whatever subset is showing without
+    having to know anything about PHOTO_SPANS. Every tile is
+    `object-fit:cover`, so a re-cut span changes the crop and never the
+    proportions of what is in the picture."""
     p = loc["assetPrefix"]
     tags = loc["photoTags"]
     out = [
@@ -677,7 +729,10 @@ def render_visuals_grid(loc: dict, shared: dict) -> list[str]:
     for kind, ph in visuals_order(shared):
         if kind == "video":
             cols, rows = VIDEO_SPANS[ph.get("size", "s")]
-            out.append(f'      <div class="photo photo--video reveal" style="--c:{cols};--r:{rows}">')
+            out.append(
+                f'      <div class="photo photo--video reveal" data-kind="video"'
+                f' data-ar="{cols / rows:.4f}" style="--c:{cols};--r:{rows}">'
+            )
             # the tile's own reveal would double up with its cell's
             out += [l.replace('class="vid reveal"', 'class="vid"') for l in render_video_tile(loc, ph, 8, False)]
             out.append("      </div>")
@@ -688,7 +743,8 @@ def render_visuals_grid(loc: dict, shared: dict) -> list[str]:
         tag = tags.get(ph.get("tag", ""), "")
         desc = c.get("desc", "").strip()
         out += [
-            f'      <figure class="photo reveal" style="--c:{cols};--r:{rows}">',
+            f'      <figure class="photo reveal" data-kind="photo"'
+            f' data-ar="{cols / rows:.4f}" style="--c:{cols};--r:{rows}">',
             f'        <img src="{p}{ph["src"]}" alt="{attr(plain(caption))}" loading="lazy" decoding="async">',
             '        <figcaption class="photo__cap">',
         ]
@@ -915,10 +971,12 @@ def render_video_tile(loc: dict, shared_v: dict, pad: int, feature: bool) -> lis
 def render_videos(loc: dict, shared: dict, full: bool = False) -> list[str]:
     lead = " section--lead" if full else ""
     alt = "" if full else " section--alt"
+    # the filter belongs to the grid, and the grid is only on videos.html
+    aside = render_visuals_filter(loc, shared) if full and shared.get("photos") else None
     out = [
         "<!-- ================= 02 VIDEOS ================= -->",
         f'<section class="section{alt}{lead}" id="videos">',
-    ] + section_head(loc, "videos", None if full else "videos.html")
+    ] + section_head(loc, "videos", None if full else "videos.html", aside or None)
 
     if loc.get("notice") and full:
         n = loc["notice"]
