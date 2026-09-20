@@ -12,28 +12,42 @@
 <header class="bar">
   <div class="bar__left">
     <span class="bar__mark">TONY&nbsp;D</span>
-    <span class="bar__sub">site admin</span>
+    <span class="bar__sub" id="barSub"></span>
   </div>
 
-  <div class="bar__status" id="status">Loading…</div>
+  <div class="bar__status" id="status"></div>
 
   <div class="bar__right">
-    <input class="bar__msg" id="msg" type="text" placeholder="What changed?" aria-label="Change note">
-    <button class="btn btn--ghost" id="reloadBtn" type="button">Reload</button>
-    <button class="btn" id="saveBtn" type="button" disabled>Save draft</button>
-    <button class="btn btn--go" id="publishBtn" type="button" disabled>Publish</button>
-    <button class="btn btn--ghost" id="logoutBtn" type="button" hidden>Sign out</button>
+    <!-- Which language the admin itself speaks. It also decides which half of
+         every bilingual pair sits on the left: whichever you are working in. -->
+    <div class="uilang" id="uiLang" role="group">
+      <button class="uilang__btn" type="button" data-ui-lang="en" aria-pressed="true">EN</button>
+      <button class="uilang__btn" type="button" data-ui-lang="zh" aria-pressed="false" lang="zh-Hans">中文</button>
+    </div>
+    <input class="bar__msg" id="msg" type="text">
+    <button class="btn btn--ghost" id="reloadBtn" type="button"></button>
+    <button class="btn" id="saveBtn" type="button" disabled></button>
+    <button class="btn btn--go" id="publishBtn" type="button" disabled></button>
+    <button class="btn btn--ghost" id="logoutBtn" type="button" hidden></button>
   </div>
 </header>
 
-<nav class="tabs" id="tabs" aria-label="Sections"></nav>
+<nav class="tabs" id="tabs"></nav>
 
-<main class="wrap" id="panel">
-  <p class="loading">Loading content…</p>
-</main>
+<div class="layout">
+  <!-- a schematic of the page being edited; pointing at a field lights the
+       part of it that field changes. See admin/preview.js. -->
+  <aside class="preview" id="preview"></aside>
+
+  <main class="wrap" id="panel">
+    <p class="loading" id="loading"></p>
+  </main>
+</div>
 
 <div class="toast" id="toast" hidden></div>
 
+<script src="strings.js"></script>
+<script src="preview.js"></script>
 <script src="admin.js"></script>
 </body>
 </html>

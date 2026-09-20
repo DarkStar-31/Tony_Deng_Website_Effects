@@ -1701,6 +1701,62 @@ class Lens {
 
 
 /* ---------------------------------------------------------
+   InkLoop — the handwriting in the hero, taking turns
+
+   Used to be two keyframe cycles offset by half a loop. That could only
+   ever count to two, and both the number of frames and the length of a
+   turn are things the admin sets now, so the clock lives here instead.
+
+   One frame at a time: the one that is up wipes off, resets to the start
+   of its own stroke, and the next draws on. The stylesheet owns what each
+   of those three states looks like — this only says which frame is in
+   which, and when.
+
+   Nothing runs under prefers-reduced-motion, or with a single frame: both
+   leave the markup exactly as build.py wrote it, which is frame one, drawn.
+   --------------------------------------------------------- */
+const INK_DRAW = 1900;
+const INK_WIPE = 750;
+
+class InkLoop {
+  constructor (el) {
+    const frames = [...el.querySelectorAll('.ink')];
+    if (REDUCED || frames.length < 2) return;
+
+    // A turn has to outlast the stroke that starts it and the wipe that
+    // ends it, or the frames climb over each other.
+    const turn = Math.max(
+      (parseFloat(el.dataset.loop) || 6) * 1000,
+      INK_DRAW + INK_WIPE + 400,
+    );
+
+    el.classList.add('inks--loop');
+    frames.forEach((f, i) => { f.dataset.state = i ? 'wait' : 'in'; });
+
+    let at = 0;
+    setInterval(() => {
+      // While something is playing the wordmark rests, the way it always
+      // has: the page is busy being a player, not a title card.
+      if (document.documentElement.classList.contains('is-playing')) return;
+
+      const going = frames[at];
+      const next = frames[(at + 1) % frames.length];
+      going.dataset.state = 'out';
+
+      setTimeout(() => {
+        // back to the start of its own stroke, with no transition, so the
+        // reset is invisible - both ends of the wipe are zero-width
+        going.dataset.state = 'wait';
+        void next.offsetWidth;
+        next.dataset.state = 'in';
+        at = (at + 1) % frames.length;
+      }, INK_WIPE);
+    }, turn);
+  }
+}
+
+
+/* ---------------------------------------------------------
    packVisuals — re-cut the gallery spans so a subset still tiles
 
    The spans in content/ were tuned by hand against the whole grid, and
@@ -1913,6 +1969,7 @@ document.addEventListener('DOMContentLoaded', () => {
   new Lens();
   new ScrollSpy();
   new VisualsFilter(new VideoFacade());
+  document.querySelectorAll('.inks').forEach((el) => new InkLoop(el));
 
   const year = document.getElementById('year');
   if (year) year.textContent = new Date().getFullYear();

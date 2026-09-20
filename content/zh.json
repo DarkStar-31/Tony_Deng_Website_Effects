@@ -244,9 +244,9 @@
   },
   "videos": {
     "overthinking": {
-      "kicker": "同名主打",
+      "kicker": "",
       "title": "想太多",
-      "sub": "2025 · 官方影像"
+      "sub": ""
     },
     "look-in-the-mirror": {
       "title": "Look in the Mirror",
@@ -570,6 +570,7 @@
     "photos": "照片",
     "videos": "视频"
   },
+  "visualsBannerAlt": "",
   "lens": {
     "open": "查看",
     "close": "关闭"

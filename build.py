@@ -86,16 +86,21 @@ PLAY_SVG = '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>'
 
 # ---------------------------------------------------------------- sections
 
-def render_head(loc: dict, page: str) -> list[str]:
+def render_head(loc: dict, page: str, shared: dict | None = None) -> list[str]:
     p = loc["assetPrefix"]
     head = loc["pages"][page]
     rel = PAGE_FILE[page]
+    # The tab icon, if one has been uploaded. No entry means no <link>, which
+    # is what the site did before there was a field for it: browsers then ask
+    # for /favicon.ico, get a 404, and show their own placeholder.
+    icon = (shared or {}).get("images", {}).get("favicon")
     return [
         "<head>",
         '<meta charset="UTF-8">',
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
         f'<title>{head["title"]}</title>',
         f'<meta name="description" content="{attr(head["description"])}">',
+        *([f'<link rel="icon" href="{p}{attr(icon)}">'] if icon else []),
         "<!-- fonts are self-hosted: fonts.googleapis.com is blocked in mainland China -->",
         f'<link rel="preload" href="{p}fonts/inter-400-latin.woff2" as="font" type="font/woff2" crossorigin>',
         f'<link rel="preload" href="{p}fonts/instrument-serif-400-latin.woff2" as="font" type="font/woff2" crossorigin>',
@@ -180,19 +185,28 @@ def render_hero(loc: dict, shared: dict) -> list[str]:
         '    <h1 class="hero__title">',
         f'      <span class="sr-only">{hero["srTitle"]}</span>',
     ]
-    # The song title in his handwriting, taking turns with his name in the
-    # same hand: the client wants a new artist's name tied to the song. Both
-    # images share one box and the stylesheet times the hand-over, so with no
-    # `inkName` set this is the single wordmark it always was.
-    name = shared["images"].get("inkName")
+    # The handwriting, taking turns: the song title in his own hand, his
+    # name in the same hand, and whatever else the admin has added since.
+    #
+    # This used to be exactly two images timed against each other by the
+    # stylesheet. It is a list now, with the hold as a number, because the
+    # admin needed to be able to add a third - so the hand-over is driven by
+    # InkLoop in main.js rather than by keyframes that only ever knew how to
+    # count to two. All the frames share one box; the first one is the
+    # resting state, so a page with no JS shows the wordmark and nothing
+    # moves, which is what it did before.
+    frames = hero_loop_frames(shared)
+    seconds = hero_loop_seconds(shared)
+    if frames:
+        out.append(
+            f'      <span class="inks" aria-hidden="true"'
+            f' data-loop="{seconds}" style="--n:{len(frames)}">'
+        )
+        for i, frame in enumerate(frames):
+            rest = "" if i == 0 else " ink--queued"
+            out.append(f'        <img class="ink{rest}" style="--i:{i}" src="{p}{frame}" alt="">')
+        out.append("      </span>")
     out += [
-        f'      <span class="inks{" inks--pair" if name else ""}" aria-hidden="true">',
-        f'        <img class="ink" src="{p}{shared["images"]["ink"]}" alt="">',
-    ]
-    if name:
-        out.append(f'        <img class="ink ink--name" src="{p}{name}" alt="">')
-    out += [
-        "      </span>",
         "    </h1>",
         "",
     ]
@@ -623,9 +637,68 @@ PHOTO_SPANS = {
 VIDEO_SPANS = {"s": (4, 2), "m": (6, 3), "l": (8, 4)}
 
 
+HERO_LOOP_SECONDS = 6
+
+
+def hero_loop_frames(shared: dict) -> list[str]:
+    """The pictures in the hero's handwriting loop, in order.
+
+    `images.inkLoop.frames` is what the admin writes. The older `ink` /
+    `inkName` pair is still read when there is no list, so content that has
+    not been through the new form renders exactly as it did."""
+    images = shared.get("images", {})
+    loop = images.get("inkLoop")
+    if isinstance(loop, dict) and isinstance(loop.get("frames"), list):
+        return [f for f in loop["frames"] if f]
+    return [f for f in (images.get("ink"), images.get("inkName")) if f]
+
+
+def hero_loop_seconds(shared: dict) -> float:
+    """How long each frame holds before the next takes over."""
+    loop = shared.get("images", {}).get("inkLoop")
+    if isinstance(loop, dict):
+        try:
+            n = float(loop.get("seconds"))
+            if n > 0:
+                return n
+        except (TypeError, ValueError):
+            pass
+    return HERO_LOOP_SECONDS
+
+
+def safe_colour(value: str | None) -> str:
+    """A colour, or nothing at all.
+
+    This goes into a `style` attribute, so it is matched against a pattern
+    rather than escaped: `attr()` would stop it breaking out of the quotes,
+    but `red;background:url(...)` would still be a second declaration riding
+    in on the first. A hex code or a plain colour word cannot be."""
+    if not isinstance(value, str):
+        return ""
+    value = value.strip()
+    if re.fullmatch(r"#[0-9A-Fa-f]{3,8}", value) or re.fullmatch(r"[A-Za-z]{3,20}", value):
+        return value
+    return ""
+
+
 def plain(html_text: str) -> str:
     """Authored HTML reduced to text, for alt and aria-label."""
     return re.sub(r"<[^>]+>", "", html_text).replace("&amp;", "&")
+
+
+def opens_into_lens(item: dict, desc: str) -> bool:
+    """Whether a picture opens into the detail view when it is clicked.
+
+    This used to be implicit: a picture opened if it had something to say,
+    which meant the two could never be separated. You could not offer a
+    closer look at a photograph without writing a paragraph about it, and
+    you could not park a note against one without turning it into a button.
+
+    `opens` says so outright. Without it the old rule still applies, so
+    nothing that predates the flag changes."""
+    if "opens" in item:
+        return bool(item["opens"])
+    return bool(desc)
 
 
 def lens_template(tid: str, kicker: str, title: str, desc: str) -> list[str]:
@@ -636,7 +709,10 @@ def lens_template(tid: str, kicker: str, title: str, desc: str) -> list[str]:
     if kicker:
         out.append(f'  <p class="lens__kicker">{kicker}</p>')
     out.append(f'  <h3 class="lens__title">{title}</h3>')
-    for para in re.split(r"\n\s*\n", desc.replace("\r\n", "\n").strip()):
+    # A picture can open without carrying any text, so this is guarded:
+    # splitting "" yields one empty string and would print a blank paragraph.
+    paras = re.split(r"\n\s*\n", desc.replace("\r\n", "\n").strip()) if desc.strip() else []
+    for para in paras:
         out.append(f'  <p class="lens__text">{para.strip().replace(chr(10), "<br>")}</p>')
     out.append("</template>")
     return out
@@ -751,7 +827,7 @@ def render_visuals_grid(loc: dict, shared: dict) -> list[str]:
         if tag:
             out.append(f'          <span class="photo__tag">{tag}</span>')
         out += [f'          <span class="photo__title">{caption}</span>', "        </figcaption>"]
-        if desc:
+        if opens_into_lens(ph, desc):
             tid = f'lens-{ph["id"]}'
             label = f'{loc["lens"]["open"]}: {plain(caption)}'
             out += [
@@ -794,7 +870,7 @@ def render_recording(loc: dict, shared: dict) -> list[str]:
         c = r["photos"].get(photo["id"], {})
         desc = c.get("desc", "").strip()
         src = f'{p}{photo["src"]}'
-        if desc:
+        if opens_into_lens(photo, desc):
             tid = f'lens-{photo["id"]}'
             caption = c.get("caption", "")
             label = f'{loc["lens"]["open"]}: {plain(caption)}'
@@ -867,8 +943,11 @@ def render_music(loc: dict, shared: dict, full: bool = False) -> list[str]:
             f'          <img src="{asset(rel["art"], p)}" alt="{attr(c["alt"])}" loading="lazy">',
             "        </span>",
         ]
-        if rel.get("badge") and c.get("badge"):
-            out.append(f'        <span class="card__badge">{c["badge"]}</span>')
+        tags = release_tags(rel, c)
+        if tags:
+            out.append('        <span class="card__tags">')
+            out += [f'          <span class="card__badge">{t}</span>' for t in tags]
+            out.append("        </span>")
         out += [
             "      </div>",
             '      <div class="card__body">',
@@ -926,6 +1005,23 @@ def render_music(loc: dict, shared: dict, full: bool = False) -> list[str]:
     return out
 
 
+def release_tags(rel: dict, c: dict) -> list[str]:
+    """The little labels over a sleeve — "New", and whatever else is worth
+    flagging on a record.
+
+    There used to be exactly one of these, a boolean in shared.json gated
+    against a label in each locale. It is a list per locale now, because a
+    record can be both new and, say, a single; the old pair is still read
+    when there is no list, so content that has not been through the new form
+    keeps its badge."""
+    tags = c.get("tags")
+    if isinstance(tags, list):
+        return [t for t in tags if t]
+    if rel.get("badge") and c.get("badge"):
+        return [c["badge"]]
+    return []
+
+
 def render_video_tile(loc: dict, shared_v: dict, pad: int, feature: bool) -> list[str]:
     p = loc["assetPrefix"]
     v = loc["videos"][shared_v["id"]]
@@ -956,15 +1052,22 @@ def render_video_tile(loc: dict, shared_v: dict, pad: int, feature: bool) -> lis
     if pending and loc.get("videoFlag"):
         flag = loc["videoFlag"]["feature"] if feature else loc["videoFlag"]["default"]
         out.append(f'{s}    <span class="vid__flag">{flag}</span>')
-    out += [f'{s}  </span>', f'{s}  <span class="vid__meta">']
+    out.append(f'{s}  </span>')
+
+    # Each line of the caption is optional, and a caption with nothing in it
+    # is left out altogether rather than rendered as an empty box - which is
+    # what used to leave a band of dead space under the feature video.
+    meta = []
     if v.get("kicker"):
-        out.append(f'{s}    <span class="vid__kicker">{v["kicker"]}</span>')
-    out += [
-        f'{s}    <span class="vid__title"{lang_attr(v.get("titleLang"))}>{v["title"]}</span>',
-        f'{s}    <span class="vid__sub">{v["sub"]}</span>',
-        f'{s}  </span>',
-        f'{s}</a>',
-    ]
+        meta.append(f'{s}    <span class="vid__kicker">{v["kicker"]}</span>')
+    if v.get("title"):
+        meta.append(f'{s}    <span class="vid__title"{lang_attr(v.get("titleLang"))}>{v["title"]}</span>')
+    if v.get("sub"):
+        meta.append(f'{s}    <span class="vid__sub">{v["sub"]}</span>')
+    if meta:
+        out += [f'{s}  <span class="vid__meta">'] + meta + [f'{s}  </span>']
+
+    out.append(f'{s}</a>')
     return out
 
 
@@ -999,8 +1102,36 @@ def render_videos(loc: dict, shared: dict, full: bool = False) -> list[str]:
     feature = [v for v in shared["videos"] if v.get("feature")]
     grid = [v for v in shared["videos"] if not v.get("feature")]
 
-    for v in feature:
-        out += render_video_tile(loc, v, 2, True)
+    # The homepage leads with one thing under this heading: the title video,
+    # or a picture instead when there is no new video worth leading with.
+    # Same box either way - 16:9, full width of the section - so choosing one
+    # over the other never changes the shape of the page.
+    home_pic = None if full else shared.get("images", {}).get("homeVisual")
+    if home_pic:
+        out += [
+            "",
+            '  <figure class="lead-pic reveal">',
+            f'    <img src="{asset(home_pic, loc["assetPrefix"])}"'
+            f' alt="{attr(loc.get("homeVisualAlt", ""))}" loading="lazy" decoding="async">',
+            "  </figure>",
+        ]
+    else:
+        for v in feature:
+            out += render_video_tile(loc, v, 2, True)
+
+    # An optional picture under the title video, the same width as it. It is
+    # a sibling of the tile rather than anything cleverer, so it picks up the
+    # section's own padding and lines up with the video and the grid without
+    # having to be told the measurements.
+    banner = shared.get("images", {}).get("visualsBanner")
+    if full and banner:
+        out += [
+            "",
+            '  <figure class="banner reveal">',
+            f'    <img src="{asset(banner, loc["assetPrefix"])}"'
+            f' alt="{attr(loc.get("visualsBannerAlt", ""))}" loading="lazy" decoding="async">',
+            "  </figure>",
+        ]
 
     # The homepage shows the title track and nothing else; the rest of the
     # catalogue lives on videos.html.
@@ -1086,10 +1217,35 @@ def render_about(loc: dict, shared: dict, full: bool = False) -> list[str]:
     return out
 
 
+def latest_milestones(shared: dict, limit: int) -> list[dict]:
+    """The most recent entries, newest first, still grouped under their years.
+
+    The homepage used to take the last three *years*, which meant the block
+    was however tall those years happened to be - three entries one year and
+    a dozen the next. Counting entries instead keeps it the same size
+    whatever the timeline does.
+
+    "Most recent" is simply reading order: newest year first, and within a
+    year the order the admin put them in, which is the order the full
+    timeline shows them in."""
+    out: list[dict] = []
+    left = limit
+    for row in reversed(shared["milestones"]):
+        if left <= 0:
+            break
+        taken = row["items"][:left]
+        if not taken:
+            continue
+        # a copy, so trimming the homepage never touches the real timeline
+        out.append({**row, "items": taken})
+        left -= len(taken)
+    return out
+
+
 def render_milestones(loc: dict, shared: dict, full: bool = False) -> list[str]:
     # newest first either way: the whole run on the about page, the last three
     # fading out on the homepage
-    rows = list(reversed(shared["milestones"] if full else shared["milestones"][-3:]))
+    rows = list(reversed(shared["milestones"])) if full else latest_milestones(shared, 6)
     out = [
         "<!-- ================= 04 MILESTONES ================= -->",
         '<section class="section section--alt" id="milestones">',
@@ -1101,9 +1257,13 @@ def render_milestones(loc: dict, shared: dict, full: bool = False) -> list[str]:
         if i:
             out.append("")
         year_cls = "tl__year tl__year--now" if row.get("current") else "tl__year"
+        # A year can be given its own colour in the admin; the class stays on
+        # either way, so clearing the colour falls straight back to it.
+        tint = safe_colour(row.get("color"))
+        style = f' style="color:{tint}"' if tint else ""
         out += [
             '    <li class="tl__row reveal">',
-            f'      <h3 class="{year_cls}">{row["year"]}</h3>',
+            f'      <h3 class="{year_cls}"{style}>{row["year"]}</h3>',
             '      <ul class="tl__list">',
         ]
         for item_id in row["items"]:
@@ -1326,7 +1486,7 @@ def render_page(loc: dict, shared: dict, page: str) -> str:
         html_attrs += ' data-video="bilibili"'
 
     lines.append(f"<html{html_attrs}>")
-    lines += render_head(loc, page)
+    lines += render_head(loc, page, shared)
 
     # the skip link has to name a section that exists on this page
     first = "music" if page == "home" else page
@@ -1438,8 +1598,18 @@ def build_dist(shared: dict, pages: list[tuple[dict, str]]) -> None:
     # The admin is gated by Cloudflare Access, but keep it out of search
     # indexes too — Access returns a login page, not a 404, and that is
     # exactly the sort of thing Baidu will happily index.
+    #
+    # It is also the one part of the site with no cache-busting: the pages
+    # carry ?v=<hash> on every asset, but admin/ is copied in verbatim, so a
+    # browser that has been in there once will happily keep running the
+    # admin.js it already has after a deploy. no-cache does not stop it
+    # caching — it stops it *using* the copy without asking first, which is
+    # what makes a deploy take effect on the next load.
     (dist / "_headers").write_text(
-        "/admin/*\n  X-Robots-Tag: noindex, nofollow\n", encoding="utf-8", newline="\n"
+        "/admin/*\n"
+        "  X-Robots-Tag: noindex, nofollow\n"
+        "  Cache-Control: no-cache\n",
+        encoding="utf-8", newline="\n",
     )
     (dist / "robots.txt").write_text(
         "User-agent: *\nDisallow: /admin/\n", encoding="utf-8", newline="\n"

@@ -39,13 +39,20 @@ class Handler(SimpleHTTPRequestHandler):
         if "/api/" in (self.path or ""):
             sys.stderr.write(f"  {self.command} {self.path}\n")
 
+    def end_headers(self):
+        # The pages carry ?v=<hash> on their assets and look after themselves,
+        # but admin.js and admin.css have no such thing: edit one and the
+        # browser keeps running the copy it already has. Nothing served here
+        # is worth caching anyway — this is a preview of files on disk.
+        self.send_header("Cache-Control", "no-store")
+        super().end_headers()
+
     def send_json(self, payload, status=200):
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
+        self.end_headers()          # adds Cache-Control: no-store
         self.wfile.write(body)
 
     def read_json(self):

@@ -19,15 +19,43 @@ const state = {
   files: null,
   dirty: false,
   tab: 'home',
+  // which fold's preview the rail is showing, if not the tab's own
+  section: null,
   status: null,
 };
 
 const SHARED = () => state.files['content/shared.json'];
 const LOC = (lang) => state.files[`content/${lang}.json`];
-const LANGS = [
-  { code: 'en', label: 'EN', cls: 'tag--en', attr: 'en' },
-  { code: 'zh', label: '中文', cls: 'tag--zh', attr: 'zh-Hans' },
-];
+
+/* The two content languages. Addressed by name (LANG.en / LANG.zh) wherever
+ * the code means a specific one — a `lang` attribute, which file to write —
+ * because those meanings must not move when the panel is reordered. */
+const LANG = {
+  en: { code: 'en', label: 'EN', cls: 'tag--en', attr: 'en' },
+  zh: { code: 'zh', label: '中文', cls: 'tag--zh', attr: 'zh-Hans' },
+};
+
+/* …and by position wherever a pair is laid out side by side, which is where
+ * the interface language decides the order. Editing the Chinese page while
+ * every Chinese box sits in the right-hand column means reading across the
+ * English one all day; whichever language you are working in comes first.
+ * The tag on each field still says which is which, so the pair never becomes
+ * ambiguous when the order flips. */
+const langOrder = () => (UI.lang === 'zh' ? [LANG.zh, LANG.en] : [LANG.en, LANG.zh]);
+
+/* The frames of the hero's handwriting loop.
+ *
+ * It used to be exactly two images - `ink` and an optional `inkName` - timed
+ * against each other by the stylesheet. It is a list now, so any number of
+ * pieces can take turns and the hold is a number rather than a keyframe. The
+ * old pair is still read when there is no list yet, so content that has not
+ * been through the new form still renders. */
+function heroLoopFrames(shared) {
+  const images = shared.images || {};
+  const loop = images.inkLoop;
+  if (loop && Array.isArray(loop.frames)) return loop.frames.filter(Boolean);
+  return [images.ink, images.inkName].filter(Boolean);
+}
 
 // ---------------------------------------------------------------- helpers
 
@@ -50,6 +78,8 @@ function markDirty() {
   state.dirty = true;
   document.getElementById('saveBtn').disabled = false;
   renderStatus();
+  // typing repaints the little page in the corner, a beat behind
+  renderPreviewSoon();
 }
 
 function toast(message, kind, detail) {
@@ -111,13 +141,17 @@ function input(obj, key, opts = {}) {
   return node;
 }
 
-function field(label, control, hint, tag) {
+/* label and hint are translated here rather than at the call sites: every
+ * form control on every tab goes through this one function, so the panel
+ * changes language without a hundred edits. T() passes anything it has no
+ * translation for straight back, so an untranslated label still renders. */
+function field(label, control, hint, tag, pv) {
   return el(
     'label',
-    { className: 'f' },
-    el('span', {}, label, tag ? el('span', { className: `tag ${tag.cls}` }, tag.label) : null),
+    { className: 'f', 'data-pv-target': pv },
+    el('span', {}, T(label), tag ? el('span', { className: `tag ${tag.cls}` }, tag.label) : null),
     control,
-    hint ? el('p', { className: 'hint', html: hint }) : null,
+    hint ? el('p', { className: 'hint', html: T(hint) }) : null,
   );
 }
 
@@ -125,14 +159,16 @@ function row(...kids) {
   return el('div', { className: 'row' }, ...kids);
 }
 
-/** The same field in both locales, side by side. */
+/** The same field in both locales, side by side, working language first. */
 function bi(label, key, getObj, opts = {}) {
-  return row(
-    ...LANGS.map((lang) =>
+  return el('div', { className: 'row', 'data-pv-target': opts.pv },
+    ...langOrder().map((lang, i) =>
       field(
-        label,
+        T(label),
         input(getObj(lang.code), key, { ...opts, lang: lang.attr }),
-        lang.code === 'en' ? opts.hint : null,
+        // the hint describes the field, not the language, so it goes under
+        // the leading column rather than always under the English one
+        i === 0 ? (opts.hint ? T(opts.hint) : null) : null,
         lang,
       ),
     ),
@@ -147,7 +183,7 @@ function check(label, obj, key, onChange) {
     markDirty();
     if (onChange) onChange();
   });
-  return el('label', { className: 'check' }, box, el('span', {}, label));
+  return el('label', { className: 'check' }, box, el('span', {}, T(label)));
 }
 
 function listControls(arr, index, rerender, { onDelete } = {}) {
@@ -161,36 +197,40 @@ function listControls(arr, index, rerender, { onDelete } = {}) {
   return el(
     'div',
     { className: 'listctl' },
-    el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: 'Move up',
+    el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Move up'),
                    onclick: () => move(index - 1) }, '↑'),
-    el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: 'Move down',
+    el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Move down'),
                    onclick: () => move(index + 1) }, '↓'),
     el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
                    onclick: () => {
-                     if (!confirm('Remove this item? It disappears from both languages.')) return;
+                     if (!confirm(T('Remove this item? It disappears from both languages.'))) return;
                      const [gone] = arr.splice(index, 1);
                      if (onDelete) onDelete(gone);
                      markDirty();
                      rerender();
-                   } }, 'Remove'),
+                   } }, T('Remove')),
   );
 }
 
-function card(titleNode, controls, body) {
+/* A card title is usually a plain string to translate, but some are built
+ * nodes carrying a name from the content (a video's own title), which is not
+ * the admin's language to change. */
+function card(titleNode, controls, body, pv) {
+  const title = typeof titleNode === 'string' ? T(titleNode) : titleNode;
   return el(
     'div',
-    { className: 'card' },
-    el('div', { className: 'card__head' }, el('div', { className: 'card__title' }, titleNode), controls),
+    { className: 'card', 'data-pv-target': pv },
+    el('div', { className: 'card__head' }, el('div', { className: 'card__title' }, title), controls),
     el('div', { className: 'card__body' }, body),
   );
 }
 
 function addButton(label, onClick) {
-  return el('button', { className: 'additem', type: 'button', onclick: onClick }, label);
+  return el('button', { className: 'additem', type: 'button', onclick: onClick }, T(label));
 }
 
 function intro(html) {
-  return el('p', { className: 'intro', html });
+  return el('p', { className: 'intro', html: T(html) });
 }
 
 // ---------------------------------------------------------------- uploads
@@ -212,7 +252,7 @@ function fileToBase64(file) {
 async function uploadInto(dir, file, onDone) {
   const name = file.name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-');
   const path = `${dir}/${name}`;
-  toast(`Uploading ${name}…`);
+  toast(T('Uploading {name}…', { name }));
   try {
     const b64 = await fileToBase64(file);
     const res = await api('/upload', {
@@ -220,7 +260,8 @@ async function uploadInto(dir, file, onDone) {
       body: JSON.stringify({ path, contentBase64: b64 }),
     });
     state.headSha = res.commit;
-    toast(`Uploaded ${path}`, 'good', 'It is on the draft branch — Publish to put it on the live site.');
+    toast(T('Uploaded {path}', { path }), 'good',
+          T('It is on the draft branch — Publish to put it on the live site.'));
     onDone(path, file);
   } catch (err) {
     toast(err.message, 'bad', err.detail);
@@ -237,7 +278,7 @@ function uploadButton(dir, label, onDone) {
   return el(
     'span',
     {},
-    el('button', { className: 'btn btn--small', type: 'button', onclick: () => picker.click() }, label),
+    el('button', { className: 'btn btn--small', type: 'button', onclick: () => picker.click() }, T(label)),
     picker,
   );
 }
@@ -280,15 +321,21 @@ const TABS = [
  */
 const DEFAULT_TAB_LABEL = Object.fromEntries(TABS.map((t) => [t.id, t.label]));
 
+/* A rename is stored once and shown in both interface languages: it is one
+ * editor telling the other what this tab is, not a translation. Only the
+ * built-in names follow the switch. */
 function tabLabel(id) {
   const names = state.files ? SHARED().adminTabs : null;
-  return (names && names[id]) || DEFAULT_TAB_LABEL[id];
+  return (names && names[id]) || T(DEFAULT_TAB_LABEL[id]);
 }
 
 function setTabLabel(id, label) {
   const shared = SHARED();
   const names = shared.adminTabs || (shared.adminTabs = {});
-  if (label === DEFAULT_TAB_LABEL[id]) delete names[id];
+  // Typing the built-in name back in clears the override rather than pinning
+  // it - compared against the name actually on screen, so it works in either
+  // language.
+  if (label === T(DEFAULT_TAB_LABEL[id])) delete names[id];
   else names[id] = label;
   if (!Object.keys(names).length) delete shared.adminTabs;
 }
@@ -309,25 +356,32 @@ function pageMeta(tabId) {
 }
 
 /** The numbered heading at the top of one section, in both locales. */
-function sectionHeading(key) {
+function sectionHeading(key, pv) {
   const en = LOC('en').sections[key];
   const zh = LOC('zh').sections[key];
   if (!en || !zh) return null;
-  return card('Section heading', null, el('div', {},
+  const sec = { en, zh };
+  return card('Heading', null, el('div', {},
+    el('p', { className: 'hint' },
+      T('The heading and the line under it. You can also double-click either of them in '
+        + 'the preview and type straight into it.')),
     el('span', { className: 'hint' }, `#${key}`),
     row(
+      // the number is not translated copy - one field, not a pair
       ...('num' in en ? [field('Number', input(en, 'num', { mono: true }))] : []),
-      field('Title', input(en, 'title'), null, LANGS[0]),
-      field('Title', input(zh, 'title', { lang: 'zh-Hans' }), null, LANGS[1]),
+      ...langOrder().map((lang) =>
+        field('Title', input(sec[lang.code], 'title', { lang: lang.attr }), null, lang)),
     ),
     row(
-      field('Description', input(en, 'desc', { multiline: true, rows: 2 }),
-            'Stays on one line when the window is wide enough. Press Enter where you want it to break instead.',
-            LANGS[0]),
-      field('Description', input(zh, 'desc', { multiline: true, rows: 2, lang: 'zh-Hans' }),
-            '窗口够宽时保持一行；如需换行，在想换行的位置按回车。', LANGS[1]),
+      ...langOrder().map((lang, i) =>
+        field('Description',
+              input(sec[lang.code], 'desc', { multiline: true, rows: 2, lang: lang.attr }),
+              i === 0
+                ? 'Stays on one line when the window is wide enough. Press Enter where you want it to break instead.'
+                : null,
+              lang)),
     ),
-  ));
+  ), pv);
 }
 
 // ---------------------------------------------------------------- videos
@@ -342,16 +396,16 @@ function renderVideos() {
     const zhV = LOC('zh').videos[v.id] || (LOC('zh').videos[v.id] = { title: '', sub: '' });
 
     const badge = v.bv
-      ? el('span', { className: 'live' }, 'B站 live')
-      : el('span', { className: 'pending' }, 'B站 pending');
+      ? el('span', { className: 'live' }, T('B站 live'))
+      : el('span', { className: 'pending' }, T('B站 pending'));
 
     const title = el(
       'span',
       {},
-      enV.title || '(untitled)',
+      enV.title || T('(untitled)'),
       ' ',
       badge,
-      v.feature ? el('span', { className: 'live' }, 'feature') : null,
+      v.feature ? el('span', { className: 'live' }, T('feature')) : null,
       el('small', {}, v.id),
     );
 
@@ -394,7 +448,7 @@ function renderVideos() {
           field('Poster path', input(v, 'poster', { mono: true })),
           v.feature ? null : field('Size in the grid', choice(v, 'size', PHOTO_SIZES)),
         ),
-        el('details', {}, el('summary', { className: 'hint' }, 'Language attributes'),
+        el('details', {}, el('summary', { className: 'hint' }, T('Language attributes')),
            row(
              field('EN title lang attr', input(enV, 'titleLang', { mono: true, dropWhenEmpty: true }),
                    'Set to <code>zh</code> if this title is Chinese on the English page.'),
@@ -439,7 +493,7 @@ function linksEditor(locale, obj) {
   return el(
     'div',
     {},
-    el('span', { className: 'hint' }, `Links (${locale})`),
+    el('span', { className: 'hint' }, T('Links ({locale})', { locale: LANG[locale].label })),
     ...list.map((link, i) =>
       row(
         field('Label', input(link, 'label', { lang: locale === 'zh' ? 'zh-Hans' : 'en' })),
@@ -453,8 +507,65 @@ function linksEditor(locale, obj) {
     ),
     el('button', { className: 'btn btn--small', type: 'button',
                    onclick: () => { list.push({ label: '', url: '' }); markDirty(); rerender(); } },
-       '+ link'),
+       T('+ link')),
   );
+}
+
+/* The labels over a sleeve.
+ *
+ * This was one checkbox and one word. A record can want more than one - new,
+ * and a single, and whatever else - so it is a list now, and each language
+ * keeps its own, because "New" is not a word the Chinese page should show.
+ *
+ * The old boolean is migrated the first time a tag is edited rather than on
+ * render, so opening the tab never marks the panel dirty.
+ */
+function releaseTags(rel, c) {
+  if (Array.isArray(c.tags)) return c.tags;
+  return (rel.badge && c.badge) ? [c.badge] : [];
+}
+
+function tagsEditor(rel) {
+  const rerender = () => renderPanel();
+
+  return el('div', { className: 'row' }, ...langOrder().map((lang) => {
+    const c = LOC(lang.code).releases[rel.id];
+    const tags = releaseTags(rel, c);
+
+    const commit = (next) => {
+      c.tags = next;
+      // the boolean and the single label have no meaning once there is a list
+      delete c.badge;
+      delete rel.badge;
+      markDirty();
+      rerender();
+    };
+
+    return el('div', { className: 'tags' },
+      el('span', { className: 'hint' },
+        T('Tags'), ' ', el('span', { className: 'tag ' + lang.cls }, lang.label)),
+      el('div', { className: 'tags__row' },
+        ...tags.map((text, i) => {
+          const box = el('input', { type: 'text', className: 'tags__input', lang: lang.attr });
+          box.value = text;
+          box.addEventListener('input', () => {
+            const next = tags.slice();
+            next[i] = box.value;
+            c.tags = next;
+            delete c.badge;
+            delete rel.badge;
+            markDirty();
+            renderPreviewSoon();
+          });
+          return el('span', { className: 'tags__item' },
+            box,
+            el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
+                           onclick: () => commit(tags.filter((_, j) => j !== i)) }, '×'));
+        }),
+        el('button', { className: 'btn btn--small', type: 'button',
+                       onclick: () => commit([...tags, '']) }, T('+ tag'))),
+      tags.length ? null : el('p', { className: 'hint' }, T('No labels on this cover.')));
+  }));
 }
 
 function renderReleases() {
@@ -465,6 +576,7 @@ function renderReleases() {
   shared.releases.forEach((r, i) => {
     const enR = LOC('en').releases[r.id];
     const zhR = LOC('zh').releases[r.id];
+    const pick = (l) => (l === 'en' ? enR : zhR);
 
     const body = el(
       'div',
@@ -474,17 +586,17 @@ function renderReleases() {
            el('img', { src: '/' + r.art, alt: '', style: 'width:120px;border-radius:5px;display:block;margin-bottom:8px' }),
            uploadButton('img', 'Replace cover', (path) => { r.art = path; markDirty(); rerender(); })),
         el('div', {},
-           field('Cover path', input(r, 'art', { mono: true })),
-           el('div', { style: 'margin-top:10px' }, check('Show “new” badge', r, 'badge', rerender))),
+           field('Cover path', input(r, 'art', { mono: true }))),
       ),
-      bi('Title', 'title', (l) => (l === 'en' ? enR : zhR),
+      bi('Title', 'title', pick,
          { hint: 'Inline HTML is allowed, e.g. <code>&lt;span lang="zh"&gt;想太多&lt;/span&gt;</code>.' }),
-      bi('Meta line', 'meta', (l) => (l === 'en' ? enR : zhR)),
-      bi('Description', 'copy', (l) => (l === 'en' ? enR : zhR), { multiline: true, rows: 2 }),
-      bi('Cover alt text', 'alt', (l) => (l === 'en' ? enR : zhR),
-         { hint: 'Describes the image for screen readers.' }),
-      r.badge ? bi('Badge label', 'badge', (l) => (l === 'en' ? enR : zhR)) : null,
-      row(linksEditor('en', enR), linksEditor('zh', zhR)),
+      bi('Meta line', 'meta', pick),
+      bi('Description', 'copy', pick, { multiline: true, rows: 2 }),
+      bi('Cover alt text', 'alt', pick, { hint: 'Describes the image for screen readers.' }),
+      el('p', { className: 'hint' },
+         T('Labels shown over the top-left corner of the cover. Add as many as the record needs.')),
+      tagsEditor(r),
+      row(...langOrder().map((lang) => linksEditor(lang.code, pick(lang.code)))),
     );
 
     out.push(card(
@@ -493,14 +605,15 @@ function renderReleases() {
         onDelete: (gone) => { delete LOC('en').releases[gone.id]; delete LOC('zh').releases[gone.id]; },
       }),
       body,
+      'music.release.' + r.id,
     ));
   });
 
   out.push(addButton('+ Add a release', () => {
     const id = newId('release', shared.releases.map((r) => r.id));
-    shared.releases.push({ id, art: 'img/album-overthinking.webp', badge: false });
+    shared.releases.push({ id, art: 'img/album-overthinking.webp' });
     for (const l of ['en', 'zh']) {
-      LOC(l).releases[id] = { alt: '', title: '', meta: '', copy: '', links: [] };
+      LOC(l).releases[id] = { alt: '', title: '', meta: '', copy: '', tags: [], links: [] };
     }
     markDirty();
     rerender();
@@ -521,15 +634,16 @@ function paragraphList(locale, aboutObj, key, label) {
     {},
     ...list.map((_, i) =>
       el('div', { style: 'margin-bottom:10px' },
-         field(`${label} ${i + 1}`,
+         field(`${T(label)} ${i + 1}`,
                input(list, String(i), { multiline: true, rows: 4, lang }),
                null,
-               LANGS.find((l) => l.code === locale)),
+               LANG[locale]),
          el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
-                        onclick: () => { list.splice(i, 1); markDirty(); rerender(); } }, 'Remove paragraph')),
+                        onclick: () => { list.splice(i, 1); markDirty(); rerender(); } },
+            T('Remove paragraph'))),
     ),
     el('button', { className: 'btn btn--small', type: 'button',
-                   onclick: () => { list.push(''); markDirty(); rerender(); } }, '+ paragraph'),
+                   onclick: () => { list.push(''); markDirty(); rerender(); } }, T('+ paragraph')),
   );
 }
 
@@ -539,22 +653,27 @@ function renderAbout() {
   const zhA = LOC('zh').about;
   const out = [];
 
-  out.push(card('Bio paragraphs', null, el('div', {},
-    row(paragraphList('en', enA, 'prose', 'Paragraph'), paragraphList('zh', zhA, 'prose', '段落')),
-  )));
+  const about = { en: enA, zh: zhA };
 
-  out.push(card('Pull quote', null, bi('Quote', 'quote', (l) => (l === 'en' ? enA : zhA))));
+  out.push(card('Bio paragraphs', null, el('div', {},
+    row(...langOrder().map((lang) => paragraphList(lang.code, about[lang.code], 'prose', 'Paragraph'))),
+  ), 'about.prose'));
+
+  out.push(card('Blurb', null, el('div', {},
+    el('p', { className: 'hint' },
+      T('The line set apart from the rest of the bio, between the paragraphs.')),
+    bi('Blurb', 'quote', (l) => about[l])), 'about.quote'));
 
   out.push(card('Paragraphs after the quote', null, el('div', {},
-    row(paragraphList('en', enA, 'proseAfterQuote', 'Paragraph'),
-        paragraphList('zh', zhA, 'proseAfterQuote', '段落')),
+    row(...langOrder().map((lang) =>
+      paragraphList(lang.code, about[lang.code], 'proseAfterQuote', 'Paragraph'))),
   )));
 
   // Profile table
-  const facts = el('div', { className: 'row' }, ...LANGS.map((lang) => {
-    const list = (lang.code === 'en' ? enA : zhA).facts;
+  const facts = el('div', { className: 'row' }, ...langOrder().map((lang) => {
+    const list = about[lang.code].facts;
     return el('div', { style: 'flex:1' },
-      el('span', { className: 'hint' }, `Profile rows (${lang.label})`),
+      el('span', { className: 'hint' }, T('Profile rows ({lang})', { lang: lang.label })),
       ...list.map((item, i) => row(
         field('Term', input(item, 'term', { lang: lang.attr })),
         field('Value', input(item, 'value', { lang: lang.attr })),
@@ -562,14 +681,19 @@ function renderAbout() {
                        onclick: () => { list.splice(i, 1); markDirty(); rerender(); } }, '×'),
       )),
       el('button', { className: 'btn btn--small', type: 'button',
-                     onclick: () => { list.push({ term: '', value: '' }); markDirty(); rerender(); } }, '+ row'),
+                     onclick: () => { list.push({ term: '', value: '' }); markDirty(); rerender(); } },
+         T('+ row')),
     );
   }));
-  out.push(card('Profile table', null, facts));
+  out.push(card('Stats', null, el('div', {},
+    el('p', { className: 'hint' },
+      T('The table beside the bio. Each row is a label and a value; add and remove as many '
+        + 'as you like, and each language keeps its own rows.')),
+    facts), 'about.stats'));
 
   out.push(card('Headings', null, el('div', {},
-    bi('Profile heading', 'profileHeading', (l) => (l === 'en' ? enA : zhA)),
-  )));
+    bi('Stats heading', 'profileHeading', (l) => about[l]),
+  ), 'about.stats'));
 
   out.push(card('Photo captions & alt text', null, el('div', {},
     bi('Top portrait alt', 'altTop', (l) => (l === 'en' ? enA : zhA)),
@@ -583,64 +707,209 @@ function renderAbout() {
 
 // ---------------------------------------------------------------- milestones
 
+/* How many bullets a year shows before it stops. The timeline is the longest
+ * thing in the admin - five years of entries in two languages is a couple of
+ * hundred boxes - and scrolling past all of it to reach the press items was
+ * the main reason the About tab felt endless. */
+const MILESTONES_VISIBLE = 6;
+
+/* Which years have been opened out. Kept here rather than on the year itself:
+ * everything on that object is content and goes to GitHub on the next save,
+ * and whether someone expanded a list is not something the site should carry
+ * around. Keyed by year label so it survives a re-render. */
+const msOpen = new Set();
+
+/* Wrap whatever is selected in a tag, the way a toolbar button does.
+ *
+ * The strings here are authored HTML, so this types the markup for you
+ * rather than doing anything clever: select some words, press B, and the
+ * <b> lands around them. With nothing selected it drops in an empty pair
+ * and puts the caret between them. */
+function wrapSelection(box, tag) {
+  const start = box.selectionStart;
+  const end = box.selectionEnd;
+  const value = box.value;
+  const open = `<${tag}>`;
+  const close = `</${tag}>`;
+  box.value = value.slice(0, start) + open + value.slice(start, end) + close + value.slice(end);
+  box.dispatchEvent(new Event('input', { bubbles: true }));
+  box.focus();
+  const caret = start + open.length + (end - start);
+  box.setSelectionRange(start + open.length, caret);
+}
+
+function richControls(box) {
+  const btn = (label, tag, title) =>
+    el('button', {
+      className: 'rich__btn', type: 'button', title: T(title),
+      // mousedown, not click: click fires after the input has lost focus and
+      // taken the selection with it
+      onmousedown: (e) => { e.preventDefault(); wrapSelection(box, tag); },
+    }, label);
+  return el('span', { className: 'rich' },
+    btn('B', 'b', 'Bold'),
+    btn('I', 'em', 'Italic'));
+}
+
+/** A text box with Bold and Italic beside it. */
+function richField(label, obj, key, lang, opts = {}) {
+  const box = input(obj, key, { ...opts, lang: lang.attr });
+  return el('label', { className: 'f' },
+    el('span', {}, T(label),
+      el('span', { className: `tag ${lang.cls}` }, lang.label),
+      richControls(box)),
+    box);
+}
+
+/* Drag to reorder. The arrows stay - dragging is not available to everyone,
+ * and a list that can only be dragged is a list some people cannot sort. */
+function dragReorder(node, index, list, onDrop) {
+  node.draggable = true;
+  node.addEventListener('dragstart', (e) => {
+    e.dataTransfer.setData('text/plain', String(index));
+    e.dataTransfer.effectAllowed = 'move';
+    node.classList.add('is-dragging');
+  });
+  node.addEventListener('dragend', () => node.classList.remove('is-dragging'));
+  node.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    node.classList.add('is-drop');
+  });
+  node.addEventListener('dragleave', () => node.classList.remove('is-drop'));
+  node.addEventListener('drop', (e) => {
+    e.preventDefault();
+    node.classList.remove('is-drop');
+    const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
+    if (Number.isNaN(from) || from === index) return;
+    const [moved] = list.splice(from, 1);
+    list.splice(index, 0, moved);
+    onDrop();
+  });
+  return node;
+}
+
 function renderMilestones() {
   const shared = SHARED();
   const rerender = () => renderPanel();
   const out = [];
 
   shared.milestones.forEach((yearRow, yi) => {
-    const items = yearRow.items.map((itemId, ii) => {
-      const enM = LOC('en').milestones;
-      const zhM = LOC('zh').milestones;
-      return el('div', { style: 'margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--line)' },
-        row(
-          field('English', input(enM, itemId, { multiline: true, rows: 2 }), null, LANGS[0]),
-          field('中文', input(zhM, itemId, { multiline: true, rows: 2, lang: 'zh-Hans' }), null, LANGS[1]),
-          el('div', { style: 'flex:0 0 auto;display:flex;flex-direction:column;gap:5px;justify-content:flex-end' },
-             el('button', { className: 'btn btn--small btn--ghost', type: 'button',
-                            onclick: () => { if (ii > 0) { const [m] = yearRow.items.splice(ii, 1); yearRow.items.splice(ii - 1, 0, m); markDirty(); rerender(); } } }, '↑'),
-             el('button', { className: 'btn btn--small btn--ghost', type: 'button',
-                            onclick: () => { if (ii < yearRow.items.length - 1) { const [m] = yearRow.items.splice(ii, 1); yearRow.items.splice(ii + 1, 0, m); markDirty(); rerender(); } } }, '↓'),
-             el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
-                            onclick: () => {
-                              if (!confirm('Remove this milestone from both languages?')) return;
-                              yearRow.items.splice(ii, 1);
-                              delete enM[itemId];
-                              delete zhM[itemId];
-                              markDirty();
-                              rerender();
-                            } }, '×')),
-        ),
-        el('p', { className: 'hint' }, `id: ${itemId} — inline HTML allowed, e.g. <b>…</b> for the song title`),
-      );
+    const enM = LOC('en').milestones;
+    const zhM = LOC('zh').milestones;
+    const box = { en: enM, zh: zhM };
+
+    const bullet = (itemId, ii) => {
+      const node = el('div', { className: 'ms' },
+        el('span', { className: 'ms__grip', title: T('Drag to reorder') }, '⠿'),
+        el('div', { className: 'ms__fields' },
+          row(...langOrder().map((lang) =>
+            richField('Entry', box[lang.code], itemId, lang, { multiline: true, rows: 2 }))),
+          el('p', { className: 'hint' }, `id: ${itemId}`)),
+        el('div', { className: 'ms__ctl' },
+          el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Move up'),
+                         onclick: () => {
+                           if (ii === 0) return;
+                           const [m] = yearRow.items.splice(ii, 1);
+                           yearRow.items.splice(ii - 1, 0, m);
+                           markDirty();
+                           rerender();
+                         } }, '↑'),
+          el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Move down'),
+                         onclick: () => {
+                           if (ii >= yearRow.items.length - 1) return;
+                           const [m] = yearRow.items.splice(ii, 1);
+                           yearRow.items.splice(ii + 1, 0, m);
+                           markDirty();
+                           rerender();
+                         } }, '↓'),
+          el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
+                         onclick: () => {
+                           if (!confirm(T('Remove this milestone from both languages?'))) return;
+                           yearRow.items.splice(ii, 1);
+                           delete enM[itemId];
+                           delete zhM[itemId];
+                           markDirty();
+                           rerender();
+                         } }, '×')));
+      return dragReorder(node, ii, yearRow.items, () => { markDirty(); rerender(); });
+    };
+
+    // only the first few, unless this year has been opened out
+    const many = yearRow.items.length > MILESTONES_VISIBLE;
+    const showAll = msOpen.has(yearRow.year);
+    const shown = many && !showAll ? yearRow.items.slice(0, MILESTONES_VISIBLE) : yearRow.items;
+
+    const colour = el('input', { type: 'color', className: 'swatch' });
+    colour.value = yearRow.color || '#05F93B';
+    colour.addEventListener('change', () => {
+      yearRow.color = colour.value;
+      markDirty();
+      rerender();
     });
 
     const body = el('div', {},
       row(
         field('Year label', input(yearRow, 'year')),
-        el('div', { style: 'display:flex;align-items:flex-end' }, check('Highlight as current year', yearRow, 'current')),
+        el('div', { style: 'display:flex;align-items:flex-end' },
+           check('Highlight as current year', yearRow, 'current', rerender)),
+        field('Year colour', el('span', { className: 'swatchrow' },
+          colour,
+          yearRow.color
+            ? el('button', { className: 'btn btn--small btn--ghost', type: 'button',
+                             onclick: () => {
+                               delete yearRow.color;
+                               markDirty();
+                               rerender();
+                             } }, T('Default'))
+            : el('span', { className: 'hint' }, T('Using the default'))),
+          'Overrides the colour of the year. The default is the accent green on the current year.'),
       ),
-      ...items,
-      el('button', { className: 'btn btn--small', type: 'button', onclick: () => {
-        const label = prompt('Short name for this milestone (used as its internal id):', '');
+      // Five years of entries, in two languages, is the longest thing in the
+      // admin - about a hundred and sixty boxes on this tab alone. Each year
+      // is shut until you open it, so the page is a list of years rather
+      // than a wall, and the one being worked on is open to begin with.
+      el('details', { className: 'msyear', open: (yearRow.current || msOpen.has(yearRow.year)) || null },
+        el('summary', { className: 'hint' },
+          T('{n} entries', { n: yearRow.items.length }),
+          ' — ', T('open to edit')),
+        ...shown.map((itemId, ii) => bullet(itemId, ii)),
+        many
+          ? el('button', { className: 'btn btn--small btn--ghost', type: 'button',
+                           onclick: () => {
+                             if (showAll) msOpen.delete(yearRow.year);
+                             else msOpen.add(yearRow.year);
+                             rerender();
+                           } },
+               showAll
+                 ? T('Show fewer')
+                 : T('Show all {n}', { n: yearRow.items.length }))
+          : null,
+        el('button', { className: 'btn btn--small', type: 'button', onclick: () => {
+        const label = prompt(T('Short name for this milestone (used as its internal id):'), '');
         if (label === null) return;
-        const taken = Object.keys(LOC('en').milestones);
-        const id = newId(slug(label) || 'milestone', taken);
+        const id = newId(slug(label) || 'milestone', Object.keys(enM));
         yearRow.items.push(id);
-        LOC('en').milestones[id] = label || '';
-        LOC('zh').milestones[id] = '';
+        enM[id] = label || '';
+        zhM[id] = '';
+        msOpen.add(yearRow.year);
         markDirty();
         rerender();
-      } }, '+ milestone'),
+      } }, T('+ milestone'))),
     );
 
-    out.push(card(el('span', {}, yearRow.year, el('small', {}, `${yearRow.items.length} entries`)),
-                  listControls(shared.milestones, yi, rerender, {
-                    onDelete: (gone) => gone.items.forEach((id) => {
-                      delete LOC('en').milestones[id];
-                      delete LOC('zh').milestones[id];
-                    }),
-                  }), body));
+    out.push(card(
+      el('span', {}, yearRow.year,
+         yearRow.color
+           ? el('i', { className: 'dot', style: `background:${yearRow.color}` })
+           : null,
+         el('small', {}, T('{n} entries', { n: yearRow.items.length }))),
+      listControls(shared.milestones, yi, rerender, {
+        onDelete: (gone) => gone.items.forEach((id) => { delete enM[id]; delete zhM[id]; }),
+      }),
+      body,
+      'milestones.year.' + yearRow.year,
+    ));
   });
 
   out.push(addButton('+ Add a year', () => {
@@ -670,10 +939,10 @@ function renderPress() {
       bi('Gloss / subtitle', 'gloss', (l) => (l === 'en' ? enP : zhP)),
     );
 
-    out.push(card(el('span', {}, enP.title || '(untitled)', el('small', {}, item.id)),
+    out.push(card(el('span', {}, enP.title || T('(untitled)'), el('small', {}, item.id)),
                   listControls(shared.press, i, rerender, {
                     onDelete: (gone) => { delete LOC('en').press[gone.id]; delete LOC('zh').press[gone.id]; },
-                  }), body));
+                  }), body, 'press.item.' + item.id));
   });
 
   out.push(addButton('+ Add a press item', () => {
@@ -700,19 +969,21 @@ function renderContact() {
       field('Contact email', input(shared, 'contactEmail', { mono: true })),
       field('Copyright year', input(shared, 'copyrightYear')),
     ),
-  )));
+  ), 'contact.email'));
 
   out.push(card('Contact heading', null, el('div', {},
     bi('Who to contact', 'who', (l) => LOC(l).contact),
-  )));
+  ), 'contact.email'));
 
   if (LOC('en').contact.form && LOC('zh').contact.form) {
     const form = (l) => LOC(l).contact.form;
     out.push(card('Message window', null, el('div', {},
+      // no vars passed, so T() leaves this one's {to} and {email} alone -
+      // they are placeholders the site fills in, not ones this file fills in
       el('p', { className: 'hint', html:
-        'The window the "Message Tony" button opens. Sending is not connected online yet, so on the ' +
-        'deployed site it shows the error line; the local preview accepts messages. ' +
-        '<code>{to}</code> and <code>{email}</code> are filled in for you — leave them in.' }),
+        T('The window the "Message Tony" button opens. Sending is not connected online yet, so on the '
+          + 'deployed site it shows the error line; the local preview accepts messages. '
+          + '<code>{to}</code> and <code>{email}</code> are filled in for you — leave them in.') }),
       bi('Button', 'open', form),
       bi('Window title', 'title', form),
       bi('Introduction', 'intro', form, { multiline: true, rows: 2 }),
@@ -732,7 +1003,7 @@ function renderContact() {
     )));
   }
 
-  LANGS.forEach((lang) => {
+  langOrder().forEach((lang) => {
     const contact = LOC(lang.code).contact;
     const cols = contact.columns;
     const body = el('div', {}, ...cols.map((col, ci) =>
@@ -741,7 +1012,7 @@ function renderContact() {
           field('Column heading', input(col, 'heading', { lang: lang.attr })),
           el('div', { style: 'flex:0 0 auto;display:flex;align-items:flex-end' },
              el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
-                            onclick: () => { cols.splice(ci, 1); markDirty(); rerender(); } }, 'Remove column')),
+                            onclick: () => { cols.splice(ci, 1); markDirty(); rerender(); } }, T('Remove column'))),
         ),
         ...col.items.map((item, ii) => row(
           field('Label', input(item, 'label', { lang: lang.attr })),
@@ -755,20 +1026,20 @@ function renderContact() {
                             onclick: () => { col.items.splice(ii, 1); markDirty(); rerender(); } }, '×')),
         )),
         el('button', { className: 'btn btn--small', type: 'button',
-                       onclick: () => { col.items.push({ label: '' }); markDirty(); rerender(); } }, '+ item'),
+                       onclick: () => { col.items.push({ label: '' }); markDirty(); rerender(); } }, T('+ item')),
       )),
       el('button', { className: 'btn btn--small', type: 'button',
                      onclick: () => { cols.push({ heading: '', items: [] }); markDirty(); rerender(); } },
-         '+ column'),
+         T('+ column')),
     );
-    out.push(card(el('span', {}, `Contact columns `, el('span', { className: `tag ${lang.cls}` }, lang.label)), null, body));
+    out.push(card(el('span', {}, T('Contact columns'), ' ', el('span', { className: `tag ${lang.cls}` }, lang.label)), null, body, 'contact.columns'));
   });
 
   out.push(card('Footer', null, el('div', {},
     bi('Copyright line', 'copyright', (l) => LOC(l).footer,
        { hint: 'Follows the © and the year. Inline HTML allowed.' }),
     bi('Back-to-top label', 'backToTop', (l) => LOC(l).footer),
-  )));
+  ), 'footer'));
 
   return out;
 }
@@ -782,15 +1053,16 @@ function navCard() {
   return card('Navigation', null, el('div', {},
     bi('Skip-to-content link', 'skip', (l) => LOC(l).nav),
     ...LOC('en').nav.links.map((_, i) => row(
+      // the href is shared by both pages, so it is one field rather than a pair
       field('Link target', input(LOC('en').nav.links[i], 'href', { mono: true })),
-      field('Label', input(LOC('en').nav.links[i], 'label'), null, LANGS[0]),
-      field('Label', input(LOC('zh').nav.links[i], 'label', { lang: 'zh-Hans' }), null, LANGS[1]),
+      ...langOrder().map((lang) =>
+        field('Label', input(LOC(lang.code).nav.links[i], 'label', { lang: lang.attr }), null, lang)),
     )),
     row(
-      field('Contact button', input(LOC('en').nav.cta, 'label'), null, LANGS[0]),
-      field('Contact button', input(LOC('zh').nav.cta, 'label', { lang: 'zh-Hans' }), null, LANGS[1]),
+      ...langOrder().map((lang) =>
+        field('Contact button', input(LOC(lang.code).nav.cta, 'label', { lang: lang.attr }), null, lang)),
     ),
-  ));
+  ), 'nav');
 }
 
 /** The notice above the Chinese video grid, and the flags on tiles with no BV id. */
@@ -800,28 +1072,28 @@ function bilibiliCards() {
 
   const notice = LOC('zh').notice;
   if (notice) {
-    out.push(card(el('span', {}, 'Bilibili notice ', el('span', { className: 'tag tag--zh' }, '中文 only')), null,
+    out.push(card(el('span', {}, T('Bilibili notice'), ' ', el('span', { className: 'tag tag--zh' }, T('中文 only'))), null,
       el('div', {},
         el('p', { className: 'hint' },
-          'The box above the video grid on the Chinese page. Delete it once every video has a BV id.'),
+          T('The box above the video grid on the Chinese page. Delete it once every video has a BV id.')),
         field('Title', input(notice, 'title', { lang: 'zh-Hans' })),
         field('Body', input(notice, 'body', { multiline: true, rows: 4, lang: 'zh-Hans' }),
               'Inline links allowed.'),
         el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
                        onclick: () => {
-                         if (!confirm('Remove the Bilibili notice box from the Chinese page?')) return;
+                         if (!confirm(T('Remove the Bilibili notice box from the Chinese page?'))) return;
                          delete LOC('zh').notice;
                          markDirty();
                          rerender();
-                       } }, 'Remove the notice box'),
+                       } }, T('Remove the notice box')),
       )));
   }
 
   const flag = LOC('zh').videoFlag;
   if (flag) {
-    out.push(card(el('span', {}, 'Pending-video flags ', el('span', { className: 'tag tag--zh' }, '中文 only')), null,
+    out.push(card(el('span', {}, T('Pending-video flags'), ' ', el('span', { className: 'tag tag--zh' }, T('中文 only'))), null,
       el('div', {},
-        el('p', { className: 'hint' }, 'Shown on tiles whose Bilibili BV id is still empty.'),
+        el('p', { className: 'hint' }, T('Shown on tiles whose Bilibili BV id is still empty.')),
         field('Feature tile', input(flag, 'feature', { lang: 'zh-Hans' })),
         field('Grid tiles', input(flag, 'default', { lang: 'zh-Hans' })),
       )));
@@ -850,14 +1122,14 @@ function imageGrid(items) {
     el('div', { className: 'imgcard' },
       el('img', { src: '/' + it.path, alt: '', loading: 'lazy' }),
       el('div', { className: 'imgcard__body' },
-        el('div', { className: 'imgcard__name' }, it.label),
+        el('div', { className: 'imgcard__name' }, T(it.label)),
         el('div', { className: 'imgcard__path' }, it.path),
         uploadButton(it.dir || 'img', 'Replace', (path) => { it.set(path); markDirty(); rerender(); })))));
 }
 
 function imageCard(title, items, note) {
   return card(title, null, el('div', {},
-    el('p', { className: 'hint' }, note || UPLOAD_NOTE),
+    el('p', { className: 'hint' }, T(note || UPLOAD_NOTE)),
     imageGrid(items)));
 }
 
@@ -876,7 +1148,9 @@ function choice(obj, key, options, onChange) {
   const node = el('select', {});
   options.forEach(([value, label]) => {
     // labels can be authored HTML ("Live &amp; behind the scenes"), so they go in as markup
-    const opt = el('option', { value, html: label });
+    // a shape or size name is the admin's own word and translates; a photo
+    // category is content, and T() hands anything it does not know straight back
+    const opt = el('option', { value, html: T(label) });
     if (obj[key] === value) opt.selected = true;
     node.append(opt);
   });
@@ -901,6 +1175,29 @@ function shapeOf(file) {
     img.onerror = () => { URL.revokeObjectURL(url); resolve('square'); };
     img.src = url;
   });
+}
+
+/* Whether a picture opens into the larger view when it is clicked.
+ *
+ * It used to be decided by whether a description had been written, which
+ * tied two unrelated things together. The checkbox writes the flag; until
+ * someone touches it, the old rule still answers, so nothing changes on its
+ * own. Clicking it is what makes the choice explicit. */
+function opensInto(item, enC, zhC) {
+  if ('opens' in item) return !!item.opens;
+  return !!(enC.desc || zhC.desc);
+}
+
+function opensCheck(item, enC, zhC, rerender) {
+  const boxEl = el('input', { type: 'checkbox' });
+  boxEl.checked = opensInto(item, enC, zhC);
+  boxEl.addEventListener('change', () => {
+    item.opens = boxEl.checked;
+    markDirty();
+    rerender();
+  });
+  return el('label', { className: 'check' }, boxEl,
+    el('span', {}, T('Opens into a larger view')));
 }
 
 const DESC_HINT =
@@ -939,14 +1236,14 @@ function visualsOrderCard() {
                   style: 'width:56px;height:36px;object-fit:cover;border-radius:4px' }),
       el('span', { style: 'flex:1;min-width:0' }, el('span', { html: label }), ' ',
          el('small', { className: 'hint' }, shape)),
-      el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: 'Earlier', onclick: () => move(i, i - 1) }, '↑'),
-      el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: 'Later', onclick: () => move(i, i + 1) }, '↓'));
+      el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Earlier'), onclick: () => move(i, i - 1) }, '↑'),
+      el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Later'), onclick: () => move(i, i + 1) }, '↓'));
   });
   return card('Grid order', null, el('details', {},
-    el('summary', { className: 'hint' }, `${order.length} pieces — open to reorder`),
+    el('summary', { className: 'hint' }, T('{n} pieces — open to reorder', { n: order.length })),
     el('p', { className: 'hint' },
-      'Top to bottom here is left-to-right, row by row on the page. The grid fills gaps with later, ' +
-      'smaller pieces, so a big piece followed by several small ones packs best.'),
+      T('Top to bottom here is left-to-right, row by row on the page. The grid fills gaps with later, '
+        + 'smaller pieces, so a big piece followed by several small ones packs best.')),
     ...rows));
 }
 
@@ -967,7 +1264,7 @@ function renderPhotos() {
     ),
     visualsOrderCard(),
     card('Photo categories', null, el('div', {},
-      ...tagKeys.map((k) => bi(`Category: ${k}`, k, (l) => LOC(l).photoTags)),
+      ...tagKeys.map((k) => bi(T('Category: {key}', { key: k }), k, (l) => LOC(l).photoTags)),
       bi('"Open" label (screen readers)', 'open', (l) => LOC(l).lens),
       bi('"Close" label (screen readers)', 'close', (l) => LOC(l).lens),
     )),
@@ -976,8 +1273,8 @@ function renderPhotos() {
   shared.photos.forEach((ph, i) => {
     const enP = LOC('en').photos[ph.id] || (LOC('en').photos[ph.id] = { caption: '' });
     const zhP = LOC('zh').photos[ph.id] || (LOC('zh').photos[ph.id] = { caption: '' });
-    const opens = (enP.desc || zhP.desc) ? el('span', { className: 'live' }, 'opens') : null;
-    const title = el('span', {}, enP.caption || '(no caption)', ' ', opens, el('small', {}, ph.id));
+    const opens = opensInto(ph, enP, zhP) ? el('span', { className: 'live' }, T('opens')) : null;
+    const title = el('span', {}, enP.caption || T('(no caption)'), ' ', opens, el('small', {}, ph.id));
 
     const body = el('div', { className: 'vidrow' },
       el('div', {},
@@ -998,20 +1295,25 @@ function renderPhotos() {
           field('Category', choice(ph, 'tag', tagKeys.map((k) => [k, LOC('en').photoTags[k]]))),
         ),
         bi('Caption', 'caption', (l) => (l === 'en' ? enP : zhP)),
+        opensCheck(ph, enP, zhP, rerender),
         bi('Description', 'desc', (l) => (l === 'en' ? enP : zhP),
-           { multiline: true, rows: 4, dropWhenEmpty: true, hint: DESC_HINT }),
+           { multiline: true, rows: 4, dropWhenEmpty: true,
+             hint: opensInto(ph, enP, zhP)
+               ? DESC_HINT
+               : 'This picture does not open, so nothing here is shown. Tick the box above to '
+                 + 'use it.' }),
       ));
 
     const remove = el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
       onclick: () => {
-        if (!confirm('Remove this photo? It disappears from both languages.')) return;
+        if (!confirm(T('Remove this photo? It disappears from both languages.'))) return;
         shared.photos.splice(i, 1);
         delete LOC('en').photos[ph.id];
         delete LOC('zh').photos[ph.id];
         shared.visualsOrder = (shared.visualsOrder || []).filter((r) => r !== `photo:${ph.id}`);
         markDirty();
         rerender();
-      } }, 'Remove');
+      } }, T('Remove'));
     out.push(card(title, remove, body));
   });
 
@@ -1043,8 +1345,8 @@ function renderRecording() {
   const out = [
     card('Now Recording', null, el('div', {},
       el('p', { className: 'hint' },
-        'The block at the top of In the Making: a heading, a line of text, and a second ring that turns ' +
-        'as the page scrolls. It sits above the original ring, which is edited further down.'),
+        T('The block at the top of In the Making: a heading, a line of text, and a second ring that turns '
+          + 'as the page scrolls. It sits above the original ring, which is edited further down.')),
       bi('Heading', 'title', (l) => LOC(l).recording),
       bi('Text', 'desc', (l) => LOC(l).recording, { multiline: true, rows: 2 }),
       el('div', { className: 'vidrow', style: 'margin-top:10px' },
@@ -1056,16 +1358,16 @@ function renderRecording() {
               rec.centre = path; markDirty(); rerender();
             }))),
         el('div', { className: 'vidrow__fields' },
-          el('p', { className: 'hint' }, 'The still picture in the middle of the ring, shown square.'),
+          el('p', { className: 'hint' }, T('The still picture in the middle of the ring, shown square.')),
           bi('Centre description (alt text)', 'centreAlt', (l) => LOC(l).recording))),
-    )),
+    ), 'making.recording'),
   ];
 
   rec.photos.forEach((ph, i) => {
     const enP = LOC('en').recording.photos[ph.id] || (LOC('en').recording.photos[ph.id] = { caption: '' });
     const zhP = LOC('zh').recording.photos[ph.id] || (LOC('zh').recording.photos[ph.id] = { caption: '' });
-    const opens = (enP.desc || zhP.desc) ? el('span', { className: 'live' }, 'opens') : null;
-    const title = el('span', {}, enP.caption || '(no caption)', ' ', opens, el('small', {}, `ring · ${ph.id}`));
+    const opens = opensInto(ph, enP, zhP) ? el('span', { className: 'live' }, T('opens')) : null;
+    const title = el('span', {}, enP.caption || T('(no caption)'), ' ', opens, el('small', {}, `ring · ${ph.id}`));
     const body = el('div', { className: 'vidrow' },
       el('div', {},
         el('img', { className: 'vidrow__thumb', src: '/' + ph.src, alt: '', loading: 'lazy',
@@ -1074,7 +1376,8 @@ function renderRecording() {
           uploadButton('img/recording', 'Replace', (path) => { ph.src = path; markDirty(); rerender(); }))),
       el('div', { className: 'vidrow__fields' },
         el('p', { className: 'hint' },
-          'Any shape works: the ring keeps each picture’s own proportions.'),
+          T('Any shape works: the ring keeps each picture’s own proportions.')),
+        opensCheck(ph, enP, zhP, rerender),
         bi('Caption', 'caption', (l) => (l === 'en' ? enP : zhP),
            { hint: 'The heading of the card it opens into. Not shown on the ring itself.' }),
         bi('Description', 'desc', (l) => (l === 'en' ? enP : zhP),
@@ -1111,16 +1414,16 @@ function renderRaw() {
   for (const path of Object.keys(state.files)) {
     const area = el('textarea', { className: 'mono', rows: 24 });
     area.value = JSON.stringify(state.files[path], null, 2);
-    const status = el('p', { className: 'hint' }, 'Parsed OK');
+    const status = el('p', { className: 'hint' }, T('Parsed OK'));
 
     area.addEventListener('input', () => {
       try {
         state.files[path] = JSON.parse(area.value);
-        status.textContent = 'Parsed OK';
+        status.textContent = T('Parsed OK');
         status.style.color = '';
         markDirty();
       } catch (err) {
-        status.textContent = `Not valid JSON — ${err.message}`;
+        status.textContent = T('Not valid JSON — {message}', { message: err.message });
         status.style.color = '#FF6B93';
       }
     });
@@ -1139,42 +1442,581 @@ function renderRaw() {
  * order. Adding a section to a page is a line here rather than a new form.
  */
 
+// ---------------------------------------------------- hero loop and audio
+
+/* How long each piece of handwriting holds before the next takes over. The
+ * stylesheet used to carry this as a 12s keyframe cycle split between two
+ * images; it is a number now, so the form can ask for it. */
+const HERO_LOOP_SECONDS = 6;
+
+function heroLoopSeconds(shared) {
+  const loop = (shared.images || {}).inkLoop;
+  const n = loop && Number(loop.seconds);
+  return n > 0 ? n : HERO_LOOP_SECONDS;
+}
+
+/* Several files at once, from a drop or from the picker.
+ *
+ * Uploads go up one at a time rather than in parallel: each one is its own
+ * commit to the draft branch, and firing five commits at the same head means
+ * four of them lose the race. */
+function dropZone(dir, accept, label, onEach) {
+  const picker = el('input', { type: 'file', accept, multiple: true });
+  picker.style.display = 'none';
+
+  const zone = el('div', { className: 'drop', tabindex: '0', role: 'button' },
+    el('span', { className: 'drop__label' }, T(label)),
+    picker);
+
+  const take = async (files) => {
+    for (const file of [...files]) {
+      await uploadInto(dir, file, (path) => onEach(path, file));
+    }
+    markDirty();
+    renderPanel();
+  };
+
+  picker.addEventListener('change', () => {
+    if (picker.files.length) take(picker.files);
+    picker.value = '';
+  });
+  zone.addEventListener('click', (e) => { if (e.target !== picker) picker.click(); });
+  zone.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); picker.click(); }
+  });
+  ['dragenter', 'dragover'].forEach((t) => zone.addEventListener(t, (e) => {
+    e.preventDefault();
+    zone.classList.add('is-over');
+  }));
+  ['dragleave', 'drop'].forEach((t) => zone.addEventListener(t, () => zone.classList.remove('is-over')));
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (e.dataTransfer.files.length) take(e.dataTransfer.files);
+  });
+  return zone;
+}
+
+/** The handwriting in the hero, and how long each piece holds. */
+function heroLoopCard() {
+  const shared = SHARED();
+  const images = shared.images;
+  const rerender = () => renderPanel();
+  const frames = heroLoopFrames(shared);
+
+  /* Writing the list is also what migrates off the old ink/inkName pair. It
+   * happens on the first edit rather than on render, so opening this tab and
+   * changing nothing never marks the panel dirty. */
+  const commit = (next, seconds) => {
+    images.inkLoop = { seconds: seconds === undefined ? heroLoopSeconds(shared) : seconds, frames: next };
+    delete images.ink;
+    delete images.inkName;
+    markDirty();
+    rerender();
+  };
+
+  const move = (i, to) => {
+    if (to < 0 || to >= frames.length) return;
+    const next = frames.slice();
+    const [f] = next.splice(i, 1);
+    next.splice(to, 0, f);
+    commit(next);
+  };
+
+  const secs = el('input', { type: 'number', min: '1', max: '30', step: '.5', className: 'num' });
+  secs.value = heroLoopSeconds(shared);
+  // `change`, not `input`: this re-renders, and doing that between the two
+  // keystrokes of "12" would take the field away mid-number
+  secs.addEventListener('change', () => {
+    const v = parseFloat(secs.value);
+    if (v > 0) commit(frames, v);
+  });
+
+  const items = frames.map((src, i) => el('div', { className: 'loopitem' },
+    el('img', { className: 'loopitem__img', src: '/' + src, alt: '', loading: 'lazy' }),
+    el('span', { className: 'imgcard__path' }, src),
+    el('div', { className: 'listctl' },
+      el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Move up'),
+                     onclick: () => move(i, i - 1) }, '↑'),
+      el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Move down'),
+                     onclick: () => move(i, i + 1) }, '↓'),
+      el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
+                     onclick: () => {
+                       if (!confirm(T('Remove this picture from the loop?'))) return;
+                       commit(frames.filter((_, j) => j !== i));
+                     } }, T('Remove')))));
+
+  return card('Handwriting loop', null, el('div', {},
+    el('p', { className: 'hint' },
+      T('The handwriting over the photograph. Each picture is drawn on, holds, then wipes off '
+        + 'for the next one. With a single picture it simply stays put.')),
+    field('Seconds each picture holds', secs),
+    ...items,
+    frames.length ? null : el('p', { className: 'hint' }, T('Nothing in the loop yet.')),
+    dropZone('img', '.webp,.png,.jpg,.jpeg', 'Drop pictures here, or click to choose',
+             (path) => { commit([...heroLoopFrames(SHARED()), path]); }),
+  ), 'hero.loop');
+}
+
+/* The hero player.
+ *
+ * `tracks` is the library - every file on disk - and `playlists` picks which
+ * of them each language queues, in order. They are separate so a file can
+ * sit in the library unused instead of having to be deleted, and so the two
+ * pages can lead with different songs the way they lead with different
+ * streaming services. */
+function renderHeroAudio() {
+  const shared = SHARED();
+  const rerender = () => renderPanel();
+  const tracks = shared.tracks || (shared.tracks = []);
+  const lists = shared.playlists || (shared.playlists = {});
+
+  const titleOf = (id) => {
+    const box = LOC(UI.lang).tracks;
+    return (box && box[id] && box[id].title) || id;
+  };
+
+  const library = tracks.map((t, i) => el('div', { className: 'trackrow' },
+    el('audio', { className: 'trackrow__play', src: '/' + t.file, controls: '', preload: 'none' }),
+    el('div', { className: 'trackrow__fields' },
+      bi('Track title', 'title', (l) => {
+        const box = LOC(l).tracks || (LOC(l).tracks = {});
+        return box[t.id] || (box[t.id] = { title: '' });
+      }),
+      el('div', { className: 'imgcard__path' }, t.file)),
+    el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
+                   onclick: () => {
+                     if (!confirm(T('Remove this track? It is taken out of both playlists too.'))) return;
+                     tracks.splice(i, 1);
+                     for (const l of ['en', 'zh']) {
+                       if (LOC(l).tracks) delete LOC(l).tracks[t.id];
+                       if (lists[l]) lists[l] = lists[l].filter((id) => id !== t.id);
+                     }
+                     markDirty();
+                     rerender();
+                   } }, T('Remove'))));
+
+  const perLang = langOrder().map((lang) => {
+    const chosen = lists[lang.code] || (lists[lang.code] = []);
+    const move = (i, to) => {
+      if (to < 0 || to >= chosen.length) return;
+      const [id] = chosen.splice(i, 1);
+      chosen.splice(to, 0, id);
+      markDirty();
+      rerender();
+    };
+    const spare = tracks.filter((t) => !chosen.includes(t.id));
+    const add = el('select', {});
+    add.append(el('option', { value: '' }, T('Add a track…')));
+    spare.forEach((t) => add.append(el('option', { value: t.id }, titleOf(t.id))));
+    add.addEventListener('change', () => {
+      if (!add.value) return;
+      chosen.push(add.value);
+      markDirty();
+      rerender();
+    });
+
+    return el('div', { className: 'playlist' },
+      el('span', { className: 'hint' },
+        T('Plays on the {lang} page', { lang: lang.label }), ' ',
+        el('span', { className: 'tag ' + lang.cls }, lang.label)),
+      ...chosen.map((id, i) => el('div', { className: 'playlist__row' },
+        el('span', { className: 'mono playlist__n' }, String(i + 1)),
+        el('span', { className: 'playlist__name' }, titleOf(id)),
+        el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Move up'),
+                       onclick: () => move(i, i - 1) }, '↑'),
+        el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Move down'),
+                       onclick: () => move(i, i + 1) }, '↓'),
+        el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
+                       onclick: () => { chosen.splice(i, 1); markDirty(); rerender(); } }, '×'))),
+      chosen.length
+        ? null
+        : el('p', { className: 'hint' },
+             T('Nothing chosen — the player falls back to the synthesised pad.')),
+      spare.length ? add : null);
+  });
+
+  return [card('Audio', null, el('div', {},
+    el('p', { className: 'hint' },
+      T('Music for the play button in the hero. Upload the files once, then choose what each '
+        + 'language plays — the two are separate lists, so the Chinese page can lead with a '
+        + 'different song. mp3, m4a or ogg, up to 8MB each.')),
+    ...library,
+    dropZone('audio', '.mp3,.m4a,.ogg', 'Drop tracks here, or click to choose', (path, file) => {
+      const base = file.name.replace(/\.[^.]+$/, '');
+      const id = newId(slug(base) || 'track', tracks.map((t) => t.id));
+      tracks.push({ id, file: path });
+      for (const l of ['en', 'zh']) {
+        const box = LOC(l).tracks || (LOC(l).tracks = {});
+        box[id] = { title: base };
+      }
+    }),
+    el('div', { className: 'row' }, ...perLang),
+  ), 'hero.audio')];
+}
+
+
+/* One picture, with its own Replace button. `imageCard` is for a set of
+ * them; this is for the ones that are the whole point of their section. */
+function singleImage(path, dir, onPick, { missingNote } = {}) {
+  const rerender = () => renderPanel();
+  return el('div', { className: 'onepic' },
+    path
+      ? el('img', { className: 'onepic__img', src: '/' + path, alt: '', loading: 'lazy' })
+      : el('div', { className: 'onepic__img onepic__img--none' }, T(missingNote || 'Nothing uploaded yet')),
+    el('div', { className: 'onepic__side' },
+      path ? el('div', { className: 'imgcard__path' }, path) : null,
+      uploadButton(dir, path ? 'Replace' : 'Upload', (p, f) => { onPick(p, f); markDirty(); rerender(); })),
+  );
+}
+
+/* The Visuals block as the homepage shows it.
+ *
+ * The homepage carries a trimmed copy of Visuals: the heading, the title
+ * video, and a link through to the rest. Those are the same fields the
+ * Visuals tab edits - this is a second way in, on the tab for the page they
+ * appear on, because "change the video on the homepage" should not mean
+ * knowing that the video belongs to another page.
+ */
+
+
+/* ---- the homepage, and the pages it borrows from ----
+ *
+ * The Tony D tab is the homepage and nothing else. That matters because the
+ * homepage does not show whole sections - it shows a trimmed copy of each
+ * one, and every field it does not show belongs on that section's own tab.
+ * Editing a record's track list here would be editing something you cannot
+ * see, which is how this got confusing in the first place.
+ *
+ * So: the folds below carry exactly what the homepage renders. The Music,
+ * Visuals and About tabs carry the full pages. Both write to the same JSON,
+ * so a title changed in either place changes in both.
+ */
+const foldOpen = new Set();
+
+function fold(title, section, count, ...children) {
+  // `section` is documentation now: the whole homepage is drawn in the rail
+  // at once, so opening a fold no longer has to point it anywhere.
+  const open = foldOpen.has(title);
+  const head = el('summary', { className: 'fold__head' },
+    el('span', { className: 'fold__title' }, T(title)),
+    count ? el('span', { className: 'fold__count' }, count) : null);
+
+  const node = el('details', { className: 'fold', open: open || null }, head,
+    el('div', { className: 'fold__body' }, ...children.flat().filter(Boolean)));
+
+  node.addEventListener('toggle', () => {
+    if (node.open) foldOpen.add(title);
+    else foldOpen.delete(title);
+  });
+  return node;
+}
+
+/* A line pointing at where the rest of a section lives. */
+function moreOn(tabId, text) {
+  return el('p', { className: 'intro' },
+    T(text), ' ',
+    el('button', {
+      className: 'btn btn--small', type: 'button',
+      onclick: () => { selectTab(tabId); window.scrollTo(0, 0); },
+    }, T('Open the {tab} tab', { tab: tabLabel(tabId) })));
+}
+
+/* ---- what the homepage shows of Releases ----
+ * The cover, its labels, the name, the one-line meta and the links. The
+ * description paragraph, the track list and the singles-by-year list are
+ * only rendered on the Music page, so they are only edited there. */
+function homeReleaseCards() {
+  const shared = SHARED();
+  const rerender = () => renderPanel();
+  const out = [];
+
+  shared.releases.forEach((r, i) => {
+    const enR = LOC('en').releases[r.id];
+    const zhR = LOC('zh').releases[r.id];
+    const pick = (l) => (l === 'en' ? enR : zhR);
+
+    const body = el('div', {},
+      row(
+        el('div', {},
+          el('img', { src: '/' + r.art, alt: '', loading: 'lazy',
+                      style: 'width:120px;border-radius:5px;display:block;margin-bottom:8px' }),
+          uploadButton('img', 'Replace cover', (path) => { r.art = path; markDirty(); rerender(); })),
+        el('div', {},
+          field('Cover path', input(r, 'art', { mono: true })),
+          bi('Cover description', 'alt', pick,
+             { hint: 'Describes the cover for screen readers.' })),
+      ),
+      bi('Name', 'title', pick,
+         { hint: 'Inline HTML is allowed, e.g. <code>&lt;span lang="zh"&gt;想太多&lt;/span&gt;</code>.' }),
+      bi('Kind and date', 'meta', pick,
+         { hint: 'The line under the name — <b>Album · 2025</b>, or a range for the singles.' }),
+      el('p', { className: 'hint' },
+        T('Labels shown over the top-left corner of the cover. Add as many as the record needs.')),
+      tagsEditor(r),
+      row(...langOrder().map((lang) => linksEditor(lang.code, pick(lang.code)))),
+    );
+
+    out.push(card(
+      el('span', {}, enR.title.replace(/<[^>]+>/g, ''), el('small', {}, r.id)),
+      listControls(shared.releases, i, rerender, {
+        onDelete: (gone) => { delete LOC('en').releases[gone.id]; delete LOC('zh').releases[gone.id]; },
+      }),
+      body,
+      'music.release.' + r.id,
+    ));
+  });
+
+  out.push(addButton('+ Add a release', () => {
+    const id = newId('release', shared.releases.map((r) => r.id));
+    shared.releases.push({ id, art: 'img/album-overthinking.webp' });
+    for (const l of ['en', 'zh']) {
+      LOC(l).releases[id] = { alt: '', title: '', meta: '', copy: '', tags: [], links: [] };
+    }
+    markDirty();
+    rerender();
+  }));
+
+  return out;
+}
+
+/* ---- what the homepage shows of About ----
+ * A photograph, the line he leads with, and the profile table. The bio
+ * paragraphs are on the About page only. Note the picture is `aboutBottom`:
+ * the homepage and the About page deliberately use different photographs. */
+function homeAboutCards() {
+  const shared = SHARED();
+  const images = shared.images;
+  const about = { en: LOC('en').about, zh: LOC('zh').about };
+  const rerender = () => renderPanel();
+
+  const facts = el('div', { className: 'row' }, ...langOrder().map((lang) => {
+    const list = about[lang.code].facts;
+    return el('div', { style: 'flex:1' },
+      el('span', { className: 'hint' }, T('Profile rows ({lang})', { lang: lang.label })),
+      ...list.map((item, i) => row(
+        field('Term', input(item, 'term', { lang: lang.attr })),
+        field('Value', input(item, 'value', { lang: lang.attr })),
+        el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
+                       onclick: () => { list.splice(i, 1); markDirty(); rerender(); } }, '×'),
+      )),
+      el('button', { className: 'btn btn--small', type: 'button',
+                     onclick: () => { list.push({ term: '', value: '' }); markDirty(); rerender(); } },
+         T('+ row')));
+  }));
+
+  return [
+    card('Photograph', null, el('div', {},
+      el('p', { className: 'hint' },
+        T('The portrait beside the profile. The About page uses a different one of its own.')),
+      singleImage(images.aboutBottom, 'img', (p) => { images.aboutBottom = p; }),
+      bi('Image description', 'altBottom', (l) => about[l],
+         { hint: 'Describes the photograph for screen readers.' }),
+    ), 'about.image'),
+
+    card('Blurb', null, el('div', {},
+      el('p', { className: 'hint' }, T('The line set in large italics beside the photograph.')),
+      bi('Blurb', 'quote', (l) => about[l]),
+    ), 'about.quote'),
+
+    card('Profile', null, el('div', {},
+      el('p', { className: 'hint' },
+        T('The table beside the bio. Each row is a label and a value; add and remove as many '
+          + 'as you like, and each language keeps its own rows.')),
+      bi('Table heading', 'profileHeading', (l) => about[l]),
+      facts,
+    ), 'about.stats'),
+  ];
+}
+
 function renderHome() {
+  const shared = SHARED();
+  const images = shared.images;
+
   return [
     intro(
-      'The top of the site — the masthead, the portrait and the chrome every page carries. ' +
-      'The homepage also shows a trimmed version of Music, Visuals, About and the timeline; ' +
-      'that text is edited on their own tabs and changes in both places at once.',
+      'The homepage, top to bottom. Each section under the hero is a trimmed copy of another '
+      + 'page — what the homepage shows of it is edited here, and the rest on that page’s '
+      + 'own tab.',
     ),
-    pageMeta('home'),
-    card('Hero', null, el('div', {},
-      bi('Eyebrow', 'eyebrow', (l) => LOC(l).hero),
+
+    card('Browser tab', null, el('div', {},
+      bi('Page title', 'title', (l) => LOC(l).pages.home,
+         { hint: 'Shown on the browser tab and as the headline in search results.' }),
+      bi('Search description', 'description', (l) => LOC(l).pages.home, { multiline: true, rows: 2 }),
+      field('Tab icon', singleImage(images.favicon, 'img', (p) => { images.favicon = p; }),
+            'The little picture on the browser tab. A square image works best — it is shown '
+            + 'at about 16 pixels, so a crop of the logo reads better than the whole thing.'),
+    ), 'tab'),
+
+    card('Header description', null, el('div', {},
+      bi('Header description', 'eyebrow', (l) => LOC(l).hero,
+         { hint: 'The line above the handwriting, with a dot before it.' }),
+    ), 'hero.eyebrow'),
+
+    card('Background image', null, el('div', {},
+      el('p', { className: 'hint' }, T('The photograph behind the whole top of the page.')),
+      singleImage(images.hero, 'img', (p) => { images.hero = p; }),
+      bi('Image description', 'imageAlt', (l) => LOC(l).hero,
+         { hint: 'Describes the photograph for screen readers and for search engines.' }),
+    ), 'hero.image'),
+
+    heroLoopCard(),
+
+    card('Bio', null, el('div', {},
+      bi('Bio', 'count', (l) => LOC(l).hero,
+         { hint: 'The line under the handwriting. <code>&lt;b&gt;…&lt;/b&gt;</code> makes a '
+                 + 'part of it bold, and <code>&lt;b class="key"&gt;…&lt;/b&gt;</code> makes it '
+                 + 'the accent colour.' }),
+    ), 'hero.count'),
+
+    card('Latest', null, el('div', {},
+      bi('Latest', 'outNow', (l) => LOC(l).hero,
+         { hint: 'The release line at the foot of the hero.' }),
+    ), 'hero.outNow'),
+
+    ...renderHeroAudio(),
+
+    card('Hidden heading', null, el('div', {},
       bi('Hidden heading (screen readers)', 'srTitle', (l) => LOC(l).hero,
-         { hint: 'The logo is an image, so this is the real <code>h1</code> text.' }),
-      bi('Subheading', 'sub', (l) => LOC(l).hero, { multiline: true, rows: 3 }),
-      bi('Play button label', 'playLabel', (l) => LOC(l).hero),
-      bi('Hero image alt', 'imageAlt', (l) => LOC(l).hero),
+         { hint: 'The handwriting is an image, so this is the real <code>h1</code> text. It is '
+                 + 'not shown on the page — it is what a screen reader announces.' }),
+      bi('Subheading', 'sub', (l) => LOC(l).hero,
+         { multiline: true, rows: 2,
+           hint: 'Optional, and currently empty: a line between the handwriting and the bio.' }),
     )),
-    imageCard('Hero images', [
-      { label: 'Hero portrait', path: SHARED().images.hero,
-        set: (v) => { SHARED().images.hero = v; } },
-      { label: 'Handwritten logo', path: SHARED().images.ink,
-        set: (v) => { SHARED().images.ink = v; } },
-      { label: 'Handwritten name (takes turns with the logo)', path: SHARED().images.inkName,
-        set: (v) => { SHARED().images.inkName = v; } },
-    ]),
+
     navCard(),
+
+    fold('01  Releases', 'music', SHARED().releases.length, [
+      sectionHeading('music', 'music.heading'),
+      ...homeReleaseCards(),
+      moreOn('music', 'Track lists, the singles by year and each record’s description are on the '
+                      + 'Music page, not the homepage.'),
+    ]),
+
+    fold('02  Visuals', 'visuals', null, [
+      sectionHeading('videos', 'visuals.heading'),
+      homeVisualCard(),
+      moreOn('visuals', 'The photo grid and the rest of the videos are on the Visuals page.'),
+    ]),
+
+    fold('03  About', 'about', null, [
+      sectionHeading('about', 'about.heading'),
+      ...homeAboutCards(),
+      moreOn('about', 'The bio paragraphs, the full timeline and the press items are on the '
+                      + 'About page.'),
+    ]),
+
+    fold('04  Timeline', 'milestones', 6, [
+      el('p', { className: 'intro' },
+        T('The homepage shows the six most recent entries, newest first. There is nothing to '
+          + 'set here — it follows the timeline on the About page, so adding an entry there '
+          + 'pushes the oldest one off the homepage by itself.')),
+      moreOn('about', 'The timeline itself is on the About page.'),
+    ]),
   ];
+}
+
+
+function homeVisualCard() {
+  const shared = SHARED();
+  const images = shared.images;
+  const rerender = () => renderPanel();
+  const feature = (shared.videos || []).find((v) => v.feature);
+  const usingPicture = !!images.homeVisual;
+
+  const choose = (picture) => {
+    if (picture === usingPicture) return;
+    if (!picture) delete images.homeVisual;
+    markDirty();
+    rerender();
+  };
+
+  const pick = el('div', { className: 'pickrow' },
+    el('button', {
+      className: 'btn btn--small' + (usingPicture ? ' btn--ghost' : ''),
+      type: 'button', onclick: () => choose(false),
+    }, T('The title video')),
+    el('button', {
+      className: 'btn btn--small' + (usingPicture ? '' : ' btn--ghost'),
+      type: 'button',
+      onclick: () => {
+        if (usingPicture) return;
+        // nothing to switch to until a picture is uploaded, so say so
+        toast(T('Upload a picture below and it takes over from the video.'));
+      },
+    }, T('A picture')));
+
+  const body = el('div', {},
+    el('p', { className: 'hint' },
+      T('What the homepage shows under the Visuals heading. Whichever you choose is shown at '
+        + 'the same width and the same 16:9 shape.')),
+    pick,
+  );
+
+  if (!usingPicture && feature) {
+    const fv = (LOC(UI.lang).videos || {})[feature.id] || {};
+    body.append(
+      row(
+        el('div', {},
+          el('img', { src: '/' + feature.poster, alt: '', loading: 'lazy',
+                      style: 'width:180px;border-radius:6px;display:block;margin-bottom:8px' }),
+          uploadButton('img/video', 'Replace poster', (path) => {
+            feature.poster = path;
+            markDirty();
+            rerender();
+          })),
+        el('div', {},
+          field('YouTube ID', input(feature, 'yt', { mono: true }),
+                'The part after <code>youtu.be/</code>.'),
+          field('Bilibili BV ID', input(feature, 'bv', { mono: true, placeholder: 'BV1xx411c7mD' }),
+                'Leave empty until the video is on B站.')),
+      ),
+      bi('Video title', 'title', (l) => {
+        const box = LOC(l).videos || (LOC(l).videos = {});
+        return box[feature.id] || (box[feature.id] = { title: '', sub: '' });
+      }),
+      bi('Small label above the title', 'kicker', (l) => LOC(l).videos[feature.id],
+         { dropWhenEmpty: true, hint: 'Leave empty for no label.' }),
+      bi('Line under the title', 'sub', (l) => LOC(l).videos[feature.id],
+         { dropWhenEmpty: true, hint: 'Leave empty for no line.' }),
+    );
+  }
+
+  body.append(
+    el('p', { className: 'hint' },
+      usingPicture
+        ? T('This picture is shown instead of the video.')
+        : T('Upload a picture here to show it instead of the video.')),
+    singleImage(images.homeVisual, 'img', (p) => { images.homeVisual = p; },
+                { missingNote: 'No picture — the video is shown' }),
+    usingPicture
+      ? el('div', {},
+          bi('Image description', 'homeVisualAlt', (l) => LOC(l),
+             { hint: 'Describes the picture for screen readers.' }),
+          el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
+                         onclick: () => {
+                           if (!confirm(T('Go back to showing the video?'))) return;
+                           delete images.homeVisual;
+                           markDirty();
+                           rerender();
+                         } }, T('Use the video instead')))
+      : null,
+    bi('Link to the rest', 'more', (l) => LOC(l).sections.videos,
+       { hint: 'The way through to the Visuals page from the homepage.' }),
+  );
+
+  return card('What the homepage shows', null, body, 'home.visuals');
 }
 
 function renderMusic() {
   return [
     intro(
-      'The Music page, and the shortened version of it on the homepage. The Chinese page deliberately ' +
-      'leads with NetEase and QQ Music, so each language keeps its own link list and its own order.',
+      'The Music page — the full catalogue. What the homepage shows of it (the covers, the '
+      + 'names and the links) is edited on the Tony D tab; everything below is this page only.',
     ),
     pageMeta('music'),
-    sectionHeading('music'),
+    sectionHeading('music', 'music.heading'),
     ...renderReleases(),
     imageCard('Covers', SHARED().releases.map((r) => ({
       label: LOC('en').releases[r.id]?.title || r.id,
@@ -1184,26 +2026,57 @@ function renderMusic() {
   ];
 }
 
+/* The optional picture under the title video. It is rendered at the same
+ * width as the video, so nothing here asks for a size - whatever is
+ * uploaded is shown full width and the page keeps its own margins. */
+function visualsBannerCard() {
+  const shared = SHARED();
+  const images = shared.images;
+  const rerender = () => renderPanel();
+
+  return card('Picture under the video', null, el('div', {},
+    el('p', { className: 'hint' },
+      T('Sits between the title video and the grid, the same width as the video. '
+        + 'A wide picture works best. Leave it empty and nothing is shown.')),
+    singleImage(images.visualsBanner, 'img', (p) => { images.visualsBanner = p; },
+                { missingNote: 'No picture here yet' }),
+    images.visualsBanner
+      ? el('div', {},
+          bi('Image description', 'visualsBannerAlt', (l) => LOC(l),
+             { hint: 'Describes the picture for screen readers. Leave empty if it is decoration.' }),
+          el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
+                         onclick: () => {
+                           if (!confirm(T('Remove the picture under the video?'))) return;
+                           delete images.visualsBanner;
+                           markDirty();
+                           rerender();
+                         } }, T('Remove the picture')))
+      : null,
+  ), 'visuals.banner');
+}
+
 function renderVisuals() {
   return [
     intro(
-      'The Visuals page. Each tile is a link with a poster until someone clicks it — nothing loads from ' +
-      'YouTube or Bilibili on page load. The <b>Bilibili BV id</b> is the one to fill in when a video goes up ' +
-      'on B站: a tile with an empty BV id stays an ordinary outbound link on the Chinese page instead of ' +
-      'becoming a player that cannot load in China.',
+      'The Visuals page. Each tile is a link with a poster until someone clicks it — nothing '
+      + 'loads from YouTube or Bilibili on page load. The <b>Bilibili BV id</b> is the one to '
+      + 'fill in when a video goes up on B站: a tile with an empty BV id stays an ordinary '
+      + 'outbound link on the Chinese page instead of becoming a player that cannot load in China.',
     ),
     pageMeta('visuals'),
-    sectionHeading('videos'),
+    sectionHeading('videos', 'visuals.heading'),
+    visualsBannerCard(),
     ...renderPhotos(),
-    intro('The videos: the title video at the top of the page, and the grid under the Videos heading.'),
+    intro('The videos: the title video at the top of the page, and the grid under the heading.'),
     ...renderVideos(),
     imageCard('Video posters', SHARED().videos.map((v) => ({
       label: LOC('en').videos[v.id]?.title || v.id,
       path: v.poster,
       dir: 'img/video',
       set: (val) => { v.poster = val; },
-    })), 'These used to be hot-linked from i.ytimg.com, which is blocked in mainland China — the Chinese ' +
-         'page showed thirteen broken images. Keep them local; do not paste a YouTube thumbnail URL here.'),
+    })), 'These used to be hot-linked from i.ytimg.com, which is blocked in mainland China — the '
+       + 'Chinese page showed thirteen broken images. Keep them local; do not paste a YouTube '
+       + 'thumbnail URL here.'),
     ...bilibiliCards(),
   ];
 }
@@ -1211,32 +2084,32 @@ function renderVisuals() {
 function renderAboutPage() {
   return [
     intro(
-      'The About page. The bio is the part of the site most likely to be read by a label or a journalist — ' +
-      'every claim here should be something the resume PDF actually supports.',
+      'The About page. The bio is the part of the site most likely to be read by a label or a '
+      + 'journalist — every claim here should be something the resume PDF actually supports.',
     ),
     pageMeta('about'),
-    sectionHeading('about'),
+    sectionHeading('about', 'about.heading'),
     ...renderAbout(),
     imageCard('Photographs', [
       { label: 'Top portrait', path: SHARED().images.aboutTop,
         set: (v) => { SHARED().images.aboutTop = v; } },
       { label: 'Live photo', path: SHARED().images.aboutWide,
         set: (v) => { SHARED().images.aboutWide = v; } },
-      { label: 'Bottom portrait', path: SHARED().images.aboutBottom,
+      { label: 'Bottom portrait (also the homepage)', path: SHARED().images.aboutBottom,
         set: (v) => { SHARED().images.aboutBottom = v; } },
     ]),
     intro(
-      'The timeline, at the foot of the same page. Each bullet exists once and carries an English and a ' +
-      'Chinese wording, so a new award is one entry rather than two.',
+      'The timeline, at the foot of the same page. Each entry exists once and carries an English '
+      + 'and a Chinese wording. The homepage shows the six most recent of these automatically.',
     ),
-    sectionHeading('milestones'),
+    sectionHeading('milestones', 'milestones.heading'),
     ...renderMilestones(),
     intro(
-      'Press &amp; Mentions, which closes the page. The English page shows an English title with a gloss ' +
-      'underneath; those are descriptions for readers, not official headlines, so keep them descriptive ' +
-      'rather than authoritative.',
+      'Press &amp; Mentions, which closes the About page. The English page shows an English '
+      + 'title with a gloss underneath; those are descriptions for readers, not official '
+      + 'headlines, so keep them descriptive rather than authoritative.',
     ),
-    sectionHeading('coverage'),
+    sectionHeading('coverage', 'press.heading'),
     ...renderPress(),
   ];
 }
@@ -1250,7 +2123,7 @@ function renderMaking() {
       'underneath have not been written yet. Press coverage moved to the foot of the About page.',
     ),
     pageMeta('making'),
-    sectionHeading('press'),
+    sectionHeading('press', 'making.heading'),
     ...renderRecording(),
   ];
 
@@ -1269,7 +2142,7 @@ function renderMaking() {
             'The still cover in the middle of the ring. Its artwork and alt text come from that release, ' +
             'so the ring circles something the rest of the site already shows.'),
       el('p', { className: 'hint' },
-        'The ring, in the order it goes round. These are decorative and carry no alt text. ' + UPLOAD_NOTE),
+        T('The ring, in the order it goes round. These are decorative and carry no alt text.') + ' ' + T(UPLOAD_NOTE)),
       el('div', { className: 'imggrid' }, ...orbit.photos.map((path, i) =>
         el('div', { className: 'imgcard' },
           el('img', { src: '/' + path, alt: '', loading: 'lazy' }),
@@ -1278,7 +2151,7 @@ function renderMaking() {
             listControls(orbit.photos, i, rerender))))),
       uploadButton('img/orbit', '+ Add a photo',
                    (path) => { orbit.photos.push(path); markDirty(); rerender(); }),
-    )));
+    ), 'making.orbit'));
   }
 
   return out;
@@ -1290,7 +2163,7 @@ function renderContactPage() {
       'The contact block and the footer, which finish every page. The email here is the public-facing ' +
       'management address — it appears in both languages and in the mailto link.',
     ),
-    sectionHeading('contact'),
+    sectionHeading('contact', 'contact.heading'),
     ...renderContact(),
   ];
 }
@@ -1304,7 +2177,7 @@ function renderTabs() {
       type: 'button',
       role: 'tab',
       'data-tab': tab.id,
-      title: 'Double-click to rename',
+      title: T('Double-click to rename'),
       'aria-selected': String(tab.id === state.tab),
       onclick: () => selectTab(tab.id),
       ondblclick: () => renameTab(btn, tab.id),
@@ -1319,6 +2192,9 @@ function renderTabs() {
 function selectTab(id) {
   if (state.tab === id) return;
   state.tab = id;
+  // the folds belong to the tab being left; their preview goes with them
+  state.section = null;
+  foldOpen.clear();
   for (const btn of document.getElementById('tabs').children) {
     btn.setAttribute('aria-selected', String(btn.dataset.tab === state.tab));
   }
@@ -1373,27 +2249,77 @@ function renameTab(btn, id) {
 }
 
 function renderPanel() {
+  renderPreview();
   const panel = document.getElementById('panel');
   const tab = TABS.find((t) => t.id === state.tab);
   try {
     panel.replaceChildren(...[tab.render()].flat().filter(Boolean));
   } catch (err) {
     panel.replaceChildren(el('p', { className: 'intro' },
-      `Could not render this tab: ${err.message}. The Raw JSON tab still works.`));
+      T('Could not render this tab: {message}. The Raw JSON tab still works.', { message: err.message })));
   }
 }
+
+/* Everything in index.html that is not built by JS. It is written from here
+ * rather than sitting in the markup so that one function repaints the whole
+ * shell when the language changes. */
+function renderChrome() {
+  const set = (id, text) => { document.getElementById(id).textContent = text; };
+  set('barSub', T('site admin'));
+  set('reloadBtn', T('Reload'));
+  set('saveBtn', T('Save draft'));
+  set('publishBtn', T('Publish'));
+  set('logoutBtn', T('Sign out'));
+
+  const msg = document.getElementById('msg');
+  msg.placeholder = T('What changed?');
+  msg.setAttribute('aria-label', T('Change note'));
+
+  const loading = document.getElementById('loading');
+  if (loading) loading.textContent = T('Loading content…');
+  // before the first /status comes back there is nothing to report but this
+  if (!state.status) document.getElementById('status').textContent = T('Loading…');
+
+  document.getElementById('tabs').setAttribute('aria-label', T('Sections'));
+  document.getElementById('uiLang').setAttribute('aria-label', T('Interface language'));
+  for (const btn of document.getElementById('uiLang').children) {
+    btn.setAttribute('aria-pressed', String(btn.dataset.uiLang === UI.lang));
+  }
+  document.documentElement.lang = UI.lang === 'zh' ? 'zh-Hans' : 'en';
+}
+
+/* Switching language re-renders rather than reloading: unsaved edits live in
+ * state.files, and a reload would throw them away to change a label. */
+function setUiLang(lang) {
+  if (lang === UI.lang) return;
+  UI.lang = lang;
+  saveUiLang(lang);
+  renderChrome();
+  if (state.files) {
+    renderTabs();
+    renderPanel();
+  }
+  renderStatus();
+}
+
+document.getElementById('uiLang').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-ui-lang]');
+  if (btn) setUiLang(btn.dataset.uiLang);
+});
 
 function renderStatus() {
   const node = document.getElementById('status');
   const s = state.status;
   const bits = [];
 
-  if (state.dirty) bits.push('<span class="warn">unsaved changes</span>');
+  if (state.dirty) bits.push(`<span class="warn">${T('unsaved changes')}</span>`);
   if (s) {
-    bits.push('signed in');
-    if (s.ahead > 0) bits.push(`<b>${s.ahead}</b> change${s.ahead === 1 ? '' : 's'} waiting to publish`);
-    else if (!state.dirty) bits.push('live site is up to date');
-    if (!s.canPublish) bits.push('edit &amp; preview only');
+    bits.push(T('signed in'));
+    if (s.ahead > 0) {
+      bits.push(T(s.ahead === 1 ? '{n} change waiting to publish' : '{n} changes waiting to publish',
+                  { n: `<b>${s.ahead}</b>` }));
+    } else if (!state.dirty) bits.push(T('live site is up to date'));
+    if (!s.canPublish) bits.push(T('edit &amp; preview only'));
   }
   node.innerHTML = bits.join(' &middot; ');
 
@@ -1435,27 +2361,27 @@ async function save() {
     state.headSha = res.commit;
     state.dirty = false;
     msgInput.value = '';
-    toast('Saved to the draft branch', 'good',
+    toast(T('Saved to the draft branch'), 'good',
           state.status && !state.status.canPublish
-            ? 'The site owner can publish it to the live site.'
-            : 'Press Publish to put it live.');
+            ? T('The site owner can publish it to the live site.')
+            : T('Press Publish to put it live.'));
     await refreshStatus();
   } catch (err) {
     btn.disabled = false;
     toast(err.message, 'bad',
           err.status === 401
-            ? 'Your changes are still on this page. Open the admin in a new tab, sign in, then come back and press Save draft again.'
+            ? T('Your changes are still on this page. Open the admin in a new tab, sign in, then come back and press Save draft again.')
             : err.detail);
   }
 }
 
 async function publish() {
-  if (!confirm('Publish all saved changes to the live site?')) return;
+  if (!confirm(T('Publish all saved changes to the live site?'))) return;
   const btn = document.getElementById('publishBtn');
   btn.disabled = true;
   try {
     await api('/publish', { method: 'POST' });
-    toast('Published', 'good', 'Cloudflare is rebuilding — the live site updates in a minute or two.');
+    toast(T('Published'), 'good', T('Cloudflare is rebuilding — the live site updates in a minute or two.'));
     await refreshStatus();
   } catch (err) {
     toast(err.message, 'bad', err.detail);
@@ -1479,9 +2405,9 @@ document.addEventListener('keydown', (e) => {
 document.getElementById('saveBtn').addEventListener('click', save);
 document.getElementById('publishBtn').addEventListener('click', publish);
 document.getElementById('reloadBtn').addEventListener('click', async () => {
-  if (state.dirty && !confirm('Reload and discard your unsaved changes?')) return;
+  if (state.dirty && !confirm(T('Reload and discard your unsaved changes?'))) return;
   await load();
-  toast('Reloaded from the draft branch');
+  toast(T('Reloaded from the draft branch'));
 });
 
 // ---------------------------------------------------------------- sign in
@@ -1489,10 +2415,10 @@ document.getElementById('reloadBtn').addEventListener('click', async () => {
 function showLogin(message) {
   const password = el('input', { type: 'password', autocomplete: 'current-password', required: true });
   const error = el('p', { className: 'hint login__error' }, message || '');
-  const submit = el('button', { className: 'btn btn--go', type: 'submit' }, 'Sign in');
+  const submit = el('button', { className: 'btn btn--go', type: 'submit' }, T('Sign in'));
 
   const form = el('form', { className: 'card login' },
-    el('div', { className: 'card__head' }, el('span', { className: 'card__title' }, 'Sign in')),
+    el('div', { className: 'card__head' }, el('span', { className: 'card__title' }, T('Sign in'))),
     el('div', { className: 'card__body' },
       field('Password', password),
       error,
@@ -1519,7 +2445,7 @@ function showLogin(message) {
 
   document.getElementById('tabs').replaceChildren();
   document.getElementById('panel').replaceChildren(form);
-  document.getElementById('status').textContent = 'Not signed in';
+  document.getElementById('status').textContent = T('Not signed in');
   document.getElementById('saveBtn').disabled = true;
   document.getElementById('publishBtn').disabled = true;
   document.getElementById('logoutBtn').hidden = true;
@@ -1527,6 +2453,9 @@ function showLogin(message) {
 }
 
 async function start() {
+  renderChrome();
+  wirePreviewHover();
+  wirePreviewEditing();
   try {
     await load();
     document.getElementById('logoutBtn').hidden = false;
@@ -1534,18 +2463,19 @@ async function start() {
     if (err.status === 401) return showLogin(err.detail);
     document.getElementById('panel').replaceChildren(
       el('p', { className: 'intro' },
-        `Could not load content: ${err.message}${err.detail ? ' — ' + err.detail : ''}`),
+        T('Could not load content: {message}', { message: err.message })
+          + (err.detail ? ' — ' + err.detail : '')),
     );
-    document.getElementById('status').textContent = 'Not connected';
+    document.getElementById('status').textContent = T('Not connected');
   }
 }
 
 document.getElementById('logoutBtn').addEventListener('click', async () => {
-  if (state.dirty && !confirm('Sign out and discard your unsaved changes?')) return;
+  if (state.dirty && !confirm(T('Sign out and discard your unsaved changes?'))) return;
   try { await api('/logout', { method: 'POST' }); } catch { /* signed out either way */ }
   state.dirty = false;
   state.status = null;
-  showLogin('Signed out.');
+  showLogin(T('Signed out.'));
 });
 
 start();

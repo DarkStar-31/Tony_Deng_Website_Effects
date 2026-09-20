@@ -558,23 +558,37 @@ img{ display:block; max-width:100%; }
    up, and it is the song. */
 .inks{ position:relative; display:block; width:min(33rem, 82vw); }
 .inks .ink{ display:block; width:100%; }
-.inks--pair .ink{ animation:ink-turn 12s var(--ease) .35s infinite both; }
-.inks--pair .ink--name{
+/* Every frame after the first is laid over it, and hidden. This is the
+   no-JS resting state as well: one wordmark up, nothing moving. */
+.inks .ink--queued{
   position:absolute; inset:0; height:100%;
   object-fit:contain; object-position:left center;
-  clip-path:inset(0 100% 0 0);
-  animation-delay:6.35s;
+  clip-path:inset(0 0 0 100%);
 }
-.is-playing .inks--pair .ink{ animation:none; }
-@keyframes ink-turn{
-  /* of 12s: draw 1.9s, hold 3.35s, wipe 0.75s - so 50% is one turn */
-  0%    { clip-path:inset(0 100% 0 0); }
-  15.8% { clip-path:inset(0 -2% 0 0);  }
-  43.7% { clip-path:inset(0 -2% 0 0);  }
-  50%   { clip-path:inset(0 0 0 100%); }
-  /* gone for the other one's turn */
-  100%  { clip-path:inset(0 0 0 100%); }
+
+/* ---- the hand-over ----
+   This was a pair of keyframe cycles offset by half a loop, which only ever
+   knew how to count to two. The number of frames and the length of a turn
+   are both content now (see the Handwriting loop card in the admin), so the
+   clock moved to InkLoop in main.js and the stylesheet only describes the
+   three states it puts a frame in. `inks--loop` is added by that class, not
+   by build.py, so none of this applies until the script is actually running.
+
+   Same stroke as the single wordmark above: 1.9s to draw, 0.75s to wipe,
+   both left to right, the direction the pen travelled. */
+.inks--loop .ink{ animation:none; }
+.inks--loop .ink[data-state="wait"]{ clip-path:inset(0 100% 0 0); transition:none; }
+.inks--loop .ink[data-state="in"]{
+  clip-path:inset(0 -2% 0 0);
+  transition:clip-path 1.9s var(--ease);
 }
+.inks--loop .ink[data-state="out"]{
+  clip-path:inset(0 0 0 100%);
+  transition:clip-path .75s var(--ease);
+}
+/* While something is playing the loop stands down and frame one rests, the
+   way the single wordmark does. */
+.is-playing .inks--loop .ink[data-state="in"]{ transition:none; }
 @keyframes ink-draw{
   /* draw on, left to right */
   0%   { clip-path:inset(0 100% 0 0); }
@@ -1015,14 +1029,24 @@ img{ display:block; max-width:100%; }
   filter:saturate(.92);
 }
 .card:hover .card__art img{ transform:scale(1.05); filter:saturate(1.06); }
-.card__badge{
-  /* above the sleeve: the sleeve took a z-index so the record could sit
-     behind it, which otherwise drops this badge underneath the artwork */
+/* above the sleeve: the sleeve took a z-index so the record could sit
+   behind it, which otherwise drops these underneath the artwork.
+
+   The row is what sits over the corner, so a record can carry more than one
+   label without them landing on top of each other. */
+.card__tags{
   position:absolute; z-index:2; top:.85rem; left:.85rem;
+  display:flex; flex-wrap:wrap; gap:.35rem;
+  max-width:calc(100% - 1.7rem);
+}
+.card__badge{
   background:var(--magenta); color:#fff;
   font-size:.62rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase;
   padding:.3rem .6rem; border-radius:100px;
+  white-space:nowrap;
 }
+/* uppercase letterspacing pulls Chinese labels apart */
+html[lang^="zh"] .card__badge{ letter-spacing:.04em; text-transform:none; font-size:.68rem; }
 /* The three cards are grid items and so already share a height; making
    the body a column and pushing the links down with an auto margin lands
    every card's link row on the same line, whatever sits above it. Without
@@ -1525,6 +1549,26 @@ html[lang^="zh"] .vfilter__btn{ font-size:.8rem; letter-spacing:.04em; text-tran
   .section__head--split{ display:block; }
   html.js .vfilter{ display:flex; margin-top:1.25rem; }
   .vfilter__btn{ flex:1; padding:.6rem .5rem; }
+}
+
+/* ---- the homepage's lead picture ----
+   Stands in for the title video, so it takes the video's box exactly: full
+   width of the section and 16:9, cropped to fill. Anything else and the
+   homepage would change height depending on which one was chosen. */
+.lead-pic{ margin:0; }
+.lead-pic img{
+  display:block; width:100%; aspect-ratio:16/9; object-fit:cover;
+  border-radius:14px; border:1px solid var(--line);
+}
+
+/* ---- the picture under the title video ----
+   A plain figure, so it takes the section's padding and lines up with the
+   video above it and the grid below it by construction rather than by a
+   measurement that would have to be kept in step with them. */
+.banner{ margin:clamp(1.4rem,3vw,2.4rem) 0 0; }
+.banner img{
+  display:block; width:100%; height:auto;
+  border-radius:12px; border:1px solid var(--line);
 }
 
 /* ================= PHOTOS ================= */

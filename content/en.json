@@ -235,9 +235,9 @@
   },
   "videos": {
     "overthinking": {
-      "kicker": "Title track",
+      "kicker": "",
       "title": "Overthinking",
-      "sub": "2025 · Official video"
+      "sub": ""
     },
     "look-in-the-mirror": {
       "title": "Look in the Mirror",
@@ -547,6 +547,7 @@
     "photos": "Photos",
     "videos": "Videos"
   },
+  "visualsBannerAlt": "",
   "lens": {
     "open": "Open",
     "close": "Close"
