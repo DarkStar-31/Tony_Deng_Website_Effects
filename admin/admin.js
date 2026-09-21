@@ -126,6 +126,9 @@ function newId(prefix, taken) {
 // ---------------------------------------------------------------- controls
 
 function input(obj, key, opts = {}) {
+  // a content string is authored HTML, so it gets a box that shows the
+  // words rather than the markup; paths, ids and lang codes stay literal
+  if (opts.rich) return richBox(obj, key, opts);
   const node = opts.multiline ? el('textarea') : el('input', { type: 'text' });
   node.value = obj[key] ?? '';
   if (opts.lang) node.setAttribute('lang', opts.lang);
@@ -146,10 +149,15 @@ function input(obj, key, opts = {}) {
  * changes language without a hundred edits. T() passes anything it has no
  * translation for straight back, so an untranslated label still renders. */
 function field(label, control, hint, tag, pv) {
+  // A rich box carries its own controls, and they belong on the label's
+  // line rather than above the box - one row per field either way.
+  const isRich = control && control.classList && control.classList.contains('rich__box');
   return el(
     'label',
-    { className: 'f', 'data-pv-target': pv },
-    el('span', {}, T(label), tag ? el('span', { className: `tag ${tag.cls}` }, tag.label) : null),
+    { className: 'f' + (isRich ? ' f--rich' : ''), 'data-pv-target': pv },
+    el('span', {}, T(label),
+      tag ? el('span', { className: `tag ${tag.cls}` }, tag.label) : null,
+      isRich ? richToolbar(control, tag) : null),
     control,
     hint ? el('p', { className: 'hint', html: T(hint) }) : null,
   );
@@ -161,11 +169,14 @@ function row(...kids) {
 
 /** The same field in both locales, side by side, working language first. */
 function bi(label, key, getObj, opts = {}) {
+  // Everything bi() edits is copy, so it gets the rich box unless it is
+  // something literal - a lang code or a path, which carry `mono`.
+  const rich = opts.rich !== false && !opts.mono;
   return el('div', { className: 'row', 'data-pv-target': opts.pv },
     ...langOrder().map((lang, i) =>
       field(
         T(label),
-        input(getObj(lang.code), key, { ...opts, lang: lang.attr }),
+        input(getObj(lang.code), key, { ...opts, rich, lang: lang.attr }),
         // the hint describes the field, not the language, so it goes under
         // the leading column rather than always under the English one
         i === 0 ? (opts.hint ? T(opts.hint) : null) : null,
@@ -445,7 +456,10 @@ function renderVideos() {
                        { hint: 'Small label above the title on the feature tile.' }) : null,
         row(
           check('Feature tile (large, above the grid)', v, 'feature', rerender),
-          field('Poster path', input(v, 'poster', { mono: true })),
+          field('Poster path', input(v, 'poster', { mono: true }),
+                'Posters are kept in this repository on purpose. They used to be hot-linked '
+                + 'from i.ytimg.com, which is blocked in mainland China — the Chinese page '
+                + 'showed thirteen broken images. Do not paste a YouTube thumbnail URL here.'),
           v.feature ? null : field('Size in the grid', choice(v, 'size', PHOTO_SIZES)),
         ),
         el('details', {}, el('summary', { className: 'hint' }, T('Language attributes')),
@@ -568,6 +582,173 @@ function tagsEditor(rel) {
   }));
 }
 
+/* ---- the disc behind a sleeve ----
+ *
+ * Pull a record out of its sleeve on the Music page and the track list is
+ * written around the rim, with the title track picked out in the accent and
+ * a word on the label in the middle - the easter egg. All three are per
+ * language, because the Chinese page names the same songs differently.
+ *
+ * Track order is the order they are written round the ring, so it matters.
+ */
+function discEditor(rel) {
+  const rerender = () => renderPanel();
+  if (rel.disc === false) return null;
+
+  const body = el('div', {},
+    el('p', { className: 'hint' },
+      T('The track list written around the rim of the record, the one picked out in colour, '
+        + 'and the word on the label in the middle. Drag to reorder — the order here is the '
+        + 'order round the ring.')),
+    el('div', { className: 'row' }, ...langOrder().map((lang) => {
+      const c = LOC(lang.code).releases[rel.id];
+      const tracks = c.discTracks || (c.discTracks = []);
+
+      const rows = tracks.map((name, i) => {
+        // a holder object, so the rich box can write through to the array
+        const slot = { get value() { return tracks[i]; }, set value(v) { tracks[i] = v; } };
+        const box = richBox(slot, 'value', {
+          lang: lang.attr,
+          onChange: (html) => {
+            // the title track is stored by name, so renaming it has to follow
+            if (c.discTitleTrack === name && name !== html) c.discTitleTrack = html;
+          },
+        });
+        const node = el('div', { className: 'ms' },
+          el('span', { className: 'ms__grip', title: T('Drag to reorder') }, '⠿'),
+          el('div', { className: 'ms__fields' },
+            el('div', { className: 'rich__inline' }, box, richToolbar(box, lang))),
+          el('div', { className: 'ms__ctl' },
+            el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
+                           onclick: () => {
+                             const [gone] = tracks.splice(i, 1);
+                             if (c.discTitleTrack === gone) delete c.discTitleTrack;
+                             markDirty();
+                             rerender();
+                           } }, '×')));
+        return dragReorder(node, i, tracks, () => { markDirty(); rerender(); });
+      });
+
+      // stored by name rather than index, so the picker lists what is there
+      const titleSel = el('select', {});
+      titleSel.append(el('option', { value: '' }, T('none')));
+      tracks.forEach((n) => {
+        const opt = el('option', { value: n, html: n });
+        if (c.discTitleTrack === n) opt.selected = true;
+        titleSel.append(opt);
+      });
+      titleSel.addEventListener('change', () => {
+        if (titleSel.value) c.discTitleTrack = titleSel.value;
+        else delete c.discTitleTrack;
+        markDirty();
+      });
+
+      return el('div', { style: 'flex:1;min-width:0' },
+        el('span', { className: 'hint' },
+          T('Tracks'), ' ', el('span', { className: 'tag ' + lang.cls }, lang.label)),
+        ...rows,
+        tracks.length ? null : el('p', { className: 'hint' }, T('No tracks on this record yet.')),
+        el('button', { className: 'btn btn--small', type: 'button',
+                       onclick: () => { tracks.push(''); markDirty(); rerender(); } },
+           T('+ track')),
+        field('Picked out in colour', titleSel,
+              'The track that shares its name with the record, usually.'),
+        field('Word on the label', input(c, 'discSecret', { lang: lang.attr, dropWhenEmpty: true }),
+              'The easter egg in the middle of the disc. Leave empty for none.'));
+    })),
+  );
+
+  return card('The record inside', null, body, 'music.release.' + rel.id);
+}
+
+/* Which year groups are open. UI state, so it is kept here rather than on
+ * the content - everything on those objects is written to GitHub on the
+ * next save, and whether someone expanded a list is not the site's business.
+ * Keyed by record, language and year so two languages can differ. */
+const singlesOpen = new Set();
+
+/* ---- the singles card ----
+ * Not one record but a list of years, each with what came out in it. Five
+ * years across two languages is a long scroll of one-line fields, so each
+ * year is shut until it is opened. */
+function singlesEditor(rel) {
+  const rerender = () => renderPanel();
+  const any = ['en', 'zh'].some((l) => Array.isArray(LOC(l).releases[rel.id].singlesByYear));
+  if (!any) return null;
+
+  return card('Singles by year', null, el('div', {},
+    el('p', { className: 'hint' },
+      T('The list inside the singles card. Newest year first is how it reads on the page — '
+        + 'drag a year to move it.')),
+    el('div', { className: 'row' }, ...langOrder().map((lang) => {
+      const c = LOC(lang.code).releases[rel.id];
+      const years = c.singlesByYear || (c.singlesByYear = []);
+
+      const addYear = el('button', { className: 'btn btn--small', type: 'button',
+        onclick: () => {
+          const year = String(new Date().getFullYear());
+          years.unshift({ year, tracks: [] });
+          // a year you just made is one you are about to fill in
+          singlesOpen.add(`${rel.id}:${lang.code}:${year}`);
+          markDirty();
+          rerender();
+        } }, T('+ year'));
+
+      return el('div', { className: 'singles' },
+        el('span', { className: 'hint' },
+          T('Years'), ' ', el('span', { className: 'tag ' + lang.cls }, lang.label)),
+        // newest first on the page, so the way in is at the top
+        addYear,
+        ...years.map((y, yi) => {
+          const tracks = y.tracks || (y.tracks = []);
+          const mark = `${rel.id}:${lang.code}:${y.year}`;
+
+          const node = el('details', {
+            className: 'singles__year',
+            open: singlesOpen.has(mark) || null,
+          },
+            el('summary', { className: 'singles__head' },
+              el('span', { className: 'ms__grip', title: T('Drag to reorder') }, '⠿'),
+              el('span', { className: 'singles__year-label' }, y.year || T('(no year)')),
+              el('span', { className: 'singles__count' },
+                T(tracks.length === 1 ? '{n} single' : '{n} singles', { n: tracks.length }))),
+            el('div', { className: 'singles__body' },
+              row(
+                field('Year', input(y, 'year', { mono: true, onChange: rerenderSoon })),
+                el('div', { style: 'display:flex;align-items:flex-end' },
+                  el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
+                                 onclick: () => {
+                                   if (!confirm(T('Remove this year and everything in it?'))) return;
+                                   years.splice(yi, 1);
+                                   markDirty();
+                                   rerender();
+                                 } }, T('Remove the year')))),
+              ...tracks.map((name, ti) => {
+                const slot = {
+                  get value() { return tracks[ti]; },
+                  set value(v) { tracks[ti] = v; },
+                };
+                const box = richBox(slot, 'value', { lang: lang.attr });
+                return el('div', { className: 'singles__track' },
+                  box, richToolbar(box, lang),
+                  el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
+                                 onclick: () => { tracks.splice(ti, 1); markDirty(); rerender(); } },
+                     '×'));
+              }),
+              el('button', { className: 'btn btn--small', type: 'button',
+                             onclick: () => { tracks.push(''); markDirty(); rerender(); } },
+                 T('+ single'))));
+
+          node.addEventListener('toggle', () => {
+            if (node.open) singlesOpen.add(mark);
+            else singlesOpen.delete(mark);
+          });
+          return dragReorder(node, yi, years, () => { markDirty(); rerender(); });
+        }));
+    })),
+  ), 'music.release.' + rel.id);
+}
+
 function renderReleases() {
   const shared = SHARED();
   const rerender = () => renderPanel();
@@ -575,38 +756,51 @@ function renderReleases() {
 
   shared.releases.forEach((r, i) => {
     const enR = LOC('en').releases[r.id];
-    const zhR = LOC('zh').releases[r.id];
-    const pick = (l) => (l === 'en' ? enR : zhR);
+    const pick = (l) => LOC(l).releases[r.id];
 
-    const body = el(
-      'div',
-      {},
+    const body = el('div', {},
       row(
         el('div', {},
-           el('img', { src: '/' + r.art, alt: '', style: 'width:120px;border-radius:5px;display:block;margin-bottom:8px' }),
-           uploadButton('img', 'Replace cover', (path) => { r.art = path; markDirty(); rerender(); })),
+          el('img', { src: '/' + r.art, alt: '', loading: 'lazy',
+                      style: 'width:120px;border-radius:5px;display:block;margin-bottom:8px' }),
+          uploadButton('img', 'Replace cover', (path) => { r.art = path; markDirty(); rerender(); })),
         el('div', {},
-           field('Cover path', input(r, 'art', { mono: true }))),
+          field('Cover path', input(r, 'art', { mono: true })),
+          bi('Cover description', 'alt', pick,
+             { hint: 'Describes the cover for screen readers.' })),
       ),
-      bi('Title', 'title', pick,
-         { hint: 'Inline HTML is allowed, e.g. <code>&lt;span lang="zh"&gt;想太多&lt;/span&gt;</code>.' }),
-      bi('Meta line', 'meta', pick),
-      bi('Description', 'copy', pick, { multiline: true, rows: 2 }),
-      bi('Cover alt text', 'alt', pick, { hint: 'Describes the image for screen readers.' }),
+      bi('Name', 'title', pick,
+         { hint: 'One language or two. Select the part in the other language and press the '
+                 + '<b>EN</b> / <b>中文</b> button — it marks that span, which is what makes a '
+                 + 'screen reader switch voice and the right typeface load.' }),
+      bi('Kind and year', 'meta', pick,
+         { hint: 'The line under the name — <b>Album · 2025</b>, or a range for the singles. '
+                 + 'Leave it empty for nothing.', dropWhenEmpty: true }),
+      bi('Publisher', 'label', pick,
+         { hint: 'Shown after the year on the Music page only, not on the homepage. Leave it '
+                 + 'empty for nothing.', dropWhenEmpty: true }),
+      bi('Description', 'copy', pick, { multiline: true, rows: 2, dropWhenEmpty: true }),
       el('p', { className: 'hint' },
-         T('Labels shown over the top-left corner of the cover. Add as many as the record needs.')),
+        T('Labels shown over the top-left corner of the cover. Add as many as the record needs.')),
       tagsEditor(r),
       row(...langOrder().map((lang) => linksEditor(lang.code, pick(lang.code)))),
     );
 
-    out.push(card(
-      el('span', {}, enR.title.replace(/<[^>]+>/g, ''), el('small', {}, r.id)),
+    const node = card(
+      el('span', {}, el('span', { className: 'ms__grip', title: T('Drag to reorder') }, '⠿'), ' ',
+         enR.title.replace(/<[^>]+>/g, ''), el('small', {}, r.id)),
       listControls(shared.releases, i, rerender, {
         onDelete: (gone) => { delete LOC('en').releases[gone.id]; delete LOC('zh').releases[gone.id]; },
       }),
       body,
       'music.release.' + r.id,
-    ));
+    );
+    out.push(dragReorder(node, i, shared.releases, () => { markDirty(); rerender(); }));
+
+    const disc = discEditor(r);
+    if (disc) out.push(disc);
+    const singles = singlesEditor(r);
+    if (singles) out.push(singles);
   });
 
   out.push(addButton('+ Add a release', () => {
@@ -621,6 +815,7 @@ function renderReleases() {
 
   return out;
 }
+
 
 // ---------------------------------------------------------------- about
 
@@ -695,14 +890,215 @@ function renderAbout() {
     bi('Stats heading', 'profileHeading', (l) => about[l]),
   ), 'about.stats'));
 
-  out.push(card('Photo captions & alt text', null, el('div', {},
-    bi('Top portrait alt', 'altTop', (l) => (l === 'en' ? enA : zhA)),
-    bi('Live photo alt', 'altWide', (l) => (l === 'en' ? enA : zhA)),
-    bi('Live photo caption', 'captionWide', (l) => (l === 'en' ? enA : zhA)),
-    bi('Bottom portrait alt', 'altBottom', (l) => (l === 'en' ? enA : zhA)),
-  )));
 
   return out;
+}
+
+// ------------------------------------------------------------- rich text
+
+/* Text fields that show the words rather than the markup.
+ *
+ * Every string in content/ is authored HTML, and the form used to hand it
+ * over raw: a track called "If It's True" appeared in the box as
+ * `If It&rsquo;s True`, and a bold word as `<b>…</b>`. That is fine if you
+ * know HTML and awful if you do not, which is the wrong way round for a
+ * panel Tony is meant to use.
+ *
+ * So the box is contenteditable: the stored HTML goes in as HTML, so it
+ * renders, and what comes back out is serialised to the same small subset.
+ * The whole site only uses <b>, <strong>, <em>, <span lang> and one
+ * class="key", so that subset is short and everything outside it is thrown
+ * away rather than trusted - a paste from Word arrives wrapped in font tags
+ * and inline styles, and none of it survives.
+ *
+ * A consequence worth knowing: saving a field rewrites its entities as the
+ * characters they stand for. `&rsquo;` becomes ’ and `&middot;` becomes ·.
+ * The rendered page is identical - the JSON is UTF-8 and so are the pages -
+ * and the next person to open the field sees words instead of codes. Only
+ * `&`, `<` and `>` are still escaped, because those three would otherwise
+ * be read as markup.
+ */
+
+/* Only these three have to be escaped. Everything else - apostrophes,
+ * dashes, middots, Chinese - is a character the file can hold directly. */
+function richEscape(text) {
+  return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/* What a box gives back. Anything not on the list contributes its text and
+ * loses its tag, so unknown markup degrades to words rather than surviving
+ * into the page. */
+function richSerialize(node) {
+  let out = '';
+  node.childNodes.forEach((child) => {
+    if (child.nodeType === Node.TEXT_NODE) { out += richEscape(child.data); return; }
+    if (child.nodeType !== Node.ELEMENT_NODE) return;
+
+    const inner = richSerialize(child);
+    switch (child.tagName) {
+      case 'BR':
+        out += '<br>';
+        return;
+      case 'B':
+      case 'STRONG': {
+        // class="key" is the accent colour in the hero's bio line, and the
+        // only class the content uses
+        if (child.getAttribute('class') === 'key') { out += `<b class="key">${inner}</b>`; return; }
+        out += child.tagName === 'STRONG' ? `<strong>${inner}</strong>` : `<b>${inner}</b>`;
+        return;
+      }
+      case 'I':
+      case 'EM':
+        out += `<em>${inner}</em>`;
+        return;
+      case 'U':
+        out += `<u>${inner}</u>`;
+        return;
+      case 'SPAN': {
+        const lang = child.getAttribute('lang');
+        out += lang ? `<span lang="${richEscape(lang)}">${inner}</span>` : inner;
+        return;
+      }
+      // These carry code rather than copy, so their text goes too. An
+      // unknown *tag* is stripped and its words kept, which is right for a
+      // font tag off a paste and wrong for a script.
+      case 'SCRIPT':
+      case 'STYLE':
+      case 'TEMPLATE':
+        return;
+      default:
+        // a div the browser made pressing Enter, a font tag from a paste
+        out += inner;
+    }
+  });
+  return out;
+}
+
+/* Wrap the selection in a tag the browser has no command for. */
+function richWrap(box, tag, attrs) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  if (!box.contains(range.commonAncestorContainer) || range.collapsed) return;
+
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) node.setAttribute(k, v);
+  node.appendChild(range.extractContents());
+  range.insertNode(node);
+
+  sel.removeAllRanges();
+  const after = document.createRange();
+  after.selectNodeContents(node);
+  sel.addRange(after);
+  box.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+/* The characters the copy actually uses that are awkward to type. */
+const RICH_CHARS = ['·', '—', '–', '’', '“', '”', '…', '&'];
+
+function richToolbar(box, lang) {
+  const other = lang && (lang.code === 'en' ? 'zh' : 'en');
+
+  /* document.execCommand is deprecated and has no replacement. Every browser
+   * still implements bold and italic, and writing them by hand over Ranges
+   * is a great deal of code to arrive in the same place, so this uses it
+   * and normalises whatever it produces on the way out. */
+  const cmd = (name) => (e) => {
+    e.preventDefault();
+    box.focus();
+    document.execCommand('styleWithCSS', false, false);
+    document.execCommand(name);
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+
+  const btn = (label, title, onDown, cls) =>
+    el('button', {
+      className: 'rich__btn' + (cls ? ' ' + cls : ''), type: 'button',
+      title: T(title), tabindex: '-1',
+      onmousedown: onDown,
+    }, label);
+
+  const chars = el('div', { className: 'rich__chars' },
+    ...RICH_CHARS.map((ch) => el('button', {
+      className: 'rich__char', type: 'button', title: ch, tabindex: '-1',
+      onmousedown: (e) => {
+        e.preventDefault();
+        box.focus();
+        document.execCommand('insertText', false, ch);
+        box.dispatchEvent(new Event('input', { bubbles: true }));
+      },
+    }, ch)));
+
+  const more = el('span', { className: 'rich__more' },
+    btn('…', 'Insert a character', (e) => {
+      e.preventDefault();
+      chars.classList.toggle('is-open');
+    }),
+    chars);
+
+  return el('span', { className: 'rich' },
+    btn('B', 'Bold', cmd('bold')),
+    btn('I', 'Italic', cmd('italic')),
+    btn('U', 'Underline', cmd('underline')),
+    other
+      ? btn(LANG[other].label, 'Mark the selection as the other language',
+            (e) => { e.preventDefault(); richWrap(box, 'span', { lang: other }); },
+            'rich__btn--wide')
+      : null,
+    btn('⦰', 'Remove formatting', (e) => {
+      e.preventDefault();
+      box.focus();
+      document.execCommand('removeFormat');
+      box.dispatchEvent(new Event('input', { bubbles: true }));
+    }),
+    more);
+}
+
+/* A box that shows the words and stores the markup. */
+function richBox(obj, key, opts = {}) {
+  const box = el('div', {
+    className: 'rich__box' + (opts.multiline ? ' rich__box--tall' : ''),
+    contenteditable: 'true',
+    role: 'textbox',
+    'aria-multiline': opts.multiline ? 'true' : 'false',
+  });
+  if (opts.lang) box.setAttribute('lang', opts.lang);
+  if (opts.multiline) box.setAttribute('aria-multiline', 'true');
+  box.innerHTML = obj[key] == null ? '' : String(obj[key]);
+
+  box.addEventListener('input', () => {
+    const html = richSerialize(box);
+    if (!html && opts.dropWhenEmpty) delete obj[key];
+    else obj[key] = html;
+    if (opts.onChange) opts.onChange(html);
+    markDirty();
+    renderPreviewSoon();
+  });
+
+  // One line on the page means one line here
+  box.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !opts.multiline) e.preventDefault();
+  });
+
+  // A paste carries the formatting of wherever it came from. Take the words.
+  box.addEventListener('paste', (e) => {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+    document.execCommand('insertText', false, text);
+  });
+
+  return box;
+}
+
+/** A rich box with its toolbar, as one labelled field. */
+function richField(label, obj, key, lang, opts = {}) {
+  const box = richBox(obj, key, { ...opts, lang: lang && lang.attr });
+  return el('label', { className: 'f f--rich', 'data-pv-target': opts.pv },
+    el('span', {}, T(label),
+      lang ? el('span', { className: `tag ${lang.cls}` }, lang.label) : null,
+      richToolbar(box, lang)),
+    box,
+    opts.hint ? el('p', { className: 'hint', html: T(opts.hint) }) : null);
 }
 
 // ---------------------------------------------------------------- milestones
@@ -719,71 +1115,55 @@ const MILESTONES_VISIBLE = 6;
  * around. Keyed by year label so it survives a re-render. */
 const msOpen = new Set();
 
-/* Wrap whatever is selected in a tag, the way a toolbar button does.
+
+/* Drag to reorder, with a line showing where it will land.
  *
- * The strings here are authored HTML, so this types the markup for you
- * rather than doing anything clever: select some words, press B, and the
- * <b> lands around them. With nothing selected it drops in an empty pair
- * and puts the caret between them. */
-function wrapSelection(box, tag) {
-  const start = box.selectionStart;
-  const end = box.selectionEnd;
-  const value = box.value;
-  const open = `<${tag}>`;
-  const close = `</${tag}>`;
-  box.value = value.slice(0, start) + open + value.slice(start, end) + close + value.slice(end);
-  box.dispatchEvent(new Event('input', { bubbles: true }));
-  box.focus();
-  const caret = start + open.length + (end - start);
-  box.setSelectionRange(start + open.length, caret);
-}
-
-function richControls(box) {
-  const btn = (label, tag, title) =>
-    el('button', {
-      className: 'rich__btn', type: 'button', title: T(title),
-      // mousedown, not click: click fires after the input has lost focus and
-      // taken the selection with it
-      onmousedown: (e) => { e.preventDefault(); wrapSelection(box, tag); },
-    }, label);
-  return el('span', { className: 'rich' },
-    btn('B', 'b', 'Bold'),
-    btn('I', 'em', 'Italic'));
-}
-
-/** A text box with Bold and Italic beside it. */
-function richField(label, obj, key, lang, opts = {}) {
-  const box = input(obj, key, { ...opts, lang: lang.attr });
-  return el('label', { className: 'f' },
-    el('span', {}, T(label),
-      el('span', { className: `tag ${lang.cls}` }, lang.label),
-      richControls(box)),
-    box);
-}
-
-/* Drag to reorder. The arrows stay - dragging is not available to everyone,
- * and a list that can only be dragged is a list some people cannot sort. */
+ * The line is the whole point: without it you are dropping into a list and
+ * hoping. Which half of the row the pointer is in decides whether the line
+ * sits above or below it, so the answer is always the edge you can see.
+ *
+ * The arrows stay alongside. Dragging is not available to everyone, and a
+ * list that can only be dragged is a list some people cannot sort.
+ */
 function dragReorder(node, index, list, onDrop) {
+  const clear = () => node.classList.remove('is-drop-above', 'is-drop-below');
+
   node.draggable = true;
   node.addEventListener('dragstart', (e) => {
     e.dataTransfer.setData('text/plain', String(index));
     e.dataTransfer.effectAllowed = 'move';
     node.classList.add('is-dragging');
   });
-  node.addEventListener('dragend', () => node.classList.remove('is-dragging'));
+  node.addEventListener('dragend', () => {
+    node.classList.remove('is-dragging');
+    clear();
+  });
   node.addEventListener('dragover', (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    node.classList.add('is-drop');
+    const box = node.getBoundingClientRect();
+    const above = (e.clientY - box.top) < box.height / 2;
+    node.classList.toggle('is-drop-above', above);
+    node.classList.toggle('is-drop-below', !above);
   });
-  node.addEventListener('dragleave', () => node.classList.remove('is-drop'));
+  node.addEventListener('dragleave', clear);
   node.addEventListener('drop', (e) => {
     e.preventDefault();
-    node.classList.remove('is-drop');
+    const above = node.classList.contains('is-drop-above');
+    clear();
+
     const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
-    if (Number.isNaN(from) || from === index) return;
+    if (Number.isNaN(from)) return;
+
+    // The line sits before this row or after it; taking the dragged row out
+    // first shifts everything below it up by one, so a downward move lands
+    // one short without this.
+    let to = above ? index : index + 1;
+    if (from < to) to -= 1;
+    if (to === from || to < 0 || to > list.length - 1) return;
+
     const [moved] = list.splice(from, 1);
-    list.splice(index, 0, moved);
+    list.splice(to, 0, moved);
     onDrop();
   });
   return node;
@@ -1104,34 +1484,15 @@ function bilibiliCards() {
 
 // ---------------------------------------------------------------- images
 
-/* The image grids. There is no longer an Images tab: a picture is edited on
- * the tab for the page it appears on, so that replacing the live photo does
- * not mean hunting through every image on the site to find it. */
+/* There was an Images tab once, then a grid of every image on a page. Both
+ * meant the same picture could be set from two places - the grid and the
+ * card it actually belongs to - which is how you end up with two upload
+ * buttons and no way to tell what either one does. A picture is now edited
+ * where it is used, and only there. */
 
 const UPLOAD_NOTE =
   'Uploads commit to the draft branch straight away, so a new picture is on the preview URL immediately — ' +
   'but it will 404 in this admin until you publish, because this page loads previews from the live site.';
-
-/**
- * A grid of replaceable images. Each item is `{ label, path, dir, set }`;
- * `set` takes the new path and writes it wherever that image is referenced.
- */
-function imageGrid(items) {
-  const rerender = () => renderPanel();
-  return el('div', { className: 'imggrid' }, ...items.map((it) =>
-    el('div', { className: 'imgcard' },
-      el('img', { src: '/' + it.path, alt: '', loading: 'lazy' }),
-      el('div', { className: 'imgcard__body' },
-        el('div', { className: 'imgcard__name' }, T(it.label)),
-        el('div', { className: 'imgcard__path' }, it.path),
-        uploadButton(it.dir || 'img', 'Replace', (path) => { it.set(path); markDirty(); rerender(); })))));
-}
-
-function imageCard(title, items, note) {
-  return card(title, null, el('div', {},
-    el('p', { className: 'hint' }, T(note || UPLOAD_NOTE)),
-    imageGrid(items)));
-}
 
 // ---------------------------------------------------------------- photos
 
@@ -2018,11 +2379,6 @@ function renderMusic() {
     pageMeta('music'),
     sectionHeading('music', 'music.heading'),
     ...renderReleases(),
-    imageCard('Covers', SHARED().releases.map((r) => ({
-      label: LOC('en').releases[r.id]?.title || r.id,
-      path: r.art,
-      set: (v) => { r.art = v; },
-    }))),
   ];
 }
 
@@ -2069,14 +2425,6 @@ function renderVisuals() {
     ...renderPhotos(),
     intro('The videos: the title video at the top of the page, and the grid under the heading.'),
     ...renderVideos(),
-    imageCard('Video posters', SHARED().videos.map((v) => ({
-      label: LOC('en').videos[v.id]?.title || v.id,
-      path: v.poster,
-      dir: 'img/video',
-      set: (val) => { v.poster = val; },
-    })), 'These used to be hot-linked from i.ytimg.com, which is blocked in mainland China — the '
-       + 'Chinese page showed thirteen broken images. Keep them local; do not paste a YouTube '
-       + 'thumbnail URL here.'),
     ...bilibiliCards(),
   ];
 }
@@ -2090,14 +2438,16 @@ function renderAboutPage() {
     pageMeta('about'),
     sectionHeading('about', 'about.heading'),
     ...renderAbout(),
-    imageCard('Photographs', [
-      { label: 'Top portrait', path: SHARED().images.aboutTop,
-        set: (v) => { SHARED().images.aboutTop = v; } },
-      { label: 'Live photo', path: SHARED().images.aboutWide,
-        set: (v) => { SHARED().images.aboutWide = v; } },
-      { label: 'Bottom portrait (also the homepage)', path: SHARED().images.aboutBottom,
-        set: (v) => { SHARED().images.aboutBottom = v; } },
-    ]),
+    // Only the one this page renders. The other portrait is the homepage's
+    // and is edited there; `aboutWide` is not rendered anywhere at all.
+    card('Photograph', null, el('div', {},
+      el('p', { className: 'hint' },
+        T('The portrait beside the bio on this page. The homepage uses a different one, '
+          + 'edited on its own tab.')),
+      singleImage(SHARED().images.aboutTop, 'img', (v) => { SHARED().images.aboutTop = v; }),
+      bi('Image description', 'altTop', (l) => LOC(l).about,
+         { hint: 'Describes the photograph for screen readers.' }),
+    ), 'about.image'),
     intro(
       'The timeline, at the foot of the same page. Each entry exists once and carries an English '
       + 'and a Chinese wording. The homepage shows the six most recent of these automatically.',

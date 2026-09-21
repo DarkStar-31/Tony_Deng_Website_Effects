@@ -223,9 +223,6 @@ const UI_STRINGS = {
   'Cover path': '封面路径',
   'Inline HTML is allowed, e.g. <code>&lt;span lang="zh"&gt;想太多&lt;/span&gt;</code>.':
     '可使用行内 HTML，例如 <code>&lt;span lang="zh"&gt;想太多&lt;/span&gt;</code>。',
-  'Meta line': '信息行',
-  'Cover alt text': '封面替代文字',
-  'Describes the image for screen readers.': '供屏幕阅读器使用的图片描述。',
 
   '01  Releases': '01  音乐作品',
   '02  Visuals': '02  影像作品',
@@ -292,6 +289,46 @@ const UI_STRINGS = {
   'Remove the picture': '移除图片',
   'no picture': '无图片',
 
+  // ----------------------------------------------------------- music tab
+  'The record inside': '唱片内页',
+  'The track list written around the rim of the record, the one picked out in colour, and the word on the label in the middle. Drag to reorder — the order here is the order round the ring.':
+    '写在唱片边缘一圈的曲目列表、用强调色标出的那一首，以及中心标签上的那个词。可拖动排序 — 这里的顺序就是环绕一圈的顺序。',
+  'Tracks': '曲目',
+  'No tracks on this record yet.': '这张唱片还没有曲目。',
+  '+ track': '+ 曲目',
+  'Picked out in colour': '用强调色标出',
+  'The track that shares its name with the record, usually.': '通常是与唱片同名的那一首。',
+  'Word on the label': '标签上的词',
+  'The easter egg in the middle of the disc. Leave empty for none.':
+    '唱片中心的彩蛋。留空则不显示。',
+  'none': '无',
+  'Singles by year': '按年份排列的单曲',
+  'The list inside the singles card. Newest year first is how it reads on the page — drag a year to move it.':
+    '单曲卡片里的列表。页面上按最新年份在前的顺序显示 — 拖动年份即可调整位置。',
+  '{n} single': '{n} 首单曲',
+  '{n} singles': '{n} 首单曲',
+  '(no year)': '（未填年份）',
+  'Remove the year': '删除该年份',
+  'Years': '年份',
+  'Year': '年份',
+  'Remove this year and everything in it?': '要删除这一年以及其中的全部内容吗？',
+  '+ single': '+ 单曲',
+  '+ year': '+ 年份',
+  'Mark the selection as the other language': '把选中的部分标记为另一种语言',
+  'One language or two. Select the part in the other language and press the <b>EN</b> / <b>中文</b> button — it marks that span, which is what makes a screen reader switch voice and the right typeface load.':
+    '可以只用一种语言，也可以两种并列。选中另一种语言的部分，点击 <b>EN</b> / <b>中文</b> 按钮 — 它会标记那一段，这正是让屏幕阅读器切换语音、并加载正确字体的原因。',
+  'Bold': '加粗',
+  'Italic': '斜体',
+  'Underline': '下划线',
+  'Remove formatting': '清除格式',
+  'Insert a character': '插入字符',
+  'Kind and year': '类型与年份',
+  'The line under the name — <b>Album · 2025</b>, or a range for the singles. Leave it empty for nothing.':
+    '名称下方的那行字 — 例如 <b>Album · 2025</b>，单曲则可填年份区间。留空则不显示。',
+  'Publisher': '发行方',
+  'Shown after the year on the Music page only, not on the homepage. Leave it empty for nothing.':
+    '仅在「音乐作品」页面的年份之后显示，首页不显示。留空则不显示。',
+
   // ----------------------------------------------------------- about
   'Bio paragraphs': '简介段落',
   'Paragraph': '段落',
@@ -302,15 +339,15 @@ const UI_STRINGS = {
   'Term': '项目',
   'Value': '内容',
   'Headings': '小标题',
-  'Photo captions & alt text': '照片说明与替代文字',
-  'Top portrait alt': '上方肖像替代文字',
-  'Live photo alt': '现场照片替代文字',
-  'Live photo caption': '现场照片说明',
-  'Bottom portrait alt': '下方肖像替代文字',
 
   'Blurb': '金句',
   'The line set apart from the rest of the bio, between the paragraphs.':
     '夹在段落之间、单独排出来的那句话。',
+  'Photograph': '照片',
+  'The portrait beside the bio on this page. The homepage uses a different one, edited on its own tab.':
+    '本页简介旁边的肖像。首页使用的是另一张，在首页的标签页里编辑。',
+  'Posters are kept in this repository on purpose. They used to be hot-linked from i.ytimg.com, which is blocked in mainland China — the Chinese page showed thirteen broken images. Do not paste a YouTube thumbnail URL here.':
+    '封面图有意保存在本仓库中。它们过去是从 i.ytimg.com 外链的，而该域名在中国大陆无法访问 — 中文页上曾出现十三张裂图。请不要在这里粘贴 YouTube 缩略图的网址。',
   'Stats': '资料',
   'Stats heading': '资料标题',
   'The table beside the bio. Each row is a label and a value; add and remove as many as you like, and each language keeps its own rows.':
@@ -438,12 +475,6 @@ const UI_STRINGS = {
   'Subheading': '副标题',
 
   // ----------------------------------------------------------- image cards
-  'Covers': '封面',
-  'Video posters': '视频封面图',
-  'Photographs': '照片',
-  'Top portrait': '上方肖像',
-  'Live photo': '现场照片',
-  'Bottom portrait': '下方肖像',
 
   // ----------------------------------------------------------- long notes
   'Uploads commit to the draft branch straight away, so a new picture is on the preview URL immediately — but it will 404 in this admin until you publish, because this page loads previews from the live site.':
@@ -466,8 +497,6 @@ const UI_STRINGS = {
   // ----------------------------------------------------------- tab intros
   'One grid under the title video holds the photos and the videos together. Its order is set in <b>Grid order</b> below; the grid packs the pieces, so mixing shapes and sizes is what makes it look designed. The gradient pictures are placeholders — use <b>Replace</b> as the real photos arrive.':
     '主打视频下方的同一个网格里同时放着照片和视频。顺序在下面的<b>网格顺序</b>里设置；网格会自动拼排，所以混用不同形状和大小才会显得是设计过的。渐变色的图片是占位图 — 真实照片到位后用<b>替换</b>换掉即可。',
-  'These used to be hot-linked from i.ytimg.com, which is blocked in mainland China — the Chinese page showed thirteen broken images. Keep them local; do not paste a YouTube thumbnail URL here.':
-    '这些封面图过去是从 i.ytimg.com 外链的，而该域名在中国大陆无法访问 — 中文页上曾出现十三张裂图。请保持本地托管，不要在这里粘贴 YouTube 缩略图的网址。',
   'Press &amp; Mentions, which closes the About page. The English page shows an English title with a gloss underneath; those are descriptions for readers, not official headlines, so keep them descriptive rather than authoritative.':
     '媒体报道，位于页面末尾。英文页显示英文标题并在下方附一行释义；那些是写给读者看的描述，而非官方标题，所以措辞应保持描述性，不要显得像正式定论。',
   'The In the Making page. It carries its heading and the scroll orbit; the notes that belong underneath have not been written yet. Press coverage moved to the foot of the About page.':

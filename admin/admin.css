@@ -740,8 +740,6 @@ html[lang^="zh"] .pv__statshead { letter-spacing: .04em; text-transform: none; f
 .ms__grip:active { cursor: grabbing; }
 .ms__fields { flex: 1; min-width: 0; }
 .ms__ctl { flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px; }
-.ms.is-dragging { opacity: .4; }
-.ms.is-drop { border-top-color: var(--magenta); box-shadow: 0 -2px 0 -1px var(--magenta); }
 
 /* bold / italic beside a field's label */
 .rich { display: inline-flex; gap: 3px; margin-left: auto; }
@@ -866,3 +864,120 @@ html[lang^="zh"] .pv__colhead { letter-spacing: .04em; text-transform: none; fon
   margin-top: 9px; padding-top: 7px; border-top: 1px solid var(--line);
   color: var(--dim); font-size: 8px;
 }
+
+/* -------------------------------------------------------- singles by year */
+/* ---- singles, a year at a time ----
+   Five years in two languages is a lot of one-line fields, so a year is a
+   row until you open it. */
+.singles { flex: 1; min-width: 0; }
+.singles__year {
+  margin-top: 6px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--ink);
+  overflow: hidden;
+}
+.singles__head {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px;
+  cursor: pointer; user-select: none; list-style: none;
+}
+.singles__head::-webkit-details-marker { display: none; }
+.singles__head::after {
+  content: "›";
+  margin-left: auto;
+  color: var(--dim); font-size: 15px; line-height: 1;
+  transition: transform .18s ease;
+}
+.singles__year[open] > .singles__head::after { transform: rotate(90deg); }
+.singles__head:hover { background: var(--ink-3); }
+.singles__year-label { font-weight: 600; font-variant-numeric: tabular-nums; }
+.singles__count { color: var(--dim); font-size: 12px; }
+.singles__body { padding: 4px 10px 10px; border-top: 1px solid var(--line); }
+.singles__track { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
+.singles__track input { flex: 1; min-width: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .singles__head::after { transition: none; }
+}
+
+/* ---- where a dragged row will land ----
+   A line on the edge the pointer is nearest. Without it you are dropping
+   into a list and hoping. */
+.is-drop-above { box-shadow: 0 -2px 0 0 var(--magenta); }
+.is-drop-below { box-shadow: 0 2px 0 0 var(--magenta); }
+.is-dragging { opacity: .4; }
+.rich__btn--wide { width: auto; padding: 0 7px; font-family: var(--f-sans); font-size: 10px; }
+.card__title .ms__grip { padding: 0 4px 0 0; font-size: 13px; }
+.card[draggable="true"] { cursor: default; }
+
+/* --------------------------------------------------------- rich text boxes
+
+   A contenteditable that has to pass for an input, because next to a dozen
+   real inputs anything else reads as broken. */
+.rich__box {
+  width: 100%;
+  min-height: 38px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--bone);
+  font: 400 14px/1.45 var(--f-sans);
+  cursor: text;
+}
+.rich__box:focus { outline: none; border-color: var(--magenta); }
+.rich__box--tall { min-height: 76px; }
+.rich__box b, .rich__box strong { font-weight: 700; color: #fff; }
+.rich__box em { font-style: italic; }
+/* a span that changes language is worth seeing, quietly */
+.rich__box span[lang] {
+  border-bottom: 1px dotted var(--dim);
+}
+.f--rich > span:first-child { display: flex; align-items: center; gap: 6px; }
+
+.rich { display: inline-flex; gap: 3px; margin-left: auto; align-items: center; }
+.rich__btn {
+  min-width: 21px; height: 19px;
+  border: 1px solid var(--line); border-radius: 4px;
+  background: var(--ink-3); color: var(--bone);
+  font: 700 11px/1 var(--f-serif); cursor: pointer;
+  padding: 0 3px;
+}
+.rich__btn:nth-child(2) { font-style: italic; font-weight: 400; }
+.rich__btn:nth-child(3) { text-decoration: underline; font-weight: 400; }
+.rich__btn:hover { border-color: var(--dim); background: var(--ink-2); }
+.rich__btn--wide { min-width: auto; padding: 0 6px; font-family: var(--f-sans); font-size: 10px; font-style: normal; }
+
+.rich__more { position: relative; display: inline-flex; }
+.rich__chars {
+  display: none;
+  position: absolute; top: 22px; right: 0; z-index: 5;
+  gap: 2px; padding: 4px;
+  border: 1px solid var(--line); border-radius: 6px;
+  background: var(--ink-3);
+  box-shadow: 0 6px 18px rgba(0,0,0,.5);
+}
+.rich__chars.is-open { display: flex; }
+.rich__char {
+  width: 22px; height: 22px;
+  border: 0; border-radius: 4px;
+  background: transparent; color: var(--bone);
+  font: 400 13px/1 var(--f-sans); cursor: pointer;
+}
+.rich__char:hover { background: var(--magenta); color: #fff; }
+.rich__inline { display: flex; align-items: center; gap: 8px; }
+.rich__inline .rich__box { flex: 1; min-width: 0; }
+.singles__track .rich__box { flex: 1; min-width: 0; }
+
+/* In a list of one-line values - track names, singles - six buttons beside
+   every row squeezes the words into two lines and makes the list hard to
+   scan. The toolbar waits for the row instead. */
+.rich__inline .rich,
+.singles__track .rich {
+  visibility: hidden;
+  margin-left: 6px;
+}
+.rich__inline:hover .rich,
+.rich__inline:focus-within .rich,
+.singles__track:hover .rich,
+.singles__track:focus-within .rich { visibility: visible; }

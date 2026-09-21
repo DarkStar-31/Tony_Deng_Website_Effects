@@ -8,7 +8,6 @@
     "ink": "img/ink-overthinking.webp",
     "inkName": "img/ink-name.webp",
     "aboutTop": "img/portrait-golden.webp",
-    "aboutWide": "img/live-hardrock.webp",
     "aboutBottom": "img/portrait-dark.webp"
   },
   "$orbit": "In the Making's scroll ring. `centre` is a release id - its cover and alt text are reused from `releases`, so the ring circles the same artwork the homepage and music page show. `photos` go round it in this order; they are decorative and carry no alt text.",
