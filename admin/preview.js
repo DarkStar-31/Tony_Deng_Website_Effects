@@ -38,6 +38,10 @@ function pvRegion(key, className, ...kids) {
 
 /* The browser tab above the page: the icon and the title as a tab actually
  * shows them, which is the only place on the site those two appear together. */
+/* `page` is the content's key for it, which is not always what the page is
+ * called: the Visuals page is `videos` and In the Making is `press`. The
+ * filenames were renamed to match the nav; these keys were not, because
+ * every #anchor and every content file would have had to move with them. */
 function pvChrome(loc, shared, page = 'home') {
   const icon = shared.images && shared.images.favicon;
   return pvRegion('tab', 'chrome',
@@ -363,7 +367,7 @@ function previewVisuals() {
     .slice(0, 8);
 
   return el('div', { className: 'pv' },
-    pvChrome(loc, shared, 'visuals'),
+    pvChrome(loc, shared, 'videos'),
     el('div', { className: 'pv__page' },
       pvNav(loc),
       el('div', { className: 'pv__body' },
@@ -503,7 +507,7 @@ function previewMaking() {
   const orbit = shared.orbit;
 
   return el('div', { className: 'pv' },
-    pvChrome(loc, shared, 'making'),
+    pvChrome(loc, shared, 'press'),
     el('div', { className: 'pv__page' },
       pvNav(loc),
       el('div', { className: 'pv__body' },

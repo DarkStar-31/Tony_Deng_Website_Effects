@@ -69,12 +69,24 @@ def indent(lines: list[str], by: int) -> list[str]:
 
 # The site is five pages per locale. The homepage carries a trimmed version
 # of each section and links through; the other four carry the full thing.
+# The file each page is written to. The keys are the content's own names
+# for the sections and do not all match: `videos` is the Visuals page and
+# `press` is In the Making. Renaming the keys would mean migrating every
+# content file and every #anchor with them, so the keys stayed and the
+# filenames follow what the nav calls them.
 PAGE_FILE = {
     "home": "index.html",
     "music": "music.html",
-    "videos": "videos.html",
+    "videos": "visuals.html",
     "about": "about.html",
-    "press": "making.html",
+    "press": "inthemaking.html",
+}
+
+# What the pages used to be called. Anything already linking to them gets a
+# redirect rather than a 404 - see build_dist.
+RENAMED_PAGES = {
+    "videos.html": "visuals.html",
+    "making.html": "inthemaking.html",
 }
 
 
@@ -1074,12 +1086,12 @@ def render_video_tile(loc: dict, shared_v: dict, pad: int, feature: bool) -> lis
 def render_videos(loc: dict, shared: dict, full: bool = False) -> list[str]:
     lead = " section--lead" if full else ""
     alt = "" if full else " section--alt"
-    # the filter belongs to the grid, and the grid is only on videos.html
+    # the filter belongs to the grid, and the grid is only on the Visuals page
     aside = render_visuals_filter(loc, shared) if full and shared.get("photos") else None
     out = [
         "<!-- ================= 02 VIDEOS ================= -->",
         f'<section class="section{alt}{lead}" id="videos">',
-    ] + section_head(loc, "videos", None if full else "videos.html", aside or None)
+    ] + section_head(loc, "videos", None if full else PAGE_FILE["videos"], aside or None)
 
     if loc.get("notice") and full:
         n = loc["notice"]
@@ -1134,9 +1146,9 @@ def render_videos(loc: dict, shared: dict, full: bool = False) -> list[str]:
         ]
 
     # The homepage shows the title track and nothing else; the rest of the
-    # catalogue lives on videos.html.
+    # catalogue lives on the Visuals page.
     if not full:
-        out += section_cta("videos.html", loc["sections"]["videos"]["more"])
+        out += section_cta(PAGE_FILE["videos"], loc["sections"]["videos"]["more"])
         out.append("</section>")
         return out
 
@@ -1609,6 +1621,16 @@ def build_dist(shared: dict, pages: list[tuple[dict, str]]) -> None:
         "/admin/*\n"
         "  X-Robots-Tag: noindex, nofollow\n"
         "  Cache-Control: no-cache\n",
+        encoding="utf-8", newline="\n",
+    )
+    # The Visuals and In the Making pages were videos.html and making.html.
+    # 301 rather than 308: these are page moves, and a permanent redirect is
+    # what tells a search engine to carry the old URL's standing across.
+    (dist / "_redirects").write_text(
+        "".join(
+            f"/{was} /{now} 301\n/zh/{was} /zh/{now} 301\n"
+            for was, now in RENAMED_PAGES.items()
+        ),
         encoding="utf-8", newline="\n",
     )
     (dist / "robots.txt").write_text(

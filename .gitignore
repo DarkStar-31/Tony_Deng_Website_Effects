@@ -4,9 +4,9 @@
 # renders them at deploy time; run `python build.py` for a local copy.
 /index.html
 /music.html
-/videos.html
+/visuals.html
 /about.html
-/making.html
+/inthemaking.html
 /zh/*.html
 /dist/
 

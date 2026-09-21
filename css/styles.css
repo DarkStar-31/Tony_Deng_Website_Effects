@@ -265,9 +265,9 @@ img{ display:block; max-width:100%; }
 .nav__links > *{ order:0; }
 .nav__mark        { order:1; }
 .nav__item--music { order:2; }
-.nav__item--videos{ order:3; }
+.nav__item--visuals{ order:3; }
 .nav__item--about { order:4; }
-.nav__item--making{ order:5; }
+.nav__item--inthemaking{ order:5; }
 .nav__pair        { order:6; }
 
 /* contact and the language switch read as one item, not two */

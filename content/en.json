@@ -38,7 +38,7 @@
         "label": "Music"
       },
       {
-        "href": "videos.html",
+        "href": "visuals.html",
         "label": "Visuals"
       },
       {
@@ -46,7 +46,7 @@
         "label": "About"
       },
       {
-        "href": "making.html",
+        "href": "inthemaking.html",
         "label": "In the Making"
       }
     ],
