@@ -2648,6 +2648,11 @@ function setUiLang(lang) {
   if (state.files) {
     renderTabs();
     renderPanel();
+  } else if (document.querySelector('.login')) {
+    // Before signing in there is no content to re-render, but there is a
+    // form - and it was being left in the language it was built in, so the
+    // toolbar went Chinese over an English sign-in box.
+    showLogin(loginMessage);
   }
   renderStatus();
 }
@@ -2762,9 +2767,15 @@ document.getElementById('reloadBtn').addEventListener('click', async () => {
 
 // ---------------------------------------------------------------- sign in
 
+/* What the form is currently saying, so it can be rebuilt in the other
+ * language. Ours are passed as English source strings and translated here;
+ * anything from the server falls through T() unchanged. */
+let loginMessage = '';
+
 function showLogin(message) {
+  loginMessage = message || '';
   const password = el('input', { type: 'password', autocomplete: 'current-password', required: true });
-  const error = el('p', { className: 'hint login__error' }, message || '');
+  const error = el('p', { className: 'hint login__error' }, loginMessage ? T(loginMessage) : '');
   const submit = el('button', { className: 'btn btn--go', type: 'submit' }, T('Sign in'));
 
   const form = el('form', { className: 'card login' },
@@ -2825,7 +2836,7 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   try { await api('/logout', { method: 'POST' }); } catch { /* signed out either way */ }
   state.dirty = false;
   state.status = null;
-  showLogin(T('Signed out.'));
+  showLogin('Signed out.');
 });
 
 start();
