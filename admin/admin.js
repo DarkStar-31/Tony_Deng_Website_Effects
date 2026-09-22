@@ -419,14 +419,18 @@ function sectionHeading(key, pv) {
       T('The heading and the line under it. You can also double-click either of them in '
         + 'the preview and type straight into it.')),
     el('span', { className: 'hint' }, `#${key}`),
+    // These are copy, and copy in content/ is authored HTML: the coverage
+    // heading is stored as `Press &amp; Mentions`, which a plain input hands
+    // over exactly like that. A rich box shows the ampersand and writes the
+    // entity back.
     row(
       ...langOrder().map((lang) =>
-        field('Title', input(sec[lang.code], 'title', { lang: lang.attr }), null, lang)),
+        field('Title', input(sec[lang.code], 'title', { lang: lang.attr, rich: true }), null, lang)),
     ),
     row(
       ...langOrder().map((lang, i) =>
         field('Description',
-              input(sec[lang.code], 'desc', { multiline: true, rows: 2, lang: lang.attr }),
+              input(sec[lang.code], 'desc', { multiline: true, rows: 2, lang: lang.attr, rich: true }),
               i === 0
                 ? 'Stays on one line when the window is wide enough. Press Enter where you want it to break instead.'
                 : null,
@@ -1472,7 +1476,9 @@ function renderPress() {
   // scrolling back to the thing it just made.
   const add = addButton('+ Add a press item', () => {
     const id = newId('press', shared.press.map((p) => p.id));
-    shared.press.push({ id, url: '' });
+    // newest first: the list reads reverse-chronologically, and the thing
+    // just published is the thing being added
+    shared.press.unshift({ id, url: '' });
     LOC('en').press[id] = { src: 'Weibo', title: '', titleLang: 'zh', gloss: '' };
     LOC('zh').press[id] = { src: '微博', title: '', gloss: '' };
     cardOpen.add('press:' + id);          // the new one opens, ready to type in
@@ -2308,10 +2314,13 @@ function homeAboutCards() {
     const list = about[lang.code].facts;
     return el('div', { style: 'flex:1' },
       el('span', { className: 'hint' }, T('Profile rows ({lang})', { lang: lang.label })),
+      // the homepage's copy of the same rows - same data, same treatment as
+      // the pair on the About tab
       ...list.map((item, i) => row(
-        field('Term', input(item, 'term', { lang: lang.attr })),
-        field('Value', input(item, 'value', { lang: lang.attr })),
-        el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
+        field('Term', input(item, 'term', { lang: lang.attr, rich: true })),
+        field('Value', input(item, 'value', { lang: lang.attr, rich: true })),
+        el('button', { className: 'btn btn--x', type: 'button',
+                       title: T('Remove this row'), 'aria-label': T('Remove this row'),
                        onclick: () => { list.splice(i, 1); markDirty(); rerender(); } }, '×'),
       )),
       el('button', { className: 'btn btn--small', type: 'button',
@@ -2348,12 +2357,6 @@ function renderHome() {
   const images = shared.images;
 
   return [
-    intro(
-      'The homepage, top to bottom. Each section under the hero is a trimmed copy of another '
-      + 'page — what the homepage shows of it is edited here, and the rest on that page’s '
-      + 'own tab.',
-    ),
-
     card('Browser tab', null, el('div', {},
       bi('Page title', 'title', (l) => LOC(l).pages.home,
          { hint: 'Shown on the browser tab and as the headline in search results.' }),
@@ -2526,10 +2529,6 @@ function homeVisualCard() {
 
 function renderMusic() {
   return [
-    intro(
-      'The Music page — the full catalogue. What the homepage shows of it (the covers, the '
-      + 'names and the links) is edited on the Tony D tab; everything below is this page only.',
-    ),
     pageMeta('music'),
     sectionHeading('music', 'music.heading'),
     ...renderReleases(),
@@ -2588,12 +2587,6 @@ function visualsBannerCard() {
 
 function renderVisuals() {
   return [
-    intro(
-      'The Visuals page. Each tile is a link with a poster until someone clicks it — nothing '
-      + 'loads from YouTube or Bilibili on page load. The <b>Bilibili BV id</b> is the one to '
-      + 'fill in when a video goes up on B站: a tile with an empty BV id stays an ordinary '
-      + 'outbound link on the Chinese page instead of becoming a player that cannot load in China.',
-    ),
     pageMeta('visuals'),
     sectionHeading('videos', 'visuals.heading'),
     visualsFilterCard(),
@@ -2607,10 +2600,6 @@ function renderVisuals() {
 
 function renderAboutPage() {
   return [
-    intro(
-      'The About page. The bio is the part of the site most likely to be read by a label or a '
-      + 'journalist — every claim here should be something the resume PDF actually supports.',
-    ),
     pageMeta('about'),
     sectionHeading('about', 'about.heading'),
     ...renderAbout(),
@@ -2644,10 +2633,6 @@ function renderMaking() {
   const shared = SHARED();
   const rerender = () => renderPanel();
   const out = [
-    intro(
-      'The In the Making page. It carries its heading and the scroll orbit; the notes that belong ' +
-      'underneath have not been written yet. Press coverage moved to the foot of the About page.',
-    ),
     pageMeta('making'),
     sectionHeading('press', 'making.heading'),
     ...renderRecording(),
@@ -2685,10 +2670,6 @@ function renderMaking() {
 
 function renderContactPage() {
   return [
-    intro(
-      'The contact block and the footer, which finish every page. The email here is the public-facing ' +
-      'management address — it appears in both languages and in the mailto link.',
-    ),
     sectionHeading('contact', 'contact.heading'),
     ...renderContact(),
   ];
