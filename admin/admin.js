@@ -236,6 +236,42 @@ function card(titleNode, controls, body, pv) {
   );
 }
 
+/* A card that starts shut, for the long lists - the photos and the videos.
+ * Thirty open cards is a scroll nobody reads; shut, the list is a contents
+ * page you can see all of at once.
+ *
+ * Which ones are open is kept by id rather than by position, because every
+ * edit rebuilds the panel and a card must not close under the hands of the
+ * person typing in it - or, worse, a reorder must not leave the card that
+ * moved into slot 3 wearing slot 3's open state.
+ *
+ * `controls` sit in the summary, so a click on Remove would also toggle the
+ * card. The wrapper stops the event before the summary's default action
+ * ever sees it. */
+const cardOpen = new Set();
+
+function cardFold(id, titleNode, controls, body, pv, thumb, meta) {
+  const title = typeof titleNode === 'string' ? T(titleNode) : titleNode;
+  const head = el('summary', { className: 'card__head card__head--fold' },
+    el('span', { className: 'card__twist', 'aria-hidden': 'true' }),
+    thumb ? el('img', { className: 'card__mini', src: '/' + thumb, alt: '', loading: 'lazy' }) : null,
+    el('div', { className: 'card__title' }, title),
+    meta ? el('span', { className: 'card__meta' }, meta) : null,
+    controls
+      ? el('span', { className: 'card__controls', onclick: (e) => e.stopPropagation() }, controls)
+      : null);
+
+  const node = el('details',
+    { className: 'card card--fold', 'data-pv-target': pv, open: cardOpen.has(id) || null },
+    head,
+    el('div', { className: 'card__body' }, body));
+
+  node.addEventListener('toggle', () => {
+    if (node.open) cardOpen.add(id); else cardOpen.delete(id);
+  });
+  return node;
+}
+
 function addButton(label, onClick) {
   return el('button', { className: 'additem', type: 'button', onclick: onClick }, T(label));
 }
@@ -470,12 +506,22 @@ function renderVideos() {
       ),
     );
 
-    out.push(card(title, listControls(shared.videos, i, rerender, {
-      onDelete: (gone) => {
-        delete LOC('en').videos[gone.id];
-        delete LOC('zh').videos[gone.id];
-      },
-    }), body));
+    // The feature video is not in the grid - it is the big tile above it -
+    // so it points at that region instead of at a cell that does not exist.
+    out.push(cardFold(
+      'video:' + v.id,
+      title,
+      listControls(shared.videos, i, rerender, {
+        onDelete: (gone) => {
+          delete LOC('en').videos[gone.id];
+          delete LOC('zh').videos[gone.id];
+        },
+      }),
+      body,
+      v.feature ? 'visuals.feature' : 'visuals.cell.video:' + v.id,
+      v.poster,
+      (v.size || 's').toUpperCase(),
+    ));
   });
 
   out.push(addButton('+ Add a video', () => {
@@ -1673,7 +1719,15 @@ function renderPhotos() {
         markDirty();
         rerender();
       } }, T('Remove'));
-    out.push(card(title, remove, body));
+    out.push(cardFold(
+      'photo:' + ph.id,
+      title,
+      remove,
+      body,
+      'visuals.cell.photo:' + ph.id,
+      ph.src,
+      `${ph.shape || '?'} · ${(ph.size || 'm').toUpperCase()}`,
+    ));
   });
 
   out.push(el('div', { style: 'margin-bottom:24px' },

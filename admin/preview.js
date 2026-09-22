@@ -361,9 +361,9 @@ function previewVisuals() {
   const banner = (shared.images || {}).visualsBanner;
   const vf = loc.visualsFilter;
 
-  // a handful of the grid, enough to read as the mosaic it is
-  const cells = (typeof visualsOrderPreview === 'function' ? visualsOrderPreview(shared) : [])
-    .slice(0, 8);
+  // the whole grid, not a sample: each cell is hoverable from its own card,
+  // and a cell that is not drawn cannot be pointed at
+  const cells = typeof visualsOrderPreview === 'function' ? visualsOrderPreview(shared) : [];
 
   return el('div', { className: 'pv' },
     pvChrome(loc, shared, 'videos'),
@@ -395,20 +395,52 @@ function previewVisuals() {
           banner
             ? el('img', { src: '/' + banner, alt: '', loading: 'lazy' })
             : el('span', { className: 'pv__bannernone' }, T('no picture'))),
-        el('div', { className: 'pv__grid' },
-          ...cells.map((c) => el('img', { src: '/' + c, alt: '', loading: 'lazy' })))),
+        el('div', { className: 'pv__gwrap' },
+          el('div', { className: 'pv__gallery' },
+            ...cells.map((c) => el('div', {
+              className: 'pv__cell' + (c.kind === 'video' ? ' pv__cell--video' : ''),
+              'data-pv': 'visuals.cell.' + c.key,
+              style: `--c:${c.c};--r:${c.r}`,
+            },
+              el('img', { src: '/' + c.src, alt: '', loading: 'lazy' }),
+              c.kind === 'video' ? el('span', { className: 'pv__celldot' }, '▶') : null))))),
     ),
   );
 }
 
 /* The first few things in the Visuals grid, whatever kind they are. */
+/* Mirrors PHOTO_SPANS / VIDEO_SPANS in build.py. Duplicated rather than
+ * derived because the rail has no way to ask the Python that renders the
+ * page - keep the two in step when a shape or size is added. Columns by
+ * rows, out of twelve. */
+const PV_PHOTO_SPANS = {
+  square:    { s: [3, 3], m: [4, 4], l: [6, 6] },
+  portrait:  { s: [3, 4], m: [4, 5], l: [6, 8] },
+  tall:      { s: [2, 3], m: [4, 6], l: [6, 9] },
+  landscape: { s: [3, 2], m: [6, 4], l: [9, 6] },
+  wide:      { s: [4, 2], m: [8, 4], l: [12, 6] },
+  panorama:  { s: [6, 2], m: [9, 3], l: [12, 4] },
+};
+const PV_VIDEO_SPANS = { s: [4, 2], m: [6, 3], l: [8, 4] };
+
+/* The grid in reading order, each cell carrying the span build.py will give
+ * it. Same fallbacks as the page: an unknown shape or size lands on the
+ * middle of the table rather than dropping the cell. */
 function visualsOrderPreview(shared) {
-  const photos = new Map((shared.photos || []).map((p) => [`photo:${p.id}`, p.src]));
-  const videos = new Map((shared.videos || []).filter((v) => !v.feature)
-    .map((v) => [`video:${v.id}`, v.poster]));
+  const cell = (key, kind, src, span) => ({ key, kind, src, c: span[0], r: span[1] });
+  const photos = new Map((shared.photos || []).map((p) => [
+    `photo:${p.id}`,
+    cell(`photo:${p.id}`, 'photo', p.src,
+         ((PV_PHOTO_SPANS[p.shape] || PV_PHOTO_SPANS.square)[p.size]
+          || PV_PHOTO_SPANS.square.m)),
+  ]));
+  const videos = new Map((shared.videos || []).filter((v) => !v.feature).map((v) => [
+    `video:${v.id}`,
+    cell(`video:${v.id}`, 'video', v.poster, PV_VIDEO_SPANS[v.size] || PV_VIDEO_SPANS.s),
+  ]));
   const order = (shared.visualsOrder || []).filter((r) => photos.has(r) || videos.has(r));
   for (const k of [...photos.keys(), ...videos.keys()]) if (!order.includes(k)) order.push(k);
-  return order.map((r) => photos.get(r) || videos.get(r)).filter(Boolean);
+  return order.map((r) => photos.get(r) || videos.get(r)).filter((c) => c && c.src);
 }
 
 /* The About page: the photograph beside the bio, and the stats under it. */
