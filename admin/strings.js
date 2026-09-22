@@ -190,6 +190,16 @@ const UI_STRINGS = {
   'Stays on one line when the window is wide enough. Press Enter where you want it to break instead.':
     '窗口够宽时保持一行；如需换行，在想换行的位置按回车。',
 
+  // ----------------------------------------------------------- links, years
+  'Link the selected words': '为选中的文字添加链接',
+  'Select the words you want to link first.': '请先选中要添加链接的文字。',
+  'Link address. A web address, or an email written as mailto:someone@example.com': '链接地址。网址，或写成 mailto:someone@example.com 的邮箱地址。',
+  'That does not look like a web address, so nothing was linked.': '这看起来不像一个网址，因此未添加链接。',
+  'Remove this row': '删除此行',
+  'Current year': '当前年份',
+  'current': '当前',
+  'Back to the default colour': '恢复默认颜色',
+
   // ----------------------------------------------------------- visuals filter
   'Filter buttons': '筛选按钮',
   'All': '全部',

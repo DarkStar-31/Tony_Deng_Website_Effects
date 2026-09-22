@@ -288,8 +288,29 @@ body {
 }
 
 .row { display: flex; gap: 14px; margin-bottom: 12px; }
+/* A close button, not a button that happens to say close. It sits in a
+   .row, where everything is flex:1 by default - which is how it came to be
+   a third of the width of the row it was deleting. */
+.btn--x {
+  flex: 0 0 auto; align-self: end;
+  width: 28px; height: 28px; padding: 0;
+  display: grid; place-items: center;
+  font-size: 15px; line-height: 1;
+  color: var(--dim); background: transparent;
+  border: 1px solid var(--line); border-radius: 6px;
+}
+/* Year, current-year flag and colour on one line. */
+.yearbar { display: flex; align-items: end; gap: 14px; margin-bottom: 12px; }
+.yearbar > .f { flex: 0 0 120px; }
+.yearbar .swatchrow { display: flex; align-items: center; gap: 6px; }
+
+.btn--x:hover { color: #fff; border-color: var(--magenta); background: rgba(250,39,159,.12); }
 .row:last-child { margin-bottom: 0; }
 .row > * { flex: 1; min-width: 0; }
+/* and the one that opts out - this has to come after the rule above, which
+   is the same specificity and would otherwise stretch it to a third of the
+   row it deletes. */
+.row > .btn--x { flex: 0 0 auto; }
 
 label.f { display: block; }
 label.f > span {
@@ -824,8 +845,6 @@ html[lang^="zh"] .pv__statshead { letter-spacing: .04em; text-transform: none; f
   display: inline-block; width: 8px; height: 8px; border-radius: 50%;
   margin-left: 7px; vertical-align: middle;
 }
-.msyear > summary { cursor: pointer; padding: 6px 0; }
-.msyear > summary:hover { color: var(--bone); }
 
 /* ------------------------------------------------------------------ folds
 

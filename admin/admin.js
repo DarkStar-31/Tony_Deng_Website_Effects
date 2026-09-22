@@ -197,7 +197,11 @@ function check(label, obj, key, onChange) {
   return el('label', { className: 'check' }, box, el('span', {}, T(label)));
 }
 
-function listControls(arr, index, rerender, { onDelete } = {}) {
+/* `invert` is for a list drawn in reverse - the milestone years, which read
+ * newest first on screen while the array stays oldest first. Without it the
+ * arrows do what the array sees rather than what the screen shows, and Up
+ * sends the year downwards. */
+function listControls(arr, index, rerender, { onDelete, invert } = {}) {
   const move = (to) => {
     if (to < 0 || to >= arr.length) return;
     const [item] = arr.splice(index, 1);
@@ -205,13 +209,15 @@ function listControls(arr, index, rerender, { onDelete } = {}) {
     markDirty();
     rerender();
   };
+  const up = invert ? index + 1 : index - 1;
+  const down = invert ? index - 1 : index + 1;
   return el(
     'div',
     { className: 'listctl' },
     el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Move up'),
-                   onclick: () => move(index - 1) }, '↑'),
+                   onclick: () => move(up) }, '↑'),
     el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Move down'),
-                   onclick: () => move(index + 1) }, '↓'),
+                   onclick: () => move(down) }, '↓'),
     el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
                    onclick: () => {
                      if (!confirm(T('Remove this item? It disappears from both languages.'))) return;
@@ -874,7 +880,7 @@ function paragraphList(locale, aboutObj, key, label) {
     ...list.map((_, i) =>
       el('div', { style: 'margin-bottom:10px' },
          field(`${T(label)} ${i + 1}`,
-               input(list, String(i), { multiline: true, rows: 4, lang }),
+               input(list, String(i), { multiline: true, rows: 4, lang, rich: true }),
                null,
                LANG[locale]),
          el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
@@ -913,10 +919,13 @@ function renderAbout() {
     const list = about[lang.code].facts;
     return el('div', { style: 'flex:1' },
       el('span', { className: 'hint' }, T('Profile rows ({lang})', { lang: lang.label })),
+      // `.row > *` is flex:1, so the × was taking a third of the row and
+      // squeezing the value it belongs to. It opts out of the sharing.
       ...list.map((item, i) => row(
-        field('Term', input(item, 'term', { lang: lang.attr })),
-        field('Value', input(item, 'value', { lang: lang.attr })),
-        el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
+        field('Term', input(item, 'term', { lang: lang.attr, rich: true })),
+        field('Value', input(item, 'value', { lang: lang.attr, rich: true })),
+        el('button', { className: 'btn btn--x', type: 'button',
+                       title: T('Remove this row'), 'aria-label': T('Remove this row'),
                        onclick: () => { list.splice(i, 1); markDirty(); rerender(); } }, '×'),
       )),
       el('button', { className: 'btn btn--small', type: 'button',
@@ -998,6 +1007,13 @@ function richSerialize(node) {
       case 'U':
         out += `<u>${inner}</u>`;
         return;
+      case 'A': {
+        const href = richSafeHref(child.getAttribute('href'));
+        // a link whose address we will not vouch for keeps its words and
+        // loses its link, which is the rule every other tag here follows
+        out += href ? `<a href="${richEscape(href)}">${inner}</a>` : inner;
+        return;
+      }
       case 'SPAN': {
         const lang = child.getAttribute('lang');
         out += lang ? `<span lang="${richEscape(lang)}">${inner}</span>` : inner;
@@ -1016,6 +1032,26 @@ function richSerialize(node) {
     }
   });
   return out;
+}
+
+/* Which addresses a link may carry.
+ *
+ * This matters more than it looks: the string goes into content/, and
+ * build.py prints content into the page as authored HTML. A `javascript:`
+ * address typed into this form would therefore run on the public site. So
+ * the rule is a list of what is allowed rather than a list of what is not,
+ * and anything unrecognised gives back an empty string - the link then
+ * degrades to its own words, the same way an unknown tag does.
+ *
+ * A bare `tonyd.com`, typed by someone who does not think in protocols, is
+ * read as https, because that is what they meant. */
+function richSafeHref(raw) {
+  const href = String(raw == null ? '' : raw).trim();
+  if (!href) return '';
+  if (/^(https?:|mailto:|tel:)/i.test(href)) return href;
+  if (href[0] === '/' || href[0] === '#') return href;   // same site, or an anchor
+  if (/^[a-zA-Z0-9.-]+[.][a-z]{2,}([/?#]|$)/i.test(href)) return 'https://' + href;
+  return '';
 }
 
 /* Wrap the selection in a tag the browser has no command for. */
@@ -1089,6 +1125,38 @@ function richToolbar(box, lang) {
             (e) => { e.preventDefault(); richWrap(box, 'span', { lang: other }); },
             'rich__btn--wide')
       : null,
+    btn(T('Link'), 'Link the selected words', (e) => {
+      e.preventDefault();
+      box.focus();
+      const sel = window.getSelection();
+      if (!sel.rangeCount || sel.getRangeAt(0).collapsed) {
+        alert(T('Select the words you want to link first.'));
+        return;
+      }
+      // the address it already has, when the selection is a link already,
+      // so that editing one does not mean retyping it
+      let current = '';
+      const node = sel.getRangeAt(0).commonAncestorContainer;
+      const holder = node.nodeType === 1 ? node : node.parentElement;
+      const already = holder && holder.closest ? holder.closest('a') : null;
+      if (already && box.contains(already)) current = already.getAttribute('href') || '';
+
+      const raw = prompt(
+        T('Link address. A web address, or an email written as mailto:someone@example.com'),
+        current);
+      if (raw === null) return;
+      if (!raw.trim()) {                       // cleared the box: unlink
+        document.execCommand('unlink');
+        box.dispatchEvent(new Event('input', { bubbles: true }));
+        return;
+      }
+      const href = richSafeHref(raw);
+      if (!href) {
+        alert(T('That does not look like a web address, so nothing was linked.'));
+        return;
+      }
+      richWrap(box, 'a', { href });
+    }, 'rich__btn--wide'),
     btn('⦰', 'Remove formatting', (e) => {
       e.preventDefault();
       box.focus();
@@ -1119,9 +1187,25 @@ function richBox(obj, key, opts = {}) {
     renderPreviewSoon();
   });
 
-  // One line on the page means one line here
+  /* Enter, Tab, and the way out.
+   *
+   * One line on the page means one line here, so Enter is refused in a
+   * single-line box.
+   *
+   * Tab indents instead of leaving the field, which is the right default
+   * for a box holding paragraphs. But Tab is also how a keyboard leaves a
+   * field, so taking it needs an escape hatch: Escape arms the next Tab to
+   * move on as usual, and Shift+Tab always steps back. */
+  let tabEscapes = false;
+  const INDENT = String.fromCharCode(0x2003) + String.fromCharCode(0x2003);
   box.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !opts.multiline) e.preventDefault();
+    if (e.key === 'Enter' && !opts.multiline) { e.preventDefault(); return; }
+    if (e.key === 'Escape') { tabEscapes = true; return; }
+    if (e.key !== 'Tab') { tabEscapes = false; return; }
+    if (tabEscapes || e.shiftKey || !opts.multiline) { tabEscapes = false; return; }
+    e.preventDefault();
+    document.execCommand('insertText', false, INDENT);
+    box.dispatchEvent(new Event('input', { bubbles: true }));
   });
 
   // A paste carries the formatting of wherever it came from. Take the words.
@@ -1218,7 +1302,14 @@ function renderMilestones() {
   const rerender = () => renderPanel();
   const out = [];
 
-  shared.milestones.forEach((yearRow, yi) => {
+  // Newest year first, the way the page prints it and the way anyone adding
+  // to a timeline thinks about it - the thing that just happened is the
+  // thing being typed. Storage order is untouched (build.py reverses it for
+  // the page), so only the arrows have to know: moving a year "up" the
+  // screen moves it later in the array.
+  const order = shared.milestones.map((_, i) => i).reverse();
+  order.forEach((yi) => {
+    const yearRow = shared.milestones[yi];
     const enM = LOC('en').milestones;
     const zhM = LOC('zh').milestones;
     const box = { en: enM, zh: zhM };
@@ -1273,44 +1364,39 @@ function renderMilestones() {
       rerender();
     });
 
+    // The year, the flag and the colour on one line. These three were a
+    // full three-column row each with its own label and a two-line note
+    // under it, which is a lot of panel for a four-character number.
     const body = el('div', {},
-      row(
+      el('div', { className: 'yearbar' },
         field('Year label', input(yearRow, 'year')),
-        el('div', { style: 'display:flex;align-items:flex-end' },
-           check('Highlight as current year', yearRow, 'current', rerender)),
-        field('Year colour', el('span', { className: 'swatchrow' },
+        check('Current year', yearRow, 'current', rerender),
+        el('span', { className: 'swatchrow', title: T('Overrides the colour of the year. The default is the accent green on the current year.') },
           colour,
           yearRow.color
-            ? el('button', { className: 'btn btn--small btn--ghost', type: 'button',
+            ? el('button', { className: 'btn btn--x', type: 'button', title: T('Back to the default colour'),
                              onclick: () => {
                                delete yearRow.color;
                                markDirty();
                                rerender();
-                             } }, T('Default'))
-            : el('span', { className: 'hint' }, T('Using the default'))),
-          'Overrides the colour of the year. The default is the accent green on the current year.'),
-      ),
-      // Five years of entries, in two languages, is the longest thing in the
-      // admin - about a hundred and sixty boxes on this tab alone. Each year
-      // is shut until you open it, so the page is a list of years rather
-      // than a wall, and the one being worked on is open to begin with.
-      el('details', { className: 'msyear', open: (yearRow.current || msOpen.has(yearRow.year)) || null },
-        el('summary', { className: 'hint' },
-          T('{n} entries', { n: yearRow.items.length }),
-          ' — ', T('open to edit')),
-        ...shown.map((itemId, ii) => bullet(itemId, ii)),
-        many
-          ? el('button', { className: 'btn btn--small btn--ghost', type: 'button',
-                           onclick: () => {
-                             if (showAll) msOpen.delete(yearRow.year);
-                             else msOpen.add(yearRow.year);
-                             rerender();
-                           } },
-               showAll
-                 ? T('Show fewer')
-                 : T('Show all {n}', { n: yearRow.items.length }))
-          : null,
-        el('button', { className: 'btn btn--small', type: 'button', onclick: () => {
+                             } }, '×')
+            : null)),
+      // The year card folds as a whole now, so the entries no longer need a
+      // disclosure of their own inside it. msOpen still says which years
+      // are showing all of their entries rather than the first few.
+      ...shown.map((itemId, ii) => bullet(itemId, ii)),
+      many
+        ? el('button', { className: 'btn btn--small btn--ghost', type: 'button',
+                         onclick: () => {
+                           if (showAll) msOpen.delete(yearRow.year);
+                           else msOpen.add(yearRow.year);
+                           rerender();
+                         } },
+             showAll
+               ? T('Show fewer')
+               : T('Show all {n}', { n: yearRow.items.length }))
+        : null,
+      el('button', { className: 'btn btn--small', type: 'button', onclick: () => {
         const label = prompt(T('Short name for this milestone (used as its internal id):'), '');
         if (label === null) return;
         const id = newId(slug(label) || 'milestone', Object.keys(enM));
@@ -1320,20 +1406,24 @@ function renderMilestones() {
         msOpen.add(yearRow.year);
         markDirty();
         rerender();
-      } }, T('+ milestone'))),
+      } }, T('+ milestone')),
     );
 
-    out.push(card(
+    out.push(cardFold(
+      'year:' + yearRow.year,
       el('span', {}, yearRow.year,
+         yearRow.current ? el('span', { className: 'live' }, T('current')) : null,
          yearRow.color
            ? el('i', { className: 'dot', style: `background:${yearRow.color}` })
-           : null,
-         el('small', {}, T('{n} entries', { n: yearRow.items.length }))),
+           : null),
       listControls(shared.milestones, yi, rerender, {
+        invert: true,
         onDelete: (gone) => gone.items.forEach((id) => { delete enM[id]; delete zhM[id]; }),
       }),
       body,
       'milestones.year.' + yearRow.year,
+      null,
+      T('{n} entries', { n: yearRow.items.length }),
     ));
   });
 
@@ -1364,22 +1454,33 @@ function renderPress() {
       bi('Gloss / subtitle', 'gloss', (l) => (l === 'en' ? enP : zhP)),
     );
 
-    out.push(card(el('span', {}, enP.title || T('(untitled)'), el('small', {}, item.id)),
-                  listControls(shared.press, i, rerender, {
-                    onDelete: (gone) => { delete LOC('en').press[gone.id]; delete LOC('zh').press[gone.id]; },
-                  }), body, 'press.item.' + item.id));
+    out.push(cardFold(
+      'press:' + item.id,
+      el('span', {}, enP.title || T('(untitled)'), el('small', {}, item.id)),
+      listControls(shared.press, i, rerender, {
+        onDelete: (gone) => { delete LOC('en').press[gone.id]; delete LOC('zh').press[gone.id]; },
+      }),
+      body,
+      'press.item.' + item.id,
+      null,
+      enP.src || '',
+    ));
   });
 
-  out.push(addButton('+ Add a press item', () => {
+  // Above the list, not below it. A new item is appended to the end, so a
+  // button underneath meant scrolling the whole list to reach it and then
+  // scrolling back to the thing it just made.
+  const add = addButton('+ Add a press item', () => {
     const id = newId('press', shared.press.map((p) => p.id));
     shared.press.push({ id, url: '' });
     LOC('en').press[id] = { src: 'Weibo', title: '', titleLang: 'zh', gloss: '' };
     LOC('zh').press[id] = { src: '微博', title: '', gloss: '' };
+    cardOpen.add('press:' + id);          // the new one opens, ready to type in
     markDirty();
     rerender();
-  }));
+  });
 
-  return out;
+  return [el('div', { style: 'margin-bottom:14px' }, add), ...out];
 }
 
 // ---------------------------------------------------------------- contact
