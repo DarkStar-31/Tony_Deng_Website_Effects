@@ -3,12 +3,19 @@
 Bilingual artist site. Vanilla HTML/CSS/JS, rendered from JSON by a
 dependency-free build script.
 
-| Page | Language | Video source |
-|---|---|---|
-| `index.html` | English (`en`) | YouTube |
-| `zh/index.html` | 简体中文 (`zh-Hans`) | Bilibili |
+Five pages, in two languages — ten documents in all:
 
-Two full documents rather than one page with a JS string swap: Baidu
+| Page | English | 简体中文 |
+|---|---|---|
+| Home | `index.html` | `zh/index.html` |
+| Music | `music.html` | `zh/music.html` |
+| Visuals | `visuals.html` | `zh/visuals.html` |
+| About | `about.html` | `zh/about.html` |
+| In the Making | `inthemaking.html` | `zh/inthemaking.html` |
+
+Video embeds are YouTube on the English pages and Bilibili on `zh/`.
+
+Two full sets of documents rather than one page with a JS string swap: Baidu
 indexes static HTML far more reliably than JS-rendered content, and the
 two versions genuinely differ in substance — the Chinese page leads with
 NetEase and QQ Music, and embeds Bilibili instead of YouTube.
@@ -36,9 +43,9 @@ exists only on the Chinese page).
 Edit the JSON directly, or use the admin — see [docs/admin-setup.md](docs/admin-setup.md).
 
 ```
-python build.py            # render both pages locally
+python build.py            # render all ten pages locally
 python build.py --check    # are the rendered pages in sync with content/?
-python build.py --dist     # assemble dist/ — what Cloudflare Pages serves
+python build.py --dist     # assemble dist/ — what the Worker serves
 ```
 
 Strings in the JSON are authored HTML, not escaped text: `<em>`, `<b>`,
@@ -47,36 +54,52 @@ needs them. Attribute values (URLs, alt text) are escaped by `build.py`.
 
 ## Admin
 
-`/admin/` is a browser editor for every field on both pages: text, images,
-videos, releases, milestones, press, contact, and the raw JSON as a fallback.
+`/admin/` is a browser editor for every field on every page: text, images,
+videos, releases, milestones, the photo grid, contact, the audio queue, and
+the raw JSON as a fallback. One tab per page of the site, plus a schematic
+preview rail that highlights the region each field controls. The panel
+itself is bilingual — the language switch also decides which half of each
+English/Chinese pair sits on the left.
 
-- **Auth is Cloudflare Access** (email one-time code). No passwords in this
-  codebase, and no GitHub account needed to edit.
-- **The browser never talks to GitHub.** It posts to a Worker
-  (`workers/admin/`) that holds a fine-grained token server-side and commits
-  on the editor's behalf — which is what makes the admin usable from
-  mainland China, where `api.github.com` is unreliable.
-- **Saves go to a `draft` branch**, which Pages builds to a preview URL.
-  Publishing merges `draft` into `main`, and is limited to the emails in
-  `PUBLISHERS`. Everyone else gets edit-and-preview.
+- **Sign-in is one shared password**, `ADMIN_PASSWORD`. There is no domain
+  yet, so Cloudflare Access is not in play; see the banner at the top of
+  [docs/admin-setup.md](docs/admin-setup.md). **Anyone with the password can
+  edit *and* publish** — the reviewer/publisher split is gone until
+  per-person logins come back. No password is in this codebase, and both
+  GitHub repos are public, so it must never be committed.
+- **The admin API runs inside the site Worker**, not a separate one:
+  `main` in the root `wrangler.toml`, reached only through
+  `run_worker_first = ["/api/admin/*"]`. Every other request is answered
+  from `dist/` without the script running, so the public site costs nothing
+  extra. It is one Worker because a separate one can only attach to a path
+  on a custom domain, and this site is still on `workers.dev`.
+- **The browser never talks to GitHub.** It posts to that Worker, which
+  holds a fine-grained token server-side and commits on the editor's
+  behalf — which is what makes the admin usable from mainland China, where
+  `api.github.com` is unreliable.
+- **Saves go to a `draft` branch**; Publish merges `draft` into `main`.
+  Because the admin both reads and writes `draft`, pushing work to `main`
+  alone leaves `draft` stale and the panel shows old content — push both:
+  `git push origin HEAD:main HEAD:draft`.
 - Every save is a normal git commit, attributed and revertable.
-
-Setup is one-time and documented in [docs/admin-setup.md](docs/admin-setup.md).
-Note the ordering warning at the top of it: the Pages build settings have to
-change before this is deployed, or the live site 404s.
 
 ## Sections
 
-| # | Section | Notes |
-|---|---|---|
-| — | Hero | portrait, ink logo, audio-reactive waveform |
-| — | Ticker | career highlights marquee |
-| 01 | Releases | two albums + singles |
-| 02 | Videos | 13 click-to-load embeds (YouTube / Bilibili) |
-| 03 | About | bio, influences, profile table |
-| 04 | Milestones | 2021–2025 timeline |
-| 05 | Press | Weibo coverage |
-| 06 | Contact | management email, platform links |
+Sections carry no numbers — they were 01–06 across a single long page, and
+stopped making sense once the site became five pages.
+
+| Page | Sections |
+|---|---|
+| Home | hero (portrait, ink logo, audio-reactive waveform), ticker, then a trimmed cut of each section below |
+| Music | releases — two albums + singles, with the track list round each record rim |
+| Visuals | one grid of photos and videos, `All / Photos / Videos` switch, click-to-load embeds |
+| About | bio, profile table, milestones timeline, press & mentions |
+| In the Making | Now Recording ring, the orbit ring, contact + the message window |
+
+The content keys did not follow the page renames: `videos` is still the
+Visuals section and `press` is still In the Making, so existing `#videos`
+and `#press` anchors keep resolving. `PAGE_FILE` in `build.py` is the one
+place a key is joined to a filename.
 
 All copy comes from `Tony-Artist Resume.pdf` — that PDF is the source of
 truth for anything factual on this page. It is **not in this repo** (32MB,
@@ -96,7 +119,7 @@ For the site alone, `python build.py && python -m http.server 5502` works
 too, as does VS Code Live Server once the pages are built.
 
 It must be served over HTTP, not opened as a `file://` path: the audio
-probe and WebP loading both need a real origin.
+files and WebP loading both need a real origin.
 
 ## Theme — "Ink & Late Night"
 
@@ -144,19 +167,29 @@ plain visible content instead of a blank page.
 
 ## Audio
 
-Click-to-play only — nothing autoplays. `AudioEngine` probes `TRACKS` in
-`js/main.js` in order and uses the first file that exists:
+Click-to-play only — nothing autoplays. **There is real music now**:
+`audio/i-do.mp3` and `audio/overthinking.mp3`, both committed and copied
+into `dist/` by `DEPLOY_DIRS`, so the deployed site has them.
 
-```
-audio/tony-browse.mp3      <- preferred
-audio/tony-browse.m4a
-audio/tony-browse.ogg
-audio/overthinking-clip.mp3
+The queue is **content, not code** — there is no longer a `TRACKS` constant
+in `js/main.js`. `content/shared.json` holds the library and the per-locale
+selection, and each locale titles the same file in its own words:
+
+```json
+"tracks":    [ { "id": "i-do", "file": "audio/i-do.mp3" }, … ],
+"playlists": { "en": ["i-do"], "zh": ["overthinking"] }
 ```
 
-**Drop a file at one of those paths and it is picked up automatically.**
-No code change. Until one exists, the fallback ambient pad plays and the
-page shows a note saying it is a placeholder.
+So the English homepage opens on *I Do* and the Chinese one on the album's
+title track. `build.py` emits the queue into a `#playlist` script tag and
+**fails the build** if a playlist names a track the library does not have.
+Anything in `tracks` that no locale names simply never loads. Edit all of
+it from the admin's audio editor.
+
+Whatever is actually on disk wins: entries that 404 are dropped at boot,
+and if none survive, `AudioEngine` falls back to the synthesised pad below
+rather than leaving a dead button. `audio/` keeps only `.mp3` — masters,
+stems and work files are gitignored.
 
 ### Choosing the clip
 
@@ -216,7 +249,7 @@ would have shown thirteen broken images.
 
 ### The Visuals filter
 
-`videos.html` carries an **All / Photos / Videos** switch beside the
+`visuals.html` carries an **All / Photos / Videos** switch beside the
 heading. Its labels are `visualsFilter` in `content/en.json` and
 `content/zh.json`. The switch is only rendered when the grid actually
 holds both kinds, and only shown under `html.js`, since nothing would
@@ -294,24 +327,24 @@ links that remain on `zh/index.html` are optional outbound links, labelled
 Re-run this check after editing either page:
 
 ```
-grep -ohE 'https?://[a-zA-Z0-9._-]+' index.html zh/index.html | sort | uniq -c
+grep -ohE 'https?://[a-zA-Z0-9._-]+' *.html zh/*.html | sort | uniq -c
 ```
 
-**Still unsolved: hosting.** The site is on Cloudflare Pages, which solves
-hosting everywhere except the audience this work was done for: Cloudflare's
-free plan has no mainland China points of presence, and `*.pages.dev` is
-frequently unreachable from inside the GFW. A proxied custom domain is
-reachable but slow. The real fix is a mainland CDN or Cloudflare's China
-Network, both of which require an ICP filing (备案) and therefore a Chinese
-entity or ID. Worth settling before investing further in the CN page.
+**Still unsolved: hosting.** The site is on Cloudflare Workers static
+assets, which solves hosting everywhere except the audience this work was
+done for: Cloudflare's free plan has no mainland China points of presence,
+and `*.workers.dev` is frequently unreachable from inside the GFW. A
+proxied custom domain is reachable but slow. The real fix is a mainland CDN
+or Cloudflare's China Network, both of which require an ICP filing (备案)
+and therefore a Chinese entity or ID. Worth settling before investing
+further in the CN page.
 
-Note that this applies to `/admin/` too: Tony can reach it on a custom
-domain, but it will not feel fast.
+This applies to `/admin/` too, and there is no custom domain yet — so the
+admin is on the same `workers.dev` address, with the same reachability
+problem from inside China.
 
 ## Known gaps
 
-- **No real audio yet** — the ambient pad is still what plays. Needs a
-  clip from Tony at one of the `TRACKS` paths; see *Audio* above.
 - *Saturn Diary* Apple Music link unknown — the resume lists a Spotify URL
   under the Apple Music heading. Marked `is-missing` in the card.
 - `album-saturn.webp` is my best guess at the cover from the PDF layout;
