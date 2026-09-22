@@ -2383,6 +2383,27 @@ function renderMusic() {
 /* The optional picture under the title video. It is rendered at the same
  * width as the video, so nothing here asks for a size - whatever is
  * uploaded is shown full width and the page keeps its own margins. */
+/* The All / Photos / Videos switch beside the Visuals heading. The labels
+ * are content - they are the only words on that page that were not
+ * reachable from here, because the switch was added after this tab was
+ * built. `label` is not printed: it names the group for a screen reader. */
+function visualsFilterCard() {
+  if (!LOC('en').visualsFilter) return null;
+  const both = (SHARED().photos || []).length && (SHARED().videos || []).length;
+  return card('Filter buttons', null, el('div', {},
+    el('p', { className: 'hint' },
+      T('The three buttons beside the heading. They only appear when the grid holds both '
+        + 'photos and videos - with only one kind, all three would show the same grid.')),
+    both ? null : el('p', { className: 'hint' },
+      T('Not showing on the page at the moment: the grid holds only one kind.')),
+    bi('All', 'all', (l) => LOC(l).visualsFilter),
+    bi('Photos', 'photos', (l) => LOC(l).visualsFilter),
+    bi('Videos', 'videos', (l) => LOC(l).visualsFilter),
+    bi('Group name (screen readers)', 'label', (l) => LOC(l).visualsFilter,
+       { hint: 'Not shown on the page. Announced when a screen reader reaches the buttons.' }),
+  ), 'visuals.filter');
+}
+
 function visualsBannerCard() {
   const shared = SHARED();
   const images = shared.images;
@@ -2419,6 +2440,7 @@ function renderVisuals() {
     ),
     pageMeta('visuals'),
     sectionHeading('videos', 'visuals.heading'),
+    visualsFilterCard(),
     visualsBannerCard(),
     ...renderPhotos(),
     intro('The videos: the title video at the top of the page, and the grid under the heading.'),

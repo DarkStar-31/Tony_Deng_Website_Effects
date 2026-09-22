@@ -190,6 +190,19 @@ const UI_STRINGS = {
   'Stays on one line when the window is wide enough. Press Enter where you want it to break instead.':
     '窗口够宽时保持一行；如需换行，在想换行的位置按回车。',
 
+  // ----------------------------------------------------------- visuals filter
+  'Filter buttons': '筛选按钮',
+  'All': '全部',
+  'Photos': '照片',
+  'Videos': '视频',
+  'Group name (screen readers)': '按钮组名称（屏幕阅读器）',
+  'The three buttons beside the heading. They only appear when the grid holds both photos and videos - with only one kind, all three would show the same grid.':
+    '标题旁的三个按钮。只有当网格同时包含照片和视频时才会出现：只有一种时，三个按钮会显示同样的网格。',
+  'Not showing on the page at the moment: the grid holds only one kind.':
+    '目前页面上不显示：网格中只有一种内容。',
+  'Not shown on the page. Announced when a screen reader reaches the buttons.':
+    '不会显示在页面上。屏幕阅读器读到这组按钮时会报出。',
+
   // ----------------------------------------------------------- videos
   'YouTube ID': 'YouTube ID',
   'The part after <code>youtu.be/</code>. Also names the poster file.':

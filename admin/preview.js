@@ -359,6 +359,7 @@ function previewVisuals() {
   const feature = (shared.videos || []).find((v) => v.feature);
   const fv = feature ? (loc.videos || {})[feature.id] || {} : {};
   const banner = (shared.images || {}).visualsBanner;
+  const vf = loc.visualsFilter;
 
   // a handful of the grid, enough to read as the mosaic it is
   const cells = (typeof visualsOrderPreview === 'function' ? visualsOrderPreview(shared) : [])
@@ -370,6 +371,15 @@ function previewVisuals() {
       pvNav(loc),
       el('div', { className: 'pv__body' },
         pvSection(loc, 'videos', 'visuals.heading'),
+        // Only when the grid actually holds both kinds, which is the same
+        // condition build.py prints it under - a preview that showed the
+        // switch on a photos-only grid would be promising a control the
+        // page does not render.
+        (vf && (shared.photos || []).length && (shared.videos || []).length)
+          ? el('div', { className: 'pv__filter', 'data-pv': 'visuals.filter' },
+              ...['all', 'photos', 'videos'].map((k, i) =>
+                el('span', { className: 'pv__fbtn' + (i === 0 ? ' is-on' : '') }, vf[k] || '')))
+          : null,
         feature
           ? el('div', { className: 'pv__feature', 'data-pv': 'visuals.feature' },
               el('img', { src: '/' + feature.poster, alt: '', loading: 'lazy' }),
