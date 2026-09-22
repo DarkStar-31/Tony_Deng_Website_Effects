@@ -209,7 +209,8 @@ function pvHomeTimeline(loc, shared) {
         }, y.year),
         el('span', { className: 'pv__tllist' },
           ...y.items.map((id) =>
-            el('span', { className: 'pv__tlitem', html: text[id] || id })))))));
+            el('span', { className: 'pv__tlitem', 'data-pv': 'milestones.item.' + id,
+                        html: text[id] || id })))))));
 }
 
 /* The homepage, all of it.
@@ -443,19 +444,13 @@ function visualsOrderPreview(shared) {
   return order.map((r) => photos.get(r) || videos.get(r)).filter((c) => c && c.src);
 }
 
-/* The About page: the photograph beside the bio, and the stats under it. */
-function previewAbout() {
-  const loc = LOC(UI.lang);
-  const shared = SHARED();
+/* The bio half of the About page: the photograph, the prose, the stats. */
+function pvAboutBody(loc, shared) {
   const a = loc.about || {};
   const photo = (shared.images || {}).aboutTop;
   const facts = (a.facts || []).slice(0, 5);
 
-  return el('div', { className: 'pv' },
-    pvChrome(loc, shared, 'about'),
-    el('div', { className: 'pv__page' },
-      pvNav(loc),
-      el('div', { className: 'pv__body' },
+  return [
         pvSection(loc, 'about', 'about.heading'),
         el('div', { className: 'pv__about' },
           el('div', { className: 'pv__aboutshot', 'data-pv': 'about.image' },
@@ -477,23 +472,36 @@ function previewAbout() {
               ...facts.map((f) => el('span', { className: 'pv__stat' },
                 el('span', { className: 'pv__statterm', html: f.term || '' }),
                 el('span', { className: 'pv__statval', html: f.value || '' }))))
-          : null)),
-  );
+          : null,
+  ];
 }
 
-
-/* The timeline: a year, then what happened in it. */
-function previewMilestones() {
+/* The whole About page. build.py renders the bio, then the timeline, then
+ * the press block into one document, so the rail does too: the tab's cards
+ * cover all three, and a card whose part of the page is not drawn has
+ * nothing to light. The rail scrolls to whatever is pointed at, so length
+ * costs nothing here. */
+function previewAbout() {
   const loc = LOC(UI.lang);
   const shared = SHARED();
-  const text = loc.milestones || {};
-  const years = [...(shared.milestones || [])].reverse();
-
   return el('div', { className: 'pv' },
     pvChrome(loc, shared, 'about'),
     el('div', { className: 'pv__page' },
       pvNav(loc),
       el('div', { className: 'pv__body' },
+        ...pvAboutBody(loc, shared),
+        ...pvMilestonesBody(loc, shared),
+        ...pvPressBody(loc, shared))),
+  );
+}
+
+
+/* The timeline: a year, then what happened in it. */
+function pvMilestonesBody(loc, shared) {
+  const text = loc.milestones || {};
+  const years = [...(shared.milestones || [])].reverse();
+
+  return [
         pvSection(loc, 'milestones', 'milestones.heading'),
         el('div', { className: 'pv__tl' },
           ...years.map((y) => el('div', {
@@ -504,27 +512,17 @@ function previewMilestones() {
               style: y.color ? `color:${y.color}` : null,
             }, y.year),
             el('span', { className: 'pv__tllist' },
-              ...(y.items || []).slice(0, 4).map((id) =>
-                el('span', { className: 'pv__tlitem', html: text[id] || id })),
-              (y.items || []).length > 4
-                ? el('span', { className: 'pv__tlmore' },
-                    T('+{n} more', { n: y.items.length - 4 }))
-                : null))))),
-    ),
-  );
+              ...(y.items || []).map((id) =>
+                el('span', { className: 'pv__tlitem', 'data-pv': 'milestones.item.' + id,
+                            html: text[id] || id })))))),
+  ];
 }
 
 /* Press & mentions, at the foot of the About page. */
-function previewPress() {
-  const loc = LOC(UI.lang);
-  const shared = SHARED();
+function pvPressBody(loc, shared) {
   const text = loc.press || {};
 
-  return el('div', { className: 'pv' },
-    pvChrome(loc, shared, 'about'),
-    el('div', { className: 'pv__page' },
-      pvNav(loc),
-      el('div', { className: 'pv__body' },
+  return [
         pvSection(loc, 'coverage', 'press.heading'),
         el('div', { className: 'pv__press' },
           ...(shared.press || []).map((item) => {
@@ -533,9 +531,8 @@ function previewPress() {
               el('span', { className: 'pv__presssrc', html: pvHtml(c.src) }),
               el('span', { className: 'pv__presstitle', html: pvHtml(c.title) }),
               c.gloss ? el('span', { className: 'pv__pressgloss', html: c.gloss }) : null);
-          }))),
-    ),
-  );
+          })),
+  ];
 }
 
 /* In the Making: the heading, Now Recording, and the ring that turns. */
@@ -605,9 +602,10 @@ const PREVIEWS = {
   home: previewHome,
   music: previewMusic,
   visuals: previewVisuals,
+  // all three are the About page; the rail scrolls to the part in question
   about: previewAbout,
-  milestones: previewMilestones,
-  press: previewPress,
+  milestones: previewAbout,
+  press: previewAbout,
   making: previewMaking,
   contact: previewContact,
 };

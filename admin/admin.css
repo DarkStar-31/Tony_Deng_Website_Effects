@@ -570,6 +570,10 @@ input[lang="zh-Hans"], textarea[lang="zh-Hans"] { font-family: "PingFang SC", "M
 .pv [data-pv] { transition: opacity .18s ease, outline-color .18s ease; }
 .preview.is-pointing [data-pv] { opacity: .3; }
 .preview.is-pointing [data-pv].is-lit { opacity: 1; }
+/* Regions nest now - a timeline entry sits inside its year - and dimming
+   is per element, so lighting the year would have faded the entries
+   printed inside it. Anything within what is lit is part of what is lit. */
+.preview.is-pointing [data-pv].is-lit [data-pv] { opacity: 1; }
 .pv [data-pv].is-lit {
   outline: 2px solid var(--magenta);
   outline-offset: 1px;
@@ -872,11 +876,14 @@ html[lang^="zh"] .pv__statshead { letter-spacing: .04em; text-transform: none; f
 .pv__tlyear { font-size: 11px; font-weight: 600; color: var(--bone); }
 .pv__tlyear.is-now { color: var(--acid); }
 .pv__tllist { display: grid; gap: 2px; min-width: 0; }
+/* These used to be one nowrap line each, cut off with an ellipsis. The
+   entries are long - most are a title, a placing and a competition - so
+   what the rail showed was the first half of every one of them and the
+   whole of none. The page wraps them; so does this. */
 .pv__tlitem {
   color: var(--dim); font-size: 8px; line-height: 1.35;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  min-width: 0; overflow-wrap: anywhere;
 }
-.pv__tlmore { color: var(--magenta); font-size: 7.5px; }
 
 .pv__press { display: grid; gap: 6px; }
 .pv__pressitem {

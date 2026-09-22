@@ -1224,7 +1224,8 @@ function renderMilestones() {
     const box = { en: enM, zh: zhM };
 
     const bullet = (itemId, ii) => {
-      const node = el('div', { className: 'ms' },
+      // the entry, not the year: hovering one line lights that line
+      const node = el('div', { className: 'ms', 'data-pv-target': 'milestones.item.' + itemId },
         el('span', { className: 'ms__grip', title: T('Drag to reorder') }, '⠿'),
         el('div', { className: 'ms__fields' },
           row(...langOrder().map((lang) =>
