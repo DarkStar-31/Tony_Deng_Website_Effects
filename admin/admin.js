@@ -378,8 +378,6 @@ function sectionHeading(key, pv) {
         + 'the preview and type straight into it.')),
     el('span', { className: 'hint' }, `#${key}`),
     row(
-      // the number is not translated copy - one field, not a pair
-      ...('num' in en ? [field('Number', input(en, 'num', { mono: true }))] : []),
       ...langOrder().map((lang) =>
         field('Title', input(sec[lang.code], 'title', { lang: lang.attr }), null, lang)),
     ),

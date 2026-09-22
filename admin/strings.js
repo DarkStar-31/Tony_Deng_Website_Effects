@@ -185,7 +185,6 @@ const UI_STRINGS = {
   'Browser tab & search results': '浏览器标签与搜索结果',
   'Page title': '页面标题',
   'Meta description': '页面描述',
-  'Number': '编号',
   'Title': '标题',
   'Description': '描述',
   'Stays on one line when the window is wide enough. Press Enter where you want it to break instead.':

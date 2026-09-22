@@ -103,7 +103,6 @@ function pvHero(loc, shared) {
 function pvHomeHead(loc, key, pvKey) {
   const sec = (loc.sections || {})[key] || {};
   return el('div', { className: 'pv__section', 'data-pv': pvKey },
-    sec.num ? el('span', { className: 'pv__num' }, sec.num) : null,
     pvEditable(el('h4', { className: 'pv__h', html: pvHtml(sec.title) }), sec, 'title'),
     sec.desc
       ? pvEditable(el('p', { className: 'pv__desc', html: pvHtml(sec.desc) }), sec, 'desc')
@@ -314,7 +313,6 @@ function wirePreviewEditing() {
 function pvSection(loc, key, pvKey) {
   const sec = (loc.sections || {})[key] || {};
   return el('div', { className: 'pv__section', 'data-pv': pvKey },
-    sec.num ? el('span', { className: 'pv__num' }, sec.num) : null,
     pvEditable(el('h4', { className: 'pv__h', html: pvHtml(sec.title) }, ), sec, 'title'),
     sec.desc
       ? pvEditable(el('p', { className: 'pv__desc', html: pvHtml(sec.desc) }), sec, 'desc')

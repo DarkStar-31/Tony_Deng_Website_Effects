@@ -86,30 +86,25 @@
   },
   "sections": {
     "music": {
-      "num": "01",
       "title": "Releases",
       "desc": "Two albums and eleven singles, released since 2021. Every track written, composed and performed by Tony."
     },
     "videos": {
-      "num": "02",
       "title": "Visuals",
       "desc": "",
       "more": "More visuals"
     },
     "about": {
-      "num": "03",
       "title": "About",
       "desc": "Jinan to Beijing to New York to Seattle to Nashville — a life lived alongside music."
     },
     "milestones": {
-      "num": "04",
       "title": "Milestones",
       "desc": "From the first single onward...",
       "more": "See more"
     },
     "$pressComment": "Section 05 is In the Making. The key, the page file (press.html) and the #press anchor keep their old names so existing links still resolve; only what readers see changed.",
     "press": {
-      "num": "05",
       "title": "In the Making",
       "desc": "New songs in progress — notes from the studio as they take shape."
     },
@@ -118,7 +113,6 @@
       "desc": "Coverage and posts about Tony, from Weibo and the press."
     },
     "contact": {
-      "num": "06",
       "title": "Get in touch",
       "desc": "For inquiries, licensing and collaboration."
     }

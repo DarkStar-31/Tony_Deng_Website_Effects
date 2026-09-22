@@ -860,10 +860,6 @@ img{ display:block; max-width:100%; }
    ends in a description closes up. A bare title (Visuals) keeps the full gap,
    and a browser without :has() simply keeps the old spacing. */
 .section__head:has(> .section__desc){ margin-bottom:1.75rem; }
-.section__num{
-  font-size:.72rem; letter-spacing:.24em; color:var(--magenta);
-  display:block; margin-bottom:.9rem;
-}
 .section__title{
   font-family:var(--f-serif); font-weight:400;
   font-size:clamp(2.4rem,5.5vw,3.9rem); line-height:1.02;
@@ -895,9 +891,6 @@ img{ display:block; max-width:100%; }
               0 0 18px rgba(250,39,159,1),
               0 0 48px rgba(250,39,159,.9),
               0 0 110px rgba(250,39,159,.55);
-}
-.is-playing .section__num{
-  text-shadow:0 0 12px rgba(250,39,159,.6);
 }
 /* Wide enough that a one-sentence standfirst like About's route (Jinan to
    ... Nashville) stays on one line on a desktop window - the old 38rem cap

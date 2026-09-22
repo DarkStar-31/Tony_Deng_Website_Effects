@@ -367,10 +367,6 @@ def section_head(loc: dict, key: str, href: str | None = None,
     if aside:
         out.append('    <div class="section__headline">')
     pad = "      " if aside else "    "
-    # unnumbered sections belong to the page above them rather than being
-    # one of the site's six
-    if sec.get("num"):
-        out.append(f'{pad}<span class="section__num">{sec["num"]}</span>')
     out += [
         f'{pad}<h2 class="section__title">{title}</h2>',
     ]
@@ -1371,7 +1367,6 @@ def render_contact(loc: dict, shared: dict) -> list[str]:
         '<section class="section section--alt" id="contact">',
         '  <div class="contact">',
         '    <div class="contact__lead reveal">',
-        f'      <span class="section__num">{sec["num"]}</span>',
         f'      <h2 class="section__title">{sec["title"]}</h2>',
         f'      <p class="section__desc">{with_breaks(sec["desc"])}</p>',
         '      <div class="contact__actions">',
