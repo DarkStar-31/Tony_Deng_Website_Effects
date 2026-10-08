@@ -1408,8 +1408,13 @@ class SinglesYears {
    Scroll-linked, never hijacked: the page scrolls normally through a tall
    block while its stage stays pinned, and this only turns how far through
    the block the reader is into one angle the stylesheet places every card
-   from. The cover in the middle never moves. It eases towards that point rather than jumping to it, so a flick of
-   the wheel coasts instead of stepping.
+   from. The cover in the middle never moves. It eases towards that point
+   rather than jumping to it, so a flick of the wheel coasts instead of
+   stepping.
+
+   Every ring on the page gets one of these and they all turn together, each
+   at the same rate against the same scrolling - see `read` below for why
+   that is worth saying.
    --------------------------------------------------------- */
 class Orbit {
   constructor (root, turns = 1.25) {
@@ -1421,16 +1426,14 @@ class Orbit {
     this.turns = turns;
     this.target = 0;
     this.now = 0;
+    this.first = true;
     this.raf = 0;
 
     this.root.classList.add('is-live');
     this.tick = this.tick.bind(this);
 
-    // Up/down arrows: step the ring one picture at a time. A step is one
-    // n-th of a turn; the page scrolls exactly as far as that takes.
+    // Up/down arrows: jump a whole ring at a time (see step).
     this.nav = this.root.querySelector('[data-orbit-nav]');
-    this.count = this.scene.querySelectorAll('.orbit__card').length || 1;
-    this.aim = null;
     if (this.nav) {
       this.nav.hidden = false;
       this.nav.querySelectorAll('[data-orbit-step]').forEach((b) => {
@@ -1444,7 +1447,20 @@ class Orbit {
       // happened with the stage already sliding up under the nav.
       const pin = parseFloat(getComputedStyle(this.stage).top) || 0;
       const run = this.root.offsetHeight - this.stage.offsetHeight;
-      this.target = run > 0 ? Math.min(1, Math.max(0, (pin - box.top) / run)) : 0;
+      // Not clamped to 0..1, on purpose. Clamped, a ring stood perfectly
+      // still until its own block reached the top of the screen and froze
+      // again the moment it left, so however many rings the page had,
+      // exactly one was ever moving - and pressing an arrow spun the ring
+      // you were leaving while the one you landed on sat there. Letting
+      // progress run past both ends turns every ring on the page at the same
+      // rate, so one is already moving as it comes up the screen and carries
+      // on as it goes. A ring is symmetric, so an angle from outside its own
+      // run looks like any other angle.
+      this.target = run > 0 ? (pin - box.top) / run : 0;
+      // The first reading is where this ring starts, not somewhere to ease
+      // towards: coming from 0 would spin every ring on the page once over
+      // before anybody had scrolled anything.
+      if (this.first) { this.first = false; this.now = this.target; }
       // The way back up is offered once the stage has pinned - the ring
       // starts high enough on the page to fill the screen before any
       // scrolling, and a "back to top" button at the top is noise - and for
@@ -1459,34 +1475,27 @@ class Orbit {
     read();
   }
 
-  /* Scroll so the ring lands on the next (+1) or previous (-1) picture.
-     Presses in quick succession count on from where the last one was
-     headed, not from wherever the smooth scroll has got to so far. Past
-     either end it lets go of the ring: down to what follows, up to the
-     heading above. */
-  step (dir) {
-    const box = this.root.getBoundingClientRect();
-    const pin = parseFloat(getComputedStyle(this.stage).top) || 0;
-    const run = this.root.offsetHeight - this.stage.offsetHeight;
-    if (run <= 0) return;
-    const top = box.top + scrollY;              // the ring's place on the page
-    // the whole run turns the ring `turns` times, one picture per n-th of a
-    // turn, so progress k / (turns * n) puts picture k at the front
-    const span = this.turns * this.count;
+  /* Scroll to the start of the ring below (+1) or above (-1) this one.
 
-    const fresh = !this.aim || performance.now() - this.aim.at > 900;
-    // from between two pictures, "next" is the one just ahead and "previous"
-    // the one just behind, rather than whichever is nearer
-    const at = this.target * span;
-    const k = fresh
-      ? (dir > 0 ? Math.floor(at + 0.02) + 1 : Math.ceil(at - 0.02) - 1)
-      : this.aim.k + dir;
-    this.aim = { k, at: performance.now() };
+     A press used to advance the ring by one picture. On a ten-picture ring
+     that is ten presses to reach the next thing on the page, and each one
+     moved the view so little that the arrows read as a way of turning the
+     ring rather than a way of getting past it - which the scroll wheel
+     already does, better. A ring is the unit worth jumping.
+
+     Past either end it lets go: down to whatever follows the last ring, up
+     to the heading above the first. */
+  step (dir) {
+    const rings = [...document.querySelectorAll('[data-orbit]')];
+    const here = rings.indexOf(this.root);
+    const next = here < 0 ? null : rings[here + dir];
+    const pin = parseFloat(getComputedStyle(this.stage).top) || 0;
+    const top = this.root.getBoundingClientRect().top + scrollY;
 
     let y;
-    if (k > Math.floor(span)) y = top + this.root.offsetHeight - pin;    // past the end
-    else if (k < 0) y = top - innerHeight * 0.45;                        // back above it
-    else y = top - pin + (k / span) * run;
+    if (next) y = next.getBoundingClientRect().top + scrollY - pin;
+    else if (dir > 0) y = top + this.root.offsetHeight - pin;   // past the last
+    else y = top - innerHeight * 0.45;                          // back above the first
     scrollTo({ top: Math.max(0, y), behavior: REDUCED ? 'auto' : 'smooth' });
   }
 

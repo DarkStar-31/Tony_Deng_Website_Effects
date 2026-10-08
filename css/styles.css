@@ -1323,6 +1323,12 @@ html[lang^="zh"] .card__badge{ letter-spacing:.04em; text-transform:none; font-s
    it has been carried out to the rim, so it always faces the reader instead
    of showing its back half the time.
 
+   --tilt, --lean and --dir are the three the content can set, per ring:
+   build.py writes them onto .orbit as an inline style when shared.json says
+   so, and the values below are what a ring that has never been adjusted
+   uses. The admin's ring dial draws the same three in JavaScript, so keep
+   the defaults here and RING_DEFAULTS in admin/preview.js in step.
+
    Everything sits in one 3D context, cover included, so the browser does the
    depth sorting: cards on the near side pass in front of the cover and the
    far side goes behind it, with no z-index bookkeeping.
@@ -1336,6 +1342,11 @@ html[lang^="zh"] .card__badge{ letter-spacing:.04em; text-transform:none; font-s
   --r:min(44vw, 32rem, 42vh);      /* ring radius */
   --tilt:26deg;
   --lean:-20deg;
+  /* which way scrolling turns the ring: 1 clockwise, -1 the other way. It
+     flips the sign of the angle the script writes rather than the angle
+     each card sits at, so the ring is arranged identically at rest and only
+     the direction of travel changes. */
+  --dir:1;
   --card:clamp(4.5rem, min(11vw, 15vh), 9rem);
   --cover:clamp(8rem, min(18vw, 26vh), 15rem);
   position:relative;
@@ -1379,7 +1390,7 @@ html[lang^="zh"] .card__badge{ letter-spacing:.04em; text-transform:none; font-s
    transform rather than by a margin. Being leftmost it is applied last,
    after the card has been carried out to the rim. */
 .orbit__card{
-  --a:calc(var(--i) * 360deg / var(--n) + var(--spin));
+  --a:calc(var(--i) * 360deg / var(--n) + var(--spin) * var(--dir));
   width:auto; height:auto;
   max-width:calc(var(--card) * 1.7); max-height:calc(var(--card) * 1.25);
   transform:
@@ -1706,8 +1717,6 @@ html[lang^="zh"] .photo__tag{ font-size:.72rem; letter-spacing:.06em; }
 }
 
 /* ================= NOW RECORDING ================= */
-.making__block .subhead{ margin-top:clamp(1rem,3vw,2rem); }
-.making__lede{ max-width:44rem; color:#B9B2AB; margin:0; }
 /* A ring photo with a description is a button: it answers the pointer.
    Only the outline and brightness change - the transform belongs to the
    orbit and cannot take a hover scale on top without fighting it. */

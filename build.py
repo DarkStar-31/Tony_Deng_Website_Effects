@@ -850,59 +850,6 @@ def render_visuals_grid(loc: dict, shared: dict) -> list[str]:
     return out
 
 
-def render_recording(loc: dict, shared: dict) -> list[str]:
-    """In the Making > Now Recording: its own heading and a second ring.
-
-    The same markup and stylesheet as render_orbit, with two differences: the
-    centre is an image path rather than a release, and a ring photo that has
-    a description is a button into the detail view instead of decoration.
-    """
-    p = loc["assetPrefix"]
-    rec = shared["recording"]
-    r = loc["recording"]
-    out = [
-        '  <div class="making__block">',
-        f'    <h3 class="subhead reveal">{r["title"]}</h3>',
-    ]
-    if r.get("desc"):
-        out.append(f'    <p class="making__lede reveal">{r["desc"]}</p>')
-    out += [
-        "  </div>",
-        '  <div class="orbit orbit--recording" data-orbit>',
-        '    <div class="orbit__stage">',
-        f'      <div class="orbit__scene" style="--n:{len(rec["photos"])}">',
-        f'        <img class="orbit__centre" src="{p}{rec["centre"]}" alt="{attr(r.get("centreAlt", ""))}">',
-    ]
-    templates = []
-    for i, photo in enumerate(rec["photos"]):
-        c = r["photos"].get(photo["id"], {})
-        desc = c.get("desc", "").strip()
-        src = f'{p}{photo["src"]}'
-        if opens_into_lens(photo, desc):
-            tid = f'lens-{photo["id"]}'
-            caption = c.get("caption", "")
-            label = f'{loc["lens"]["open"]}: {plain(caption)}'
-            out.append(
-                f'        <img class="orbit__card" style="--i:{i}" src="{src}" alt="{attr(label)}"'
-                f' role="button" tabindex="0" aria-haspopup="dialog" data-lens="{attr(tid)}" decoding="async">'
-            )
-            templates += lens_template(tid, r["title"], caption, desc)
-        else:
-            out.append(
-                f'        <img class="orbit__card" style="--i:{i}" src="{src}"'
-                ' alt="" aria-hidden="true" decoding="async">'
-            )
-    out += [
-        "      </div>",
-        "    </div>",
-        f'    <a class="to-top" href="#top" data-to-top>&uarr;&#160;{loc["footer"]["backToTop"]}</a>',
-    ]
-    out += orbit_nav(loc, 4)
-    out += ["    " + l for l in templates]
-    out.append("  </div>")
-    return out
-
-
 def section_cta(href: str, label: str) -> list[str]:
     return ["", '  <p class="section__cta reveal">', f'    <a href="{attr(href)}">{label}</a>', "  </p>"]
 
@@ -1285,11 +1232,58 @@ def render_milestones(loc: dict, shared: dict, full: bool = False) -> list[str]:
     return out
 
 
+# What a ring uses when the content does not say. These are the same three
+# values styles.css declares on .orbit; they are repeated here so that a
+# ring nobody has adjusted emits no inline style at all, and content/ only
+# carries the angles somebody actually chose.
+ORBIT_DEFAULTS = {"tilt": 26, "lean": -20, "dir": 1}
+
+
+def orbit_style(cfg: dict, where: str) -> str:
+    """The inline `style` for one ring's geometry, or "" for a ring left alone.
+
+    `tilt` turns the ring's long axis away from horizontal, `lean` tips it
+    towards the reader - between them they are the ellipse the photos travel
+    round - and `dir` is which way scrolling turns it. The stylesheet does
+    the work; this only hands it three numbers.
+
+    A bad value stops the build rather than reaching the page as a broken
+    `calc()`, which would collapse the whole ring into a heap at the centre
+    and give no clue why.
+    """
+    parts = []
+    for key in ("tilt", "lean"):
+        if key not in cfg:
+            continue
+        val = cfg[key]
+        if isinstance(val, bool) or not isinstance(val, (int, float)) or not -90 <= val <= 90:
+            raise SystemExit(f"{where}.{key}: {val!r} is not a number of degrees between -90 and 90")
+        if val != ORBIT_DEFAULTS[key]:
+            parts.append(f"--{key}:{val:g}deg")
+    if "dir" in cfg:
+        # `is True` would read as 1 and pass silently, which is not what
+        # someone typing `"dir": true` into the raw JSON means to say
+        if isinstance(cfg["dir"], bool) or cfg["dir"] not in (1, -1):
+            raise SystemExit(f"{where}.dir: {cfg['dir']!r} is not 1 (clockwise) or -1 (anticlockwise)")
+        if cfg["dir"] != ORBIT_DEFAULTS["dir"]:
+            parts.append("--dir:-1")
+    return f' style="{";".join(parts)}"' if parts else ""
+
+
+# `--n` on .orbit__scene is simply how many pictures the ring has, and each
+# card carries its own `--i`; the stylesheet turns the pair into
+# `--i * 360deg / --n`. So the spacing is a division, not a stored angle -
+# take a picture out or add one and the rest are evenly spaced again on the
+# next build, with nothing to tidy up. ringFigure in admin/preview.js does
+# the same division, so both previews agree.
 def orbit_nav(loc: dict, pad: int) -> list[str]:
     """Up and down arrows at the side of the screen while a ring is pinned:
-    each press scrolls just far enough to bring the next picture round to the
-    front. Orbit in main.js shows them and does the scrolling; with no script
-    the ring is not pinned and they stay hidden."""
+    each press scrolls to the start of the ring above or below this one.
+    Orbit in main.js shows them and does the scrolling; with no script the
+    ring is not pinned and they stay hidden.
+
+    The labels are for screen readers only - the buttons themselves are
+    chevrons - which is why `orbitNav` is two words and no heading."""
     nav = loc.get("orbitNav")
     if not nav:
         return []
@@ -1304,29 +1298,81 @@ def orbit_nav(loc: dict, pad: int) -> list[str]:
     ]
 
 
-def render_orbit(loc: dict, shared: dict) -> list[str]:
-    """A ring of photos circling an album cover, turned by scrolling.
+def ring_centre(loc: dict, shared: dict, ring: dict, words: dict) -> tuple:
+    """A ring's middle, as (src, alt).
 
-    Plain CSS 3D, driven by `Orbit` in main.js: the script only writes how far
-    through the block the reader is, and the stylesheet places every card from
-    that. The cards are real <img>s laid out at rest, so with JS off (or with
-    reduced motion) this is a still ring rather than an empty tall box.
+    Either a release - whose cover and alt text the rest of the site already
+    shows, so the ring circles something the reader has seen - or a picture
+    of its own with its own alt text. A ring can have neither, and then it
+    turns around a hole, which is a legitimate thing to want and is what a
+    ring looks like the moment it is added.
+    """
+    centre = ring.get("centre") or {}
+    if centre.get("release"):
+        rid = centre["release"]
+        rel = next((r for r in shared["releases"] if r["id"] == rid), None)
+        if rel is None:
+            raise SystemExit(f'rings[{ring["id"]}].centre.release: no release named {rid}')
+        return rel["art"], loc["releases"].get(rid, {}).get("alt", "")
+    if centre.get("src"):
+        return centre["src"], words.get("centreAlt", "")
+    return None, ""
+
+
+def render_ring(loc: dict, shared: dict, ring: dict) -> list[str]:
+    """One ring of pictures turning round a still centre.
+
+    Plain CSS 3D, driven by `Orbit` in main.js: the script only writes how
+    far through the block the reader is, and the stylesheet places every card
+    from that. The cards are real <img>s laid out at rest, so with JS off (or
+    with reduced motion) this is a still ring rather than an empty tall box.
+
+    Every ring on the page is this one function. There used to be two, one
+    per ring, which is why a picture could open into the detail view on the
+    first ring and not on the second - a difference that lived in the code
+    and meant nothing on the page. A ring is content now (shared.json ->
+    rings), so there can be any number of them, they can be reordered, and
+    every picture on every one of them is the same kind of thing.
+
+    `--n` is simply how many pictures the ring has and each card carries its
+    own `--i`; the stylesheet turns the pair into `--i * 360deg / --n`. The
+    spacing is a division, not a stored angle, so adding or removing a
+    picture leaves the rest evenly spaced with nothing to tidy up.
     """
     p = loc["assetPrefix"]
-    orb = shared["orbit"]
-    rel = next(r for r in shared["releases"] if r["id"] == orb["centre"])
-    alt = loc["releases"][orb["centre"]]["alt"]
+    words = loc.get("rings", {}).get(ring["id"], {})
+    captions = words.get("photos", {})
+    photos = ring.get("photos", [])
+
     out = [
-        '  <div class="orbit" data-orbit>',
+        f'  <div class="orbit" data-orbit{orbit_style(ring, "rings." + ring["id"])}>',
         '    <div class="orbit__stage">',
-        f'      <div class="orbit__scene" style="--n:{len(orb["photos"])}">',
-        f'        <img class="orbit__centre" src="{p}{rel["art"]}" alt="{attr(alt)}">',
+        f'      <div class="orbit__scene" style="--n:{len(photos)}">',
     ]
-    for i, photo in enumerate(orb["photos"]):
-        out.append(
-            f'        <img class="orbit__card" style="--i:{i}" src="{p}{photo}"'
-            ' alt="" aria-hidden="true" decoding="async">'
-        )
+    src, alt = ring_centre(loc, shared, ring, words)
+    if src:
+        out.append(f'        <img class="orbit__centre" src="{p}{src}" alt="{attr(alt)}">')
+
+    templates = []
+    for i, photo in enumerate(photos):
+        c = captions.get(photo["id"], {})
+        desc = c.get("desc", "").strip()
+        caption = c.get("caption", "")
+        img = f'{p}{photo["src"]}'
+        if opens_into_lens(photo, desc):
+            tid = f'lens-{photo["id"]}'
+            label = f'{loc["lens"]["open"]}: {plain(caption)}'
+            out.append(
+                f'        <img class="orbit__card" style="--i:{i}" src="{img}" alt="{attr(label)}"'
+                f' role="button" tabindex="0" aria-haspopup="dialog" data-lens="{attr(tid)}" decoding="async">'
+            )
+            templates += lens_template(tid, "", caption, desc)
+        else:
+            out.append(
+                f'        <img class="orbit__card" style="--i:{i}" src="{img}"'
+                ' alt="" aria-hidden="true" decoding="async">'
+            )
+
     # Outside the stage on purpose: the stage carries a perspective, which
     # would make it the box a position:fixed child is pinned to.
     out += [
@@ -1335,26 +1381,38 @@ def render_orbit(loc: dict, shared: dict) -> list[str]:
         f'    <a class="to-top" href="#top" data-to-top>&uarr;&#160;{loc["footer"]["backToTop"]}</a>',
     ]
     out += orbit_nav(loc, 4)
+    out += ["    " + l for l in templates]
     out.append("  </div>")
     return out
 
 
 def render_making(loc: dict, shared: dict) -> list[str]:
-    """Section 05, "In the Making" - the heading and the orbit, until the
-    notes that belong here are written.
+    """Section 05, "In the Making" - the heading and then the rings.
 
-    The file is `making.html`, but the content key and the `#press` anchor
-    keep their old names, so existing links to #press still land somewhere
-    sensible. The coverage this section used to carry now closes the About
-    page (`render_press`); `render_press_rail` and `PressStage` are unused.
+    The file is `inthemaking.html`, but the content key and the `#press`
+    anchor keep their old names, so existing links to #press still land
+    somewhere sensible. The coverage this section used to carry now closes
+    the About page (`render_press`); `render_press_rail` and `PressStage`
+    are unused.
+
+    There is no fixed number of rings: the section is whatever `rings` in
+    shared.json holds, in that order.
     """
     out = [
         "<!-- ================= 05 IN THE MAKING ================= -->",
         '<section class="section section--lead" id="press">',
     ] + section_head(loc, "press") + [""]
-    if shared.get("recording"):
-        out += render_recording(loc, shared) + [""]
-    out += render_orbit(loc, shared) + ["</section>"]
+    for ring in shared.get("rings", []):
+        # A ring with no pictures is not a ring: once the script runs it is
+        # three screens of nothing to scroll past, and the arrows would count
+        # it as somewhere to go. One gets added empty and filled in, so this
+        # is the state it is in for as long as that takes.
+        if not ring.get("photos"):
+            continue
+        out += render_ring(loc, shared, ring) + [""]
+    if out[-1] == "":
+        out.pop()
+    out.append("</section>")
     return out
 
 

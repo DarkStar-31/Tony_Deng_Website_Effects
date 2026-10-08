@@ -535,13 +535,122 @@ function pvPressBody(loc, shared) {
   ];
 }
 
-/* In the Making: the heading, Now Recording, and the ring that turns. */
+/* ------------------------------------------------------------ the rings
+
+   Both rings are drawn here rather than in admin.js, because two places
+   want the same picture and they want it to be the same picture: the rail
+   needs the ring to be recognisable as the thing on the page, and the
+   sliders on the In the Making tab need it to answer while they are being
+   dragged.
+
+   It is the site's own transform, done in arithmetic. styles.css carries
+   each card out to the rim and turns it back to face the reader:
+
+     rotateZ(tilt) rotateX(lean) rotateY(a) translateZ(r)
+
+   Working that through, a card at angle `a` round the ring lands at
+
+     x = r * ( sin a * cos tilt + cos a * sin lean * sin tilt )
+     y = r * ( sin a * sin tilt - cos a * sin lean * cos tilt )
+     z = r *   cos a * cos lean
+
+   so this is the same ellipse at the same lean, turning the same way. `z`
+   buys the two things the browser does for nothing on the real page: near
+   cards are bigger (the stage's `perspective`) and far ones are dimmer (the
+   `brightness` on .orbit__card), and it decides the stacking, which is what
+   makes the near side of the ring pass in front of the centre.
+
+   The shares of `r` below are measured off the stylesheet at a typical
+   desktop size - they are what --card and --cover come out as next to --r,
+   not new numbers. The ring is a schematic either way; what has to be true
+   is the shape, the lean and the direction.
+*/
+
+/* What a ring uses when the content does not say: the same three values
+   styles.css declares on .orbit, and ORBIT_DEFAULTS in build.py. Keep all
+   three in step. */
+const RING_DEFAULTS = { tilt: 26, lean: -20, dir: 1 };
+
+function ringGeom(cfg) {
+  const num = (v, fallback) => (typeof v === 'number' && isFinite(v) ? v : fallback);
+  return {
+    tilt: num(cfg && cfg.tilt, RING_DEFAULTS.tilt),
+    lean: num(cfg && cfg.lean, RING_DEFAULTS.lean),
+    dir: (cfg && cfg.dir) === -1 ? -1 : 1,
+  };
+}
+
+/** Where a ring's middle picture comes from: a release's cover, or one of
+ *  its own, or nothing. Mirrors ring_centre in build.py. */
+function ringCentreSrc(shared, ring) {
+  const centre = (ring && ring.centre) || {};
+  if (centre.release) {
+    const rel = (shared.releases || []).find((r) => r.id === centre.release);
+    return (rel && rel.art) || null;
+  }
+  return centre.src || null;
+}
+
+/** One ring: `items` are {src, pv}, `centre` an image path, `cfg` the ring's
+ *  own slice of shared.json. Returns the node, with `update(spin)` on it so
+ *  a caller can turn it without rebuilding anything. */
+function ringFigure(cfg, items, centre, opts = {}) {
+  const r = opts.r || 46;
+  const cardW = r * 0.61;             // .orbit__card max-width, against --r
+  const cardH = r * 0.45;             // ...and its max-height
+  const cover = Math.round(r * 0.62); // .orbit__centre
+  const persp = r * 3;                // .orbit__stage perspective
+  const near = persp / (persp - r);   // the largest a card ever draws
+
+  const box = el('div', { className: opts.className || 'ring' });
+  if (centre) {
+    box.append(el('img', { className: 'ring__mid', src: '/' + centre, alt: '', loading: 'lazy',
+                           style: `width:${cover}px;height:${cover}px` }));
+  }
+  const pics = items.map((it) => el('img', {
+    className: 'ring__pic', src: '/' + it.src, alt: '', loading: 'lazy', 'data-pv': it.pv,
+    style: `max-width:${cardW.toFixed(1)}px;max-height:${cardH.toFixed(1)}px`,
+  }));
+  pics.forEach((pic) => box.append(pic));
+
+  /* `cfg` is read here rather than captured, so a slider that writes a new
+     angle straight into shared.json is shown by the next frame without
+     anything having to be rebuilt. */
+  const place = (spin) => {
+    const g = ringGeom(cfg);
+    const rz = g.tilt * Math.PI / 180;
+    const rx = g.lean * Math.PI / 180;
+    const count = Math.max(pics.length, 1);
+    pics.forEach((pic, i) => {
+      const a = (i * 360 / count + spin * g.dir) * Math.PI / 180;
+      const sa = Math.sin(a);
+      const ca = Math.cos(a);
+      const x = r * (sa * Math.cos(rz) + ca * Math.sin(rx) * Math.sin(rz));
+      const y = r * (sa * Math.sin(rz) - ca * Math.sin(rx) * Math.cos(rz));
+      const z = r * ca * Math.cos(rx);
+      pic.style.transform = `translate(-50%,-50%) translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`
+                          + ` scale(${(persp / (persp - z)).toFixed(3)})`;
+      pic.style.filter = `brightness(${(0.62 + 0.38 * ca).toFixed(3)})`;
+      pic.style.zIndex = String(100 + Math.round(z));
+    });
+    // Sized to the ellipse it is holding, so no angle clips and the ring
+    // stays centred in the rail as it is tipped.
+    const ax = r * Math.hypot(Math.cos(rz), Math.sin(rx) * Math.sin(rz));
+    const ay = r * Math.hypot(Math.sin(rz), Math.sin(rx) * Math.cos(rz));
+    box.style.width = `${Math.ceil(2 * (ax + cardW * near / 2))}px`;
+    box.style.height = `${Math.ceil(2 * (ay + cardH * near / 2))}px`;
+    box.spin = spin;
+  };
+
+  box.update = (spin) => place(typeof spin === 'number' ? spin : (box.spin || 0));
+  place(opts.spin || 0);
+  return box;
+}
+
+/* In the Making: the heading, and then a ring for each one the content has. */
 function previewMaking() {
   const loc = LOC(UI.lang);
   const shared = SHARED();
-  const rec = shared.recording;
-  const recText = loc.recording || {};
-  const orbit = shared.orbit;
 
   return el('div', { className: 'pv' },
     pvChrome(loc, shared, 'press'),
@@ -549,21 +658,14 @@ function previewMaking() {
       pvNav(loc),
       el('div', { className: 'pv__body' },
         pvSection(loc, 'press', 'making.heading'),
-        rec
-          ? el('div', { className: 'pv__rec', 'data-pv': 'making.recording' },
-              el('h5', { className: 'pv__rech', html: pvHtml(recText.title) }),
-              recText.desc ? el('p', { className: 'pv__recdesc', html: recText.desc }) : null,
-              el('div', { className: 'pv__ring' },
-                el('img', { className: 'pv__ringmid', src: '/' + rec.centre, alt: '', loading: 'lazy' }),
-                ...(rec.photos || []).slice(0, 5).map((ph) =>
-                  el('img', { className: 'pv__ringpic', src: '/' + ph.src, alt: '', loading: 'lazy' }))))
-          : null,
-        orbit
-          ? el('div', { className: 'pv__rec', 'data-pv': 'making.orbit' },
-              el('div', { className: 'pv__ring' },
-                ...(orbit.photos || []).slice(0, 6).map((src) =>
-                  el('img', { className: 'pv__ringpic', src: '/' + src, alt: '', loading: 'lazy' }))))
-          : null)),
+        ...(shared.rings || []).map((ring) =>
+          el('div', { className: 'pv__rec', 'data-pv': `making.ring:${ring.id}` },
+            ringFigure(
+              ring,
+              (ring.photos || []).map((ph) => ({ src: ph.src, pv: `making.ring.${ring.id}:${ph.id}` })),
+              ringCentreSrc(shared, ring),
+              { className: 'ring ring--pv' },
+            ))))),
   );
 }
 

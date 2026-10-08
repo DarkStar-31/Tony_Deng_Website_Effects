@@ -1786,7 +1786,8 @@ function renderPhotos() {
   shared.photos.forEach((ph, i) => {
     const enP = LOC('en').photos[ph.id] || (LOC('en').photos[ph.id] = { caption: '' });
     const zhP = LOC('zh').photos[ph.id] || (LOC('zh').photos[ph.id] = { caption: '' });
-    const opens = opensInto(ph, enP, zhP) ? el('span', { className: 'live' }, T('opens')) : null;
+    const opensNow = opensInto(ph, enP, zhP);
+    const opens = opensNow ? el('span', { className: 'live' }, T('opens')) : null;
     const title = el('span', {}, enP.caption || T('(no caption)'), ' ', opens, el('small', {}, ph.id));
 
     const body = el('div', { className: 'vidrow' },
@@ -1807,14 +1808,18 @@ function renderPhotos() {
           field('Size', choice(ph, 'size', PHOTO_SIZES)),
           field('Category', choice(ph, 'tag', tagKeys.map((k) => [k, LOC('en').photoTags[k]]))),
         ),
+        // The caption stays either way: it is the tile's own words and its
+        // alt text, not only the heading of the card. The description is
+        // nothing but the body of that card, so a picture that does not
+        // open has nowhere to put one.
         bi('Caption', 'caption', (l) => (l === 'en' ? enP : zhP)),
         opensCheck(ph, enP, zhP, rerender),
-        bi('Description', 'desc', (l) => (l === 'en' ? enP : zhP),
-           { multiline: true, rows: 4, dropWhenEmpty: true,
-             hint: opensInto(ph, enP, zhP)
-               ? DESC_HINT
-               : 'This picture does not open, so nothing here is shown. Tick the box above to '
-                 + 'use it.' }),
+        opensNow
+          ? bi('Description', 'desc', (l) => (l === 'en' ? enP : zhP),
+            { multiline: true, rows: 4, dropWhenEmpty: true, hint: DESC_HINT })
+          : el('p', { className: 'hint' },
+            T('The picture does not open, so it has no description. Anything written here before '
+              + 'is kept, and comes back if the box is ticked again.')),
       ));
 
     const remove = el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
@@ -1851,80 +1856,452 @@ function renderPhotos() {
   return out;
 }
 
-// ---------------------------------------------------------------- recording
+// ---------------------------------------------------------------- rings
 
-function renderRecording() {
+/* The rings' names in the admin.
+ *
+ * Neither ring has a name on the page any more, so the admin gives them one
+ * and lets you change it. A rename is stored in `shared.adminRings`, keyed
+ * by ring id and only when it differs from the built-in name, exactly as a
+ * tab rename is: one editor telling the other which ring is which, so it
+ * shows in both interface languages and only the built-in names follow the
+ * switch. build.py never looks at the key.
+ *
+ * Same cost as the tabs', too: a rename is a content change, so it needs
+ * Save draft and Publish like any other edit.
+ */
+function ringLabel(id, index) {
+  const names = state.files ? SHARED().adminRings : null;
+  return (names && names[id]) || T('Ring {n}', { n: index + 1 });
+}
+
+function setRingLabel(id, index, name) {
   const shared = SHARED();
-  const rec = shared.recording;
-  if (!rec) return [];
-  const rerender = () => renderPanel();
-  for (const l of ['en', 'zh']) {
-    if (!LOC(l).recording) LOC(l).recording = { title: '', photos: {} };
-    if (!LOC(l).recording.photos) LOC(l).recording.photos = {};
+  const names = shared.adminRings || (shared.adminRings = {});
+  // typing the built-in name back in clears the override rather than pinning
+  // it, compared against the name on screen so it works in either language
+  if (name === T('Ring {n}', { n: index + 1 })) delete names[id];
+  else names[id] = name;
+  if (!Object.keys(names).length) delete shared.adminRings;
+}
+
+/** Double-click a ring's name and type. Enter or clicking away keeps it,
+ *  Escape does not - the same bargain as renaming a tab. */
+function renameRing(span, id, index) {
+  if (span.isContentEditable) return;
+  const before = ringLabel(id, index);
+
+  // plaintext-only keeps pasted markup out; not every browser has it yet
+  span.contentEditable = 'plaintext-only';
+  if (span.contentEditable !== 'plaintext-only') span.contentEditable = 'true';
+  span.classList.add('is-editing');
+  span.focus();
+
+  const range = document.createRange();
+  range.selectNodeContents(span);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+
+  let done = false;
+  const finish = (keep) => {
+    if (done) return;
+    done = true;
+    span.removeEventListener('keydown', onKey);
+    span.removeEventListener('blur', onBlur);
+    span.contentEditable = 'false';
+    span.classList.remove('is-editing');
+    window.getSelection().removeAllRanges();
+
+    const next = span.textContent.replace(/\s+/g, ' ').trim();
+    if (keep && next && next !== before) {
+      setRingLabel(id, index, next);
+      markDirty();
+    }
+    // kept, cancelled or left empty, the row shows what is stored
+    span.textContent = ringLabel(id, index);
+  };
+
+  const onKey = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+  };
+  const onBlur = () => finish(true);
+
+  span.addEventListener('keydown', onKey);
+  span.addEventListener('blur', onBlur);
+}
+
+/** The words out of a line of authored copy, for somewhere that can only
+ *  take text - an <option>, which renders markup as markup. */
+function plainWords(html) {
+  const box = document.createElement('div');
+  box.innerHTML = String(html || '');
+  return (box.textContent || '').trim();
+}
+
+/* The rings on In the Making, in the order the page shows them.
+ *
+ * They used to be two keys in shared.json with a renderer each, `recording`
+ * and `orbit`, which is why a picture could open into a card on one ring and
+ * not on the other: the difference lived in the code and meant nothing on the
+ * page. They are one list now, so there can be any number of them and every
+ * picture on every one of them is the same kind of thing.
+ *
+ * What is returned is a view of the live content - `cfg` and `arr` are the
+ * objects out of state.files - which is what lets a slider write an angle
+ * straight into shared.json.
+ */
+function ringList() {
+  const shared = SHARED();
+  const rings = shared.rings || (shared.rings = []);
+  for (const l of ['en', 'zh']) if (!LOC(l).rings) LOC(l).rings = {};
+
+  return rings.map((ring, index) => {
+    const photos = ring.photos || (ring.photos = []);
+    // a ring's words, made on demand: a ring added here has no locale entry
+    // until something is written into it
+    const words = (l) => {
+      const all = LOC(l).rings;
+      const mine = all[ring.id] || (all[ring.id] = { centreAlt: '', photos: {} });
+      if (!mine.photos) mine.photos = {};
+      return mine;
+    };
+    return {
+      id: ring.id,
+      index,
+      name: ringLabel(ring.id, index),
+      cfg: ring,
+      arr: photos,
+      words,
+      centre: ringCentreSrc(shared, ring),
+      src: (ph) => ph.src,
+      key: (ph) => `making.ring.${ring.id}:${ph.id}`,
+      label: (ph) => plainWords(words('en').photos[ph.id]?.caption) || ph.id,
+      pv: `making.ring:${ring.id}`,
+      dir: 'img/rings',
+      add: (path) => {
+        // ids are a numbered run per ring, so a new one carries it on
+        const taken = photos.map((x) => x.id);
+        let n = taken.length + 1;
+        let id = `${ring.id}-${String(n).padStart(2, '0')}`;
+        while (taken.includes(id)) id = `${ring.id}-${String(++n).padStart(2, '0')}`;
+        photos.push({ id, src: path });
+        for (const l of ['en', 'zh']) words(l).photos[id] = { caption: '' };
+      },
+      drop: (i) => {
+        const [gone] = photos.splice(i, 1);
+        for (const l of ['en', 'zh']) delete words(l).photos[gone.id];
+      },
+    };
+  });
+}
+
+/* The two angles and the direction, with the ring itself drawn beside them.
+ *
+ * The dial is the point of this card. Tilt and lean are not numbers anyone
+ * can hold in their head - "26 and -20" is not a picture of anything - and
+ * direction cannot be seen at all on a ring that is standing still. So the
+ * dial turns, and it is the same arithmetic the stylesheet does rather than
+ * an impression of it: ringFigure in preview.js. */
+function ringGeometryBody(ring) {
+  const g = ringGeom(ring.cfg);
+  const dial = ringFigure(
+    ring.cfg,
+    ring.arr.map((it, i) => ({ src: ring.src(it, i) })),
+    ring.centre,
+    { r: 70, className: 'ring ring--dial' },
+  );
+
+  /* It turns so that direction is something you can see. The loop reads
+     ring.cfg on every frame, so a slider only has to write the number -
+     no rerender, which would rebuild the slider out from under the pointer
+     halfway through a drag. It stops itself once the panel it is in has
+     been replaced. */
+  if (!REDUCED_UI && ring.arr.length) {
+    let spin = 0;
+    let last = 0;
+    const turn = (now) => {
+      if (!dial.isConnected) return;
+      if (last) spin = (spin + (now - last) * 0.014) % 360;
+      last = now;
+      dial.update(spin);
+      requestAnimationFrame(turn);
+    };
+    requestAnimationFrame(turn);
   }
 
-  const out = [
-    card('Now Recording', null, el('div', {},
+  const slider = (key, label, hint) => {
+    const live = el('output', { className: 'slider__val' }, `${g[key]}°`);
+    const bar = el('input', { type: 'range', className: 'slider',
+                              min: '-80', max: '80', step: '1', value: String(g[key]) });
+    bar.addEventListener('input', () => {
+      ring.cfg[key] = Number(bar.value);
+      live.textContent = `${bar.value}°`;
+      if (REDUCED_UI) dial.update();      // nothing is turning, so redraw by hand
+      markDirty();                        // repaints the rail a beat later, not the panel
+    });
+    return field(label, el('div', { className: 'slider__row' }, bar, live), hint, null, ring.pv);
+  };
+
+  const direction = el('div', { className: 'seg' },
+    ...[[1, 'Clockwise'], [-1, 'Anticlockwise']].map(([dir, label]) => {
+      const btn = el('button', { className: 'seg__btn', type: 'button',
+                                 'aria-pressed': String(g.dir === dir) }, T(label));
+      btn.addEventListener('click', () => {
+        if (g.dir === dir) return;
+        ring.cfg.dir = dir;
+        markDirty();
+        renderPanel();
+      });
+      return btn;
+    }));
+
+  return el('div', { className: 'ringgeom' },
+    el('div', { className: 'ringgeom__dial' },
+      dial,
       el('p', { className: 'hint' },
-        T('The block at the top of In the Making: a heading, a line of text, and a second ring that turns '
-          + 'as the page scrolls. It sits above the original ring, which is edited further down.')),
-      bi('Heading', 'title', (l) => LOC(l).recording),
-      bi('Text', 'desc', (l) => LOC(l).recording, { multiline: true, rows: 2 }),
-      el('div', { className: 'vidrow', style: 'margin-top:10px' },
-        el('div', {},
-          el('img', { className: 'vidrow__thumb', src: '/' + rec.centre, alt: '',
-                      style: 'aspect-ratio:1' }),
-          el('div', { style: 'margin-top:8px' },
-            uploadButton('img/recording', 'Replace centre', (path) => {
-              rec.centre = path; markDirty(); rerender();
-            }))),
-        el('div', { className: 'vidrow__fields' },
-          el('p', { className: 'hint' }, T('The still picture in the middle of the ring, shown square.')),
-          bi('Centre description (alt text)', 'centreAlt', (l) => LOC(l).recording))),
-    ), 'making.recording'),
+        T(REDUCED_UI
+          ? 'The ring as the page will draw it.'
+          : 'Turning the way the page will turn it.'))),
+    el('div', { className: 'ringgeom__fields' },
+      slider('tilt', 'Tilt',
+             'Which way the ring lies across the screen. At 0° it is level; the site was built at '
+             + '26°, which is what sends the near side of the ring sweeping down from top-left to '
+             + 'bottom-right.'),
+      slider('lean', 'Lean',
+             'How far the ring is tipped towards the reader. Near 0° it is edge-on and the pictures '
+             + 'cross in a line; the further from 0, the rounder it opens out.'),
+      field('Direction', direction,
+            'Which way scrolling down turns it. The pictures keep the same places in the ring '
+            + 'either way — only the direction of travel changes.', null, ring.pv),
+      el('p', { className: 'hint' },
+        T('26°, -20° and clockwise are the stylesheet’s own values, and a ring left at them writes '
+          + 'nothing into the content.'))));
+}
+
+/* What is in the ring, and in what order.
+ *
+ * The pictures have their own cards too, but those are tall - a thumbnail, a
+ * caption and a description in two languages each - so putting two of them
+ * the other way round meant scrolling to find the second. This is the whole
+ * ring on one screen, and it is where pictures are added and taken out.
+ *
+ * Nothing here has to even the spacing up afterwards. The ring divides a
+ * full turn by how many pictures there are - `--n` on .orbit__scene in
+ * build.py, `count` in ringFigure - so a ring of eight is eight equal steps
+ * the moment the ninth is removed, on the page and in both previews. */
+function ringOrderCard(ring) {
+  const rerender = () => renderPanel();
+  const move = (i, to) => {
+    if (to < 0 || to >= ring.arr.length) return;
+    const [item] = ring.arr.splice(i, 1);
+    ring.arr.splice(to, 0, item);
+    markDirty();
+    rerender();
+  };
+  const rows = ring.arr.map((it, i) => el('div',
+    { className: 'ringrow', 'data-pv-target': ring.key(it, i) },
+    el('span', { className: 'mono ringrow__n' }, String(i + 1)),
+    el('img', { className: 'ringrow__thumb', src: '/' + ring.src(it, i), alt: '', loading: 'lazy' }),
+    el('span', { className: 'ringrow__name' }, ring.label(it, i)),
+    el('button', { className: 'btn btn--small btn--ghost', type: 'button',
+                   title: T('Earlier'), onclick: () => move(i, i - 1) }, '↑'),
+    el('button', { className: 'btn btn--small btn--ghost', type: 'button',
+                   title: T('Later'), onclick: () => move(i, i + 1) }, '↓'),
+    el('button', { className: 'btn btn--x', type: 'button',
+                   title: T('Take out of the ring'), 'aria-label': T('Take out of the ring'),
+                   onclick: () => {
+                     if (!confirm(T('Take this picture out of the ring? It disappears from both languages.'))) return;
+                     ring.drop(i);
+                     markDirty();
+                     rerender();
+                   } }, '×')));
+
+  return card('Ring order', null, el('div', {},
+    el('p', { className: 'hint' },
+      T('The order they go round. The ring spaces them evenly however many there are, so this is '
+        + 'which picture follows which rather than where any one of them sits.')),
+    rows.length
+      ? el('div', { className: 'ringlist' }, ...rows)
+      : el('p', { className: 'hint' }, T('Nothing in this ring yet, so it is not on the page.')),
+    el('div', { style: 'margin-top:12px' },
+      uploadButton(ring.dir, '+ Add a picture to the ring', (path) => {
+        ring.add(path);
+        markDirty();
+        rerender();
+      })),
+    el('p', { className: 'hint' }, T(UPLOAD_NOTE))), ring.pv);
+}
+
+// ---------------------------------------------------------------- one ring
+
+/* Where a ring's middle picture comes from.
+ *
+ * A release brings its own cover and its own alt text, so the ring circles
+ * something the rest of the site already shows; a picture of its own needs
+ * alt text written here; and a ring can have neither, which is what one
+ * looks like the moment it is added. ring_centre in build.py reads the same
+ * three cases. */
+function ringCentreCard(ring) {
+  const shared = SHARED();
+  const rerender = () => renderPanel();
+  const centre = ring.cfg.centre || (ring.cfg.centre = {});
+  // `src` present but empty is a ring whose own picture has been chosen as
+  // the kind but not yet uploaded, which is not the same as no middle at all
+  const kind = centre.release !== undefined ? 'release' : ('src' in centre ? 'image' : 'none');
+
+  const kinds = el('select', {});
+  [['release', 'A release cover'], ['image', 'A picture of its own'], ['none', 'Nothing']]
+    .forEach(([value, label]) => {
+      const opt = el('option', { value }, T(label));
+      if (value === kind) opt.selected = true;
+      kinds.append(opt);
+    });
+  kinds.addEventListener('change', () => {
+    // one key or the other, never both: build.py prefers `release` and a
+    // leftover `src` would sit in the content meaning nothing
+    if (kinds.value === 'release') {
+      delete centre.src;
+      // deliberately empty rather than the first release: picking one for
+      // somebody would quietly change what the ring circles, and that is the
+      // sort of thing that gets published without being noticed
+      if (centre.release === undefined) centre.release = '';
+    } else if (kinds.value === 'image') {
+      delete centre.release;
+      if (!('src' in centre)) centre.src = '';
+    } else {
+      delete centre.release;
+      delete centre.src;
+    }
+    markDirty();
+    rerender();
+  });
+
+  const body = [
+    field('Middle of the ring', kinds,
+          'A release cover brings its alt text with it. A picture of its own needs alt text '
+          + 'written here. Nothing leaves the middle of the ring empty.', null, ring.pv),
   ];
 
-  rec.photos.forEach((ph, i) => {
-    const enP = LOC('en').recording.photos[ph.id] || (LOC('en').recording.photos[ph.id] = { caption: '' });
-    const zhP = LOC('zh').recording.photos[ph.id] || (LOC('zh').recording.photos[ph.id] = { caption: '' });
-    const opens = opensInto(ph, enP, zhP) ? el('span', { className: 'live' }, T('opens')) : null;
-    const title = el('span', {}, enP.caption || T('(no caption)'), ' ', opens, el('small', {}, `ring · ${ph.id}`));
+  if (kind === 'release') {
+    const pick = el('select', {});
+    if (!centre.release) pick.append(el('option', { value: '' }, T('— choose one —')));
+    shared.releases.forEach((r) => {
+      const opt = el('option', { value: r.id }, LOC('en').releases[r.id]?.title || r.id);
+      if (r.id === centre.release) opt.selected = true;
+      pick.append(opt);
+    });
+    pick.addEventListener('change', () => { centre.release = pick.value; markDirty(); rerender(); });
+    body.push(field('Which release', pick, null, null, ring.pv));
+  } else if (kind === 'image') {
+    body.push(el('div', { className: 'vidrow' },
+      el('div', {},
+        centre.src
+          ? el('img', { className: 'vidrow__thumb', src: '/' + centre.src, alt: '',
+                        style: 'aspect-ratio:1' })
+          : el('p', { className: 'hint' }, T('No picture chosen yet.')),
+        el('div', { style: 'margin-top:8px' },
+          uploadButton(ring.dir, centre.src ? 'Replace center' : 'Choose a picture', (path) => {
+            centre.src = path; markDirty(); rerender();
+          }))),
+      el('div', { className: 'vidrow__fields' },
+        el('p', { className: 'hint' }, T('The still picture in the middle of the ring, shown square.')),
+        bi('Center description (alt text)', 'centreAlt', (l) => ring.words(l)))));
+  }
+
+  return card('Center', null, el('div', {}, ...body), ring.pv);
+}
+
+/* A card per picture: the file, whether it opens into a card when it is
+ * clicked, and the words that card shows. Every picture on every ring gets
+ * this - the second ring's pictures used to be bare paths in the content
+ * with nowhere to put a word. */
+function ringPhotoCards(ring) {
+  const rerender = () => renderPanel();
+  return ring.arr.map((ph, i) => {
+    const en = ring.words('en').photos;
+    const zh = ring.words('zh').photos;
+    const enP = en[ph.id] || (en[ph.id] = { caption: '' });
+    const zhP = zh[ph.id] || (zh[ph.id] = { caption: '' });
+    const opensNow = opensInto(ph, enP, zhP);
+    const opens = opensNow ? el('span', { className: 'live' }, T('opens')) : null;
+    const title = el('span', {}, enP.caption || T('(no caption)'), ' ', opens,
+                     el('small', {}, ph.id));
+
     const body = el('div', { className: 'vidrow' },
       el('div', {},
         el('img', { className: 'vidrow__thumb', src: '/' + ph.src, alt: '', loading: 'lazy',
                     style: 'aspect-ratio:auto;max-height:160px;object-fit:contain' }),
         el('div', { style: 'margin-top:8px' },
-          uploadButton('img/recording', 'Replace', (path) => { ph.src = path; markDirty(); rerender(); }))),
+          uploadButton(ring.dir, 'Replace', (path) => { ph.src = path; markDirty(); rerender(); }))),
       el('div', { className: 'vidrow__fields' },
         el('p', { className: 'hint' },
           T('Any shape works: the ring keeps each picture’s own proportions.')),
         opensCheck(ph, enP, zhP, rerender),
-        bi('Caption', 'caption', (l) => (l === 'en' ? enP : zhP),
-           { hint: 'The heading of the card it opens into. Not shown on the ring itself.' }),
-        bi('Description', 'desc', (l) => (l === 'en' ? enP : zhP),
-           { multiline: true, rows: 3, dropWhenEmpty: true, hint: DESC_HINT }),
+        // Neither of these reaches the ring: the caption is the heading of
+        // the card the picture opens into and the description is its body,
+        // so with the box unticked there is nothing either could do.
+        ...(opensNow
+          ? [
+            bi('Caption', 'caption', (l) => (l === 'en' ? enP : zhP),
+               { hint: 'The heading of the card it opens into. Not shown on the ring itself.' }),
+            bi('Description', 'desc', (l) => (l === 'en' ? enP : zhP),
+               { multiline: true, rows: 3, dropWhenEmpty: true, hint: DESC_HINT }),
+          ]
+          : [el('p', { className: 'hint' },
+            T('Decoration: it turns with the ring and cannot be clicked. Anything written here '
+              + 'before is kept, and comes back if the box is ticked again.'))]),
       ));
-    out.push(card(title, listControls(rec.photos, i, rerender, {
-      onDelete: (gone) => {
-        delete LOC('en').recording.photos[gone.id];
-        delete LOC('zh').recording.photos[gone.id];
-      },
-    }), body));
-  });
 
-  out.push(el('div', { style: 'margin-bottom:24px' },
-    uploadButton('img/recording', '+ Add a ring photo', (path) => {
-      const id = newId('ring', rec.photos.map((p) => p.id));
-      rec.photos.push({ id, src: path });
-      LOC('en').recording.photos[id] = { caption: '' };
-      LOC('zh').recording.photos[id] = { caption: '' };
-      markDirty();
-      rerender();
-    })));
-  return out;
+    return cardFold(
+      `ring:${ring.id}:${ph.id}`,
+      title,
+      listControls(ring.arr, i, rerender, { onDelete: (gone) => {
+        for (const l of ['en', 'zh']) delete ring.words(l).photos[gone.id];
+      } }),
+      body,
+      ring.key(ph),
+      ph.src,
+    );
+  });
 }
 
-// ---------------------------------------------------------------- raw
+/* Move this ring up or down the page, or take it off it. These sit in the
+ * section's own header, which is a <summary>, so fold() stops their clicks
+ * before the section opens and shuts under them. */
+function ringSectionControls(ring, total) {
+  const shared = SHARED();
+  const rerender = () => renderPanel();
+  const move = (to) => {
+    if (to < 0 || to >= total) return;
+    const [moved] = shared.rings.splice(ring.index, 1);
+    shared.rings.splice(to, 0, moved);
+    markDirty();
+    rerender();
+  };
+  return [
+    el('button', { className: 'btn btn--small btn--ghost', type: 'button',
+                   title: T('Move up the page'), onclick: () => move(ring.index - 1) }, '↑'),
+    el('button', { className: 'btn btn--small btn--ghost', type: 'button',
+                   title: T('Move down the page'), onclick: () => move(ring.index + 1) }, '↓'),
+    el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
+                   onclick: () => {
+                     if (!confirm(T('Remove this whole ring, and the words on its {n} pictures?',
+                                    { n: ring.arr.length }))) return;
+                     shared.rings.splice(ring.index, 1);
+                     for (const l of ['en', 'zh']) delete LOC(l).rings[ring.id];
+                     if (shared.adminRings) {
+                       delete shared.adminRings[ring.id];
+                       if (!Object.keys(shared.adminRings).length) delete shared.adminRings;
+                     }
+                     markDirty();
+                     rerender();
+                   } }, T('Remove')),
+  ];
+}
+
+// ---------------------------------------------------------------- raw// ---------------------------------------------------------------- raw
 
 function renderRaw() {
   const out = [intro(
@@ -2213,21 +2590,51 @@ function singleImage(path, dir, onPick, { missingNote } = {}) {
  * so a title changed in either place changes in both.
  */
 const foldOpen = new Set();
+/* ...and the ones that start open remember being *shut* instead. With
+ * foldOpen alone a section that opens by default would spring open again on
+ * the next rerender, and every edit causes one. */
+const foldShut = new Set();
 
-function fold(title, section, count, ...children) {
-  // `section` is documentation now: the whole homepage is drawn in the rail
-  // at once, so opening a fold no longer has to point it anywhere.
-  const open = foldOpen.has(title);
-  const head = el('summary', { className: 'fold__head' },
-    el('span', { className: 'fold__title' }, T(title)),
-    count ? el('span', { className: 'fold__count' }, count) : null);
+function fold(title, opts, count, ...children) {
+  // `opts` used to be `section`, which pointed the rail at a part of the
+  // page; the whole homepage is drawn in the rail at once now, so the
+  // callers that still pass a name there are passing documentation.
+  // {defaultOpen: true} is the one option, for a section that is the point
+  // of its tab rather than one of several on it.
+  const starts = !!(opts && opts.defaultOpen);
+  // A section whose name can be edited must not be remembered by its name:
+  // `key` keeps the open/shut state attached to the thing rather than to
+  // whatever it is currently called.
+  const key = (opts && opts.key) || title;
+  const open = starts ? !foldShut.has(key) : foldOpen.has(key);
+
+  const name = el('span', { className: 'fold__title' }, T(title));
+  if (opts && opts.rename) {
+    // The name is the one part of the row that does not open the section. A
+    // <summary> toggles on every click it sees, including both halves of a
+    // double-click and every click afterwards meant to put the caret
+    // somewhere, so clicks land here and go no further; the arrow, the count
+    // and the rest of the row still open it.
+    name.classList.add('fold__title--name');
+    name.setAttribute('title', T('Double-click to rename'));
+    name.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); });
+    name.addEventListener('dblclick', () => opts.rename(name));
+  }
+
+  const head = el('summary', { className: 'fold__head' }, name,
+    count ? el('span', { className: 'fold__count' }, count) : null,
+    // buttons in a <summary> would open and shut it on the way past
+    opts && opts.controls
+      ? el('span', { className: 'fold__ctl', onclick: (e) => e.stopPropagation() }, opts.controls)
+      : null);
 
   const node = el('details', { className: 'fold', open: open || null }, head,
     el('div', { className: 'fold__body' }, ...children.flat().filter(Boolean)));
 
   node.addEventListener('toggle', () => {
-    if (node.open) foldOpen.add(title);
-    else foldOpen.delete(title);
+    const set = starts ? foldShut : foldOpen;
+    if (node.open === starts) set.delete(key);
+    else set.add(key);
   });
   return node;
 }
@@ -2629,41 +3036,55 @@ function renderAboutPage() {
   ];
 }
 
+/* In the Making: every ring the content has, each in a section that folds
+ * away.
+ *
+ * There is no fixed number of them. Add a ring and it appears at the bottom
+ * of the page, empty; the arrows in each section header move it up or down
+ * past the others, which is also the ordering the page renders in. */
 function renderMaking() {
-  const shared = SHARED();
   const rerender = () => renderPanel();
+  const shared = SHARED();
+  const rings = ringList();
   const out = [
     pageMeta('making'),
     sectionHeading('press', 'making.heading'),
-    ...renderRecording(),
   ];
-
-  const orbit = shared.orbit;
-  if (orbit) {
-    const centre = el('select', {});
-    shared.releases.forEach((r) => {
-      const opt = el('option', { value: r.id }, LOC('en').releases[r.id]?.title || r.id);
-      if (r.id === orbit.centre) opt.selected = true;
-      centre.append(opt);
-    });
-    centre.addEventListener('change', () => { orbit.centre = centre.value; markDirty(); rerender(); });
-
-    out.push(card('Scroll orbit', null, el('div', {},
-      field('Centre', centre,
-            'The still cover in the middle of the ring. Its artwork and alt text come from that release, ' +
-            'so the ring circles something the rest of the site already shows.'),
-      el('p', { className: 'hint' },
-        T('The ring, in the order it goes round. These are decorative and carry no alt text.') + ' ' + T(UPLOAD_NOTE)),
-      el('div', { className: 'imggrid' }, ...orbit.photos.map((path, i) =>
-        el('div', { className: 'imgcard' },
-          el('img', { src: '/' + path, alt: '', loading: 'lazy' }),
-          el('div', { className: 'imgcard__body' },
-            el('div', { className: 'imgcard__path' }, path),
-            listControls(orbit.photos, i, rerender))))),
-      uploadButton('img/orbit', '+ Add a photo',
-                   (path) => { orbit.photos.push(path); markDirty(); rerender(); }),
-    ), 'making.orbit'));
+  for (const l of ['en', 'zh']) {
+    if (!LOC(l).orbitNav) LOC(l).orbitNav = { prev: '', next: '' };
   }
+
+  out.push(card('Ring arrows', null, el('div', {},
+    el('p', { className: 'hint' },
+      T('The two arrows at the right edge of the page while a ring fills the screen. A press jumps '
+        + 'a whole ring; these words are only ever read out by screen readers.')),
+    bi('Arrow going up', 'prev', (l) => LOC(l).orbitNav, { rich: false }),
+    bi('Arrow going down', 'next', (l) => LOC(l).orbitNav, { rich: false }),
+  )));
+
+  out.push(el('div', { className: 'addring' },
+    addButton('+ Add a ring', () => {
+      const id = newId('ring', shared.rings.map((r) => r.id));
+      shared.rings.push({ id, centre: {}, photos: [] });
+      markDirty();
+      rerender();
+    }),
+    el('p', { className: 'hint' },
+      T('A new ring starts empty and goes at the bottom of the page. Give it a middle and some '
+        + 'pictures below, and use the arrows in its header to move it past the others.'))));
+
+  rings.forEach((ring) => out.push(fold(
+    ring.name,
+    { defaultOpen: true,
+      key: `ring:${ring.id}`,
+      rename: (span) => renameRing(span, ring.id, ring.index),
+      controls: ringSectionControls(ring, rings.length) },
+    T('{n} pictures', { n: ring.arr.length }),
+    card('Angle and direction', null, ringGeometryBody(ring), ring.pv),
+    ringOrderCard(ring),
+    ringCentreCard(ring),
+    ...ringPhotoCards(ring),
+  )));
 
   return out;
 }
@@ -2702,6 +3123,7 @@ function selectTab(id) {
   // the folds belong to the tab being left; their preview goes with them
   state.section = null;
   foldOpen.clear();
+  foldShut.clear();
   for (const btn of document.getElementById('tabs').children) {
     btn.setAttribute('aria-selected', String(btn.dataset.tab === state.tab));
   }

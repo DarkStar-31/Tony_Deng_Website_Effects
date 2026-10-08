@@ -87,7 +87,7 @@ const UI_STRINGS = {
   'Replace': '替换',
   'Replace poster': '替换封面图',
   'Replace cover': '替换封面',
-  'Replace centre': '替换中心图',
+  'Replace center': '替换中心图',
   'Remove column': '删除此栏',
   'Remove paragraph': '删除此段',
   'Remove the notice box': '移除提示框',
@@ -107,7 +107,6 @@ const UI_STRINGS = {
   '+ Add a release': '+ 添加作品',
   '+ Add a press item': '+ 添加报道',
   '+ Add a photo': '+ 添加照片',
-  '+ Add a ring photo': '+ 添加环形照片',
 
   // ----------------------------------------------------------- homepage
   'Browser tab': '浏览器标签',
@@ -165,7 +164,6 @@ const UI_STRINGS = {
   'Nothing chosen — the player falls back to the synthesised pad.':
     '未选择曲目 — 播放器会退回到合成的环境音。',
 
-  '+{n} more': '还有 {n} 条',
 
   // ----------------------------------------------------------- preview rail
   'Preview': '预览',
@@ -265,8 +263,6 @@ const UI_STRINGS = {
   'Double-click to edit': '双击可编辑',
 
   'Open the {tab} tab': '打开「{tab}」标签页',
-  'The homepage, top to bottom. Each section under the hero is a trimmed copy of another page — what the homepage shows of it is edited here, and the rest on that page’s own tab.':
-    '首页，自上而下。首屏以下的每个版块都是其他页面的精简版：首页显示的部分在这里编辑，其余部分在各自页面的标签页里。',
   'Track lists, the singles by year and each record’s description are on the Music page, not the homepage.':
     '曲目列表、按年份排列的单曲以及每张作品的介绍在「音乐作品」页面，不在首页。',
   'The photo grid and the rest of the videos are on the Visuals page.':
@@ -377,7 +373,6 @@ const UI_STRINGS = {
 
   // ----------------------------------------------------------- milestones
   'Year label': '年份',
-  'Highlight as current year': '标为当前年份',
   'English': '英文',
   '中文': '中文',
   '{n} entries': '{n} 条',
@@ -388,10 +383,7 @@ const UI_STRINGS = {
   'Drag to reorder': '拖动可调整顺序',
   'Show all {n}': '展开全部 {n} 条',
   'Show fewer': '收起',
-  'open to edit': '展开编辑',
-  'Year colour': '年份颜色',
   'Default': '默认',
-  'Using the default': '使用默认颜色',
   'Overrides the colour of the year. The default is the accent green on the current year.':
     '覆盖年份的显示颜色。默认为当前年份使用的强调绿色。',
 
@@ -457,8 +449,6 @@ const UI_STRINGS = {
   '"Open" label (screen readers)': '「查看」标签（屏幕阅读器）',
   '"Close" label (screen readers)': '「关闭」标签（屏幕阅读器）',
   'Opens into a larger view': '点击可展开查看',
-  'This picture does not open, so nothing here is shown. Tick the box above to use it.':
-    '这张图片不可展开，因此这里的文字不会显示。勾选上面的选项即可启用。',
   'Shape': '形状',
   'Size': '大小',
   'Category': '分类',
@@ -476,20 +466,75 @@ const UI_STRINGS = {
   'Medium': '中',
   'Large': '大',
 
+  // ----------------------------------------------------------- rings
+  'Ring {n}': '环形图 {n}',
+  '+ Add a ring': '+ 添加一个环形图',
+  'A new ring starts empty and goes at the bottom of the page. Give it a middle and some pictures below, and use the arrows in its header to move it past the others.':
+    '新建的环形图是空的，排在页面最下方。在下面给它设置中心图和若干图片，再用它标题栏里的箭头调整它与其他环形图的先后。',
+  'Move up the page': '在页面上前移',
+  'Move down the page': '在页面上后移',
+  'Remove this whole ring, and the words on its {n} pictures?':
+    '要删除整个环形图，连同它 {n} 张图片上的文字吗？',
+
+  'Center': '中心图',
+  'Middle of the ring': '环形中心',
+  'A release cover brings its alt text with it. A picture of its own needs alt text written here. Nothing leaves the middle of the ring empty.':
+    '用作品封面会一并带上它的替代文字。用单独的图片则需要在这里填写替代文字。选「不放」则环形中心留空。',
+  'A release cover': '作品封面',
+  'A picture of its own': '单独的图片',
+  'Nothing': '不放',
+  'Which release': '选择作品',
+  'No picture chosen yet.': '还没有选择图片。',
+  'Choose a picture': '选择图片',
+  '{n} pictures': '{n} 张图片',
+  'Ring arrows': '环形图箭头',
+  'The two arrows at the right edge of the page while a ring fills the screen. A press jumps a whole ring; these words are only ever read out by screen readers.':
+    '环形图占满屏幕时页面右侧的那两个箭头。按一下会跳过整个环形图；这里的文字只供屏幕阅读器朗读。',
+  'Arrow going up': '向上的箭头',
+  'Arrow going down': '向下的箭头',
+
+  'Angle and direction': '角度与方向',
+  'Tilt': '倾斜',
+  'Lean': '俯仰',
+  'Direction': '方向',
+  'Clockwise': '顺时针',
+  'Anticlockwise': '逆时针',
+  'Turning the way the page will turn it.': '按页面上的方式转动。',
+  'The ring as the page will draw it.': '页面上将会呈现的样子。',
+  'Which way the ring lies across the screen. At 0° it is level; the site was built at 26°, which is what sends the near side of the ring sweeping down from top-left to bottom-right.':
+    '环形图在屏幕上倾斜的方向。0° 时是水平的；本站做的是 26°，正是这个角度让环形图靠近观看者的那一侧从左上扫向右下。',
+  'How far the ring is tipped towards the reader. Near 0° it is edge-on and the pictures cross in a line; the further from 0, the rounder it opens out.':
+    '环形图朝观看者倾倒的程度。接近 0° 时近乎侧看，图片会排成一条线；离 0 越远，环形展开得越圆。',
+  'Which way scrolling down turns it. The pictures keep the same places in the ring either way — only the direction of travel changes.':
+    '向下滚动时环形图转动的方向。两种方向下图片在环上的位置都不变 — 只是行进方向相反。',
+  '26°, -20° and clockwise are the stylesheet’s own values, and a ring left at them writes nothing into the content.':
+    '26°、-20° 与顺时针是样式表自身的取值，保持不变的环形图不会往内容文件里写入任何东西。',
+
+  'Ring order': '环形顺序',
+  'The order they go round. The ring spaces them evenly however many there are, so this is which picture follows which rather than where any one of them sits.':
+    '它们转动的顺序。无论有几张，环形都会把它们均匀分布，所以这里决定的是先后次序，而不是某一张的具体位置。',
+  '+ Add a picture to the ring': '+ 向环形添加图片',
+  'Take out of the ring': '从环形中移除',
+  'Take this picture out of the ring? It disappears from both languages.':
+    '要把这张图片从环形中移除吗？它会从两种语言的页面上一并消失。',
+  'Double-click to rename': '双击可重命名',
+  'Nothing in this ring yet, so it is not on the page.': '这个环形图里还没有图片，因此不会出现在页面上。',
+
+  'Decoration: it turns with the ring and cannot be clicked. Anything written here before is kept, and comes back if the box is ticked again.':
+    '纯装饰：它随环形转动，不能点击。此前填写的文字会保留，重新勾选后即会回来。',
+  'The picture does not open, so it has no description. Anything written here before is kept, and comes back if the box is ticked again.':
+    '这张图片不会展开，因此没有说明文字。此前填写的内容会保留，重新勾选后即会回来。',
+
   // ----------------------------------------------------------- recording
-  'Now Recording': '正在录制',
   'Heading': '标题',
-  'Text': '正文',
-  'Centre': '中心作品',
-  'Centre description (alt text)': '中心图描述（替代文字）',
+  'Center': '中心',
+  '— choose one —': '— 请选择 —',
+  'Center description (alt text)': '中心图描述（替代文字）',
   'The still picture in the middle of the ring, shown square.': '环形中央的静止图片，按正方形显示。',
   'Any shape works: the ring keeps each picture’s own proportions.':
     '任何比例都可以：环形会保留每张图片自身的比例。',
   'The heading of the card it opens into. Not shown on the ring itself.':
     '展开后卡片的标题。不会显示在环形上。',
-  'Scroll orbit': '滚动环形图',
-  'The ring, in the order it goes round. These are decorative and carry no alt text.':
-    '环形图片，按转动顺序排列。它们是装饰性的，不带替代文字。',
 
   // ----------------------------------------------------------- hero
   'Hero': '首屏',
@@ -509,10 +554,6 @@ const UI_STRINGS = {
     '这里由上到下，对应页面上逐行从左到右的顺序。网格会用后面较小的作品填补空隙，所以一张大图后面跟几张小图排得最紧凑。',
   'The box above the video grid on the Chinese page. Delete it once every video has a BV id.':
     '中文页视频网格上方的提示框。所有视频都填好 BV 号后即可删除。',
-  'The block at the top of In the Making: a heading, a line of text, and a second ring that turns as the page scrolls. It sits above the original ring, which is edited further down.':
-    '「创作手记」页顶部的区块：一个标题、一段文字，以及随页面滚动转动的第二个环形图。它位于原有环形图之上，原有环形图在下方编辑。',
-  'The still cover in the middle of the ring. Its artwork and alt text come from that release, so the ring circles something the rest of the site already shows.':
-    '环形中央的静止封面。图片与替代文字取自该作品，所以环形围绕的正是站点其他地方已经展示过的内容。',
   'The window the "Message Tony" button opens. Sending is not connected online yet, so on the deployed site it shows the error line; the local preview accepts messages. <code>{to}</code> and <code>{email}</code> are filled in for you — leave them in.':
     '「给 Tony 留言」按钮打开的窗口。线上发送功能尚未接通，因此已部署的站点会显示失败提示；本地预览可以正常接收留言。<code>{to}</code> 与 <code>{email}</code> 会自动填入 — 请保留它们。',
 
@@ -521,10 +562,6 @@ const UI_STRINGS = {
     '主打视频下方的同一个网格里同时放着照片和视频。顺序在下面的<b>网格顺序</b>里设置；网格会自动拼排，所以混用不同形状和大小才会显得是设计过的。渐变色的图片是占位图 — 真实照片到位后用<b>替换</b>换掉即可。',
   'Press &amp; Mentions, which closes the About page. The English page shows an English title with a gloss underneath; those are descriptions for readers, not official headlines, so keep them descriptive rather than authoritative.':
     '媒体报道，位于页面末尾。英文页显示英文标题并在下方附一行释义；那些是写给读者看的描述，而非官方标题，所以措辞应保持描述性，不要显得像正式定论。',
-  'The In the Making page. It carries its heading and the scroll orbit; the notes that belong underneath have not been written yet. Press coverage moved to the foot of the About page.':
-    '创作手记页。目前包含标题和滚动环形图；下方应有的手记文字尚未撰写。媒体报道已移至关于页的底部。',
-  'The contact block and the footer, which finish every page. The email here is the public-facing management address — it appears in both languages and in the mailto link.':
-    '收尾每个页面的联系版块与页脚。这里的邮箱是对外公开的经纪联系地址 — 它会出现在两种语言的页面和 mailto 链接里。',
 };
 
 /* The admin's own language, kept in this browser rather than in the content:

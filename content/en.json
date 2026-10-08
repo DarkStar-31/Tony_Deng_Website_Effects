@@ -545,46 +545,81 @@
     "close": "Close"
   },
   "orbitNav": {
-    "prev": "Previous image",
-    "next": "Next image"
+    "prev": "Previous ring",
+    "next": "Next ring"
   },
-  "recording": {
-    "title": "Now Recording",
-    "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore.",
-    "centreAlt": "Placeholder artwork for the song in progress",
-    "photos": {
-      "ring-01": {
-        "caption": "Sed do eiusmod",
-        "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."
-      },
-      "ring-02": {
-        "caption": "Tempor incididunt",
-        "desc": "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.\n\nNeque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit."
-      },
-      "ring-03": {
-        "caption": "Ut labore et dolore"
-      },
-      "ring-04": {
-        "caption": "Magna aliqua",
-        "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur."
-      },
-      "ring-05": {
-        "caption": "Ut enim ad minim",
-        "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."
-      },
-      "ring-06": {
-        "caption": "Quis nostrud"
-      },
-      "ring-07": {
-        "caption": "Exercitation ullamco",
-        "desc": "Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur."
-      },
-      "ring-08": {
-        "caption": "Laboris nisi ut aliquip"
-      },
-      "ring-09": {
-        "caption": "Ex ea commodo",
-        "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."
+  "rings": {
+    "recording": {
+      "centreAlt": "Placeholder artwork for the song in progress",
+      "photos": {
+        "recording-01": {
+          "caption": "Sed do eiusmod",
+          "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."
+        },
+        "recording-02": {
+          "caption": "Tempor incididunt",
+          "desc": "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.\n\nNeque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit."
+        },
+        "recording-03": {
+          "caption": "Ut labore et dolore"
+        },
+        "recording-04": {
+          "caption": "Magna aliqua",
+          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur."
+        },
+        "recording-05": {
+          "caption": "Ut enim ad minim",
+          "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."
+        },
+        "recording-06": {
+          "caption": "Quis nostrud"
+        },
+        "recording-07": {
+          "caption": "Exercitation ullamco",
+          "desc": "Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur."
+        },
+        "recording-08": {
+          "caption": "Laboris nisi ut aliquip"
+        },
+        "recording-09": {
+          "caption": "Ex ea commodo",
+          "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."
+        }
+      }
+    },
+    "orbit": {
+      "centreAlt": "",
+      "photos": {
+        "orbit-01": {
+          "caption": ""
+        },
+        "orbit-02": {
+          "caption": ""
+        },
+        "orbit-03": {
+          "caption": ""
+        },
+        "orbit-04": {
+          "caption": ""
+        },
+        "orbit-05": {
+          "caption": ""
+        },
+        "orbit-06": {
+          "caption": ""
+        },
+        "orbit-07": {
+          "caption": ""
+        },
+        "orbit-08": {
+          "caption": ""
+        },
+        "orbit-09": {
+          "caption": ""
+        },
+        "orbit-10": {
+          "caption": ""
+        }
       }
     }
   },

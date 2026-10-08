@@ -94,7 +94,17 @@ stopped making sense once the site became five pages.
 | Music | releases — two albums + singles, with the track list round each record rim |
 | Visuals | one grid of photos and videos, `All / Photos / Videos` switch, click-to-load embeds |
 | About | bio, profile table, milestones timeline, press & mentions |
-| In the Making | Now Recording ring, the orbit ring, contact + the message window |
+| In the Making | the rings — any number of them, from `rings` in shared.json — then contact + the message window |
+
+A ring is content, not code: `rings` in `content/shared.json` is a list, in
+the order the page shows them top to bottom, and one renderer (`render_ring`)
+draws all of them. Each has a `centre` — `{"release": "<id>"}` to reuse a
+release's cover and alt text, or `{"src": "<path>"}` for a picture of its
+own — a list of `photos`, and optional `tilt`, `lean` and `dir` for its
+geometry. Every photo on every ring can carry a caption and a description in
+`content/<lang>.json` under `rings.<ring id>.photos.<photo id>`, and one that
+has them (or `opens`) is a button into the detail view. A ring with no photos
+is skipped, so an empty one does not publish as three screens of nothing.
 
 The content keys did not follow the page renames: `videos` is still the
 Visuals section and `press` is still In the Making, so existing `#videos`
