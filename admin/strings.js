@@ -38,6 +38,8 @@ const UI_STRINGS = {
 
   // ----------------------------------------------------------- status line
   'unsaved changes': '有未保存的改动',
+  'Save draft first': '请先保存草稿',
+  'Nothing new to publish': '没有新的改动需要发布',
   'signed in': '已登录',
   'live site is up to date': '线上站点已是最新',
   'edit &amp; preview only': '仅可编辑与预览',

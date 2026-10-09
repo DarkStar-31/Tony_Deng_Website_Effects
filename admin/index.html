@@ -27,7 +27,9 @@
     <input class="bar__msg" id="msg" type="text">
     <button class="btn btn--ghost" id="reloadBtn" type="button"></button>
     <button class="btn" id="saveBtn" type="button" disabled></button>
-    <button class="btn btn--go" id="publishBtn" type="button" disabled></button>
+    <button class="btn btn--go" id="publishBtn" type="button" disabled aria-describedby="publishHint"></button>
+    <!-- why Publish is grey, said beside it rather than left to be guessed -->
+    <span class="bar__hint" id="publishHint" hidden></span>
     <button class="btn btn--ghost" id="logoutBtn" type="button" hidden></button>
   </div>
 </header>

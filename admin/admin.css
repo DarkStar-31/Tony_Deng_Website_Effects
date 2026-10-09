@@ -51,6 +51,7 @@ body {
 .bar__status b { color: var(--bone); font-weight: 600; }
 .bar__status .warn { color: var(--warn); }
 .bar__right { display: flex; gap: 8px; align-items: center; }
+.bar__hint { color: var(--warn); font-size: 12px; white-space: nowrap; }
 
 .bar__msg {
   flex: 0 1 190px;
@@ -312,8 +313,8 @@ body {
    row it deletes. */
 .row > .btn--x { flex: 0 0 auto; }
 
-label.f { display: block; }
-label.f > span {
+.f { display: block; }
+.f > span {
   display: block;
   margin-bottom: 5px;
   color: var(--dim);
@@ -322,7 +323,7 @@ label.f > span {
   letter-spacing: .04em;
   text-transform: uppercase;
 }
-label.f > span .tag {
+.f > span .tag {
   display: inline-block;
   margin-left: 6px;
   padding: 1px 5px;
@@ -332,8 +333,8 @@ label.f > span .tag {
   font-size: 10px;
   letter-spacing: .06em;
 }
-label.f > span .tag--en { color: #8FB8FF; }
-label.f > span .tag--zh { color: #FFB38F; }
+.f > span .tag--en { color: #8FB8FF; }
+.f > span .tag--zh { color: #FFB38F; }
 
 input[type="text"], textarea, select {
   width: 100%;

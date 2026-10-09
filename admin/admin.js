@@ -152,15 +152,33 @@ function field(label, control, hint, tag, pv) {
   // A rich box carries its own controls, and they belong on the label's
   // line rather than above the box - one row per field either way.
   const isRich = control && control.classList && control.classList.contains('rich__box');
+  if (isRich) return richShell(label, control, tag, hint, pv);
   return el(
     'label',
-    { className: 'f' + (isRich ? ' f--rich' : ''), 'data-pv-target': pv },
+    { className: 'f', 'data-pv-target': pv },
     el('span', {}, T(label),
-      tag ? el('span', { className: `tag ${tag.cls}` }, tag.label) : null,
-      isRich ? richToolbar(control, tag) : null),
+      tag ? el('span', { className: `tag ${tag.cls}` }, tag.label) : null),
     control,
     hint ? el('p', { className: 'hint', html: T(hint) }) : null,
   );
+}
+
+/* A rich field is a div, never a <label>. Clicking anywhere inside a label
+ * hands focus to the first focusable thing in it, and for a rich field that
+ * is the B button in its toolbar - so every click into the box landed on B
+ * and no typing reached the text (the client's issue 1, Chrome and Edge).
+ * The box is not a form control, so a label could never point at it anyway;
+ * it is named with aria-label, and the caption still clicks through to it. */
+function richShell(label, box, tag, hint, pv) {
+  box.setAttribute('aria-label', T(label) + (tag ? ' (' + tag.label + ')' : ''));
+  return el('div', { className: 'f f--rich', 'data-pv-target': pv },
+    el('span', {
+      onclick: (e) => { if (!e.target.closest('button')) box.focus(); },
+    }, T(label),
+      tag ? el('span', { className: `tag ${tag.cls}` }, tag.label) : null,
+      richToolbar(box, tag)),
+    box,
+    hint ? el('p', { className: 'hint', html: T(hint) }) : null);
 }
 
 function row(...kids) {
@@ -1225,12 +1243,7 @@ function richBox(obj, key, opts = {}) {
 /** A rich box with its toolbar, as one labelled field. */
 function richField(label, obj, key, lang, opts = {}) {
   const box = richBox(obj, key, { ...opts, lang: lang && lang.attr });
-  return el('label', { className: 'f f--rich', 'data-pv-target': opts.pv },
-    el('span', {}, T(label),
-      lang ? el('span', { className: `tag ${lang.cls}` }, lang.label) : null,
-      richToolbar(box, lang)),
-    box,
-    opts.hint ? el('p', { className: 'hint', html: T(opts.hint) }) : null);
+  return richShell(label, box, lang, opts.hint, opts.pv);
 }
 
 // ---------------------------------------------------------------- milestones
@@ -3259,6 +3272,18 @@ function renderStatus() {
 
   document.getElementById('publishBtn').disabled =
     !s || !s.canPublish || s.ahead === 0 || state.dirty;
+
+  /* Publish sends what is on the draft branch, so unsaved edits would not go
+   * with it - which is why it waits for Save draft. Say so beside the button;
+   * a grey button with no reason read as "Publish is broken". */
+  const hint = document.getElementById('publishHint');
+  let why = '';
+  if (s && s.canPublish) {
+    if (state.dirty) why = T('Save draft first');
+    else if (s.ahead === 0) why = T('Nothing new to publish');
+  }
+  hint.textContent = why;
+  hint.hidden = !why;
 }
 
 async function refreshStatus() {
@@ -3388,6 +3413,7 @@ function showLogin(message) {
   document.getElementById('status').textContent = T('Not signed in');
   document.getElementById('saveBtn').disabled = true;
   document.getElementById('publishBtn').disabled = true;
+  document.getElementById('publishHint').hidden = true;
   document.getElementById('logoutBtn').hidden = true;
   password.focus();
 }
