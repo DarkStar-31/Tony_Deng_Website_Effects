@@ -543,7 +543,9 @@
   "visualsBannerAlt": "",
   "lens": {
     "open": "Open",
-    "close": "Close"
+    "close": "Close",
+    "prev": "Previous picture",
+    "next": "Next picture"
   },
   "orbitNav": {
     "prev": "Previous ring",

@@ -1546,6 +1546,36 @@ class Lens {
       }
     });
     this.dlg.addEventListener('cancel', (e) => { e.preventDefault(); this.close(); });
+
+    // stepping through a gallery: arrows, the keyboard, and a swipe
+    this.prev = this.dlg.querySelector('.lens__step--prev');
+    this.next = this.dlg.querySelector('.lens__step--next');
+    this.count = this.dlg.querySelector('.lens__count');
+    if (this.prev) this.prev.addEventListener('click', () => this.step(-1));
+    if (this.next) this.next.addEventListener('click', () => this.step(1));
+    this.dlg.addEventListener('keydown', (e) => {
+      if (this.state !== 'open' || !this.tiles || this.tiles.length < 2) return;
+      // arrows inside a playing video or a text field are theirs, not ours
+      if (e.target.closest && e.target.closest('input, textarea, video')) return;
+      if (e.key === 'ArrowLeft') { e.preventDefault(); this.step(-1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); this.step(1); }
+    });
+    const media = this.img.parentElement;
+    let x0 = null, y0 = 0;
+    media.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' || e.target.closest('.lens__step')) return;
+      x0 = e.clientX; y0 = e.clientY;
+    });
+    media.addEventListener('pointerup', (e) => {
+      if (x0 === null) return;
+      const dx = e.clientX - x0, dy = e.clientY - y0;
+      x0 = null;
+      // mostly sideways and far enough to mean it
+      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.4) this.step(dx < 0 ? 1 : -1);
+    });
+    media.addEventListener('pointercancel', () => { x0 = null; });
+    // a horizontal swipe should not also be read as a vertical scroll
+    media.style.touchAction = 'pan-y';
     this.shut.addEventListener('click', () => this.close());
     this.veil.addEventListener('click', () => this.close());
     this.dlg.addEventListener('click', (e) => { if (e.target === this.dlg) this.close(); });
@@ -1726,12 +1756,35 @@ class Lens {
       });
     }
     if (all) all.addEventListener('click', expand);
+    this.expand = expand;
     this.body.querySelectorAll('.entry__audio').forEach((node) => this.clip(node));
+
+    this.tiles = gallery ? [...gallery.querySelectorAll('.entry__tile')] : [];
+    const many = this.tiles.length > 1;
+    [this.prev, this.next, this.count].forEach((n) => { if (n) n.hidden = !many; });
+    this.paintCount();
+  }
+
+  // one picture along the gallery, wrapping at either end
+  step (dir) {
+    if (!this.tiles || this.tiles.length < 2) return;
+    const at = Math.max(0, this.tiles.findIndex((t) => t.classList.contains('is-current')));
+    const tile = this.tiles[(at + dir + this.tiles.length) % this.tiles.length];
+    if (tile.classList.contains('is-extra') && this.expand) this.expand();
+    this.show(tile);
+    tile.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
+
+  paintCount () {
+    if (!this.count || !this.tiles || this.tiles.length < 2) return;
+    const at = Math.max(0, this.tiles.findIndex((t) => t.classList.contains('is-current')));
+    this.count.textContent = `${at + 1} / ${this.tiles.length}`;
   }
 
   show (tile) {
     const gallery = tile.closest('.entry__gallery');
     gallery.querySelectorAll('.entry__tile').forEach((t) => t.classList.toggle('is-current', t === tile));
+    this.paintCount();
     this.clearStage();
     const media = this.img.parentElement;
     const d = tile.dataset;
@@ -1824,6 +1877,8 @@ class Lens {
 
   // everything that can make a sound stops, and the ring picture is back
   stopMedia () {
+    this.tiles = [];
+    [this.prev, this.next, this.count].forEach((n) => { if (n) n.hidden = true; });
     this.pauseClips();
     this.clearStage();
     if (this.home && this.img.src !== this.home) this.img.src = this.home;

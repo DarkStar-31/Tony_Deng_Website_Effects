@@ -1873,6 +1873,54 @@ function opensCheck(item, enC, zhC, rerender) {
     el('span', {}, T('Opens into a larger view')));
 }
 
+/* The other pictures in an album. The tile's own picture is always the
+ * first one shown, so this is everything after it. Drop several at once;
+ * arrows reorder, and the last one removed turns it back into one photo. */
+function albumEditor(ph, rerender) {
+  const album = ph.album || [];
+  const nextId = () => {
+    const taken = (ph.album || []).map((a) => a.id);
+    let n = 1;
+    while (taken.includes(`a${n}`)) n++;
+    return `a${n}`;
+  };
+  const move = (i, to) => {
+    if (to < 0 || to >= album.length) return;
+    const [a] = album.splice(i, 1);
+    album.splice(to, 0, a);
+    markDirty();
+    rerender();
+  };
+  const strip = el('div', { className: 'album' },
+    el('figure', { className: 'album__pic album__pic--cover' },
+      el('img', { src: '/' + ph.src, alt: '', loading: 'lazy' }),
+      el('figcaption', {}, T('Tile (shown first)'))),
+    ...album.map((a, i) => el('figure', { className: 'album__pic' },
+      el('img', { src: '/' + a.src, alt: '', loading: 'lazy' }),
+      el('figcaption', {},
+        el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Earlier'), onclick: () => move(i, i - 1) }, '←'),
+        el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Later'), onclick: () => move(i, i + 1) }, '→'),
+        el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button', title: T('Remove'),
+          onclick: () => {
+            album.splice(i, 1);
+            if (!album.length) delete ph.album;
+            markDirty();
+            rerender();
+          } }, '×')))));
+  return el('div', { className: 'entryed' },
+    el('p', { className: 'entryed__head' }, T('Album')),
+    el('p', { className: 'hint' },
+      T('Add more pictures and this tile becomes an album: it shows how many it holds, and opens into a viewer '
+        + 'that steps left and right (and swipes on phones).')),
+    album.length ? strip : null,
+    dropZone('img/photos', '.webp,.png,.jpg,.jpeg',
+      album.length ? 'Drop more pictures here, or click to choose' : 'Drop pictures here to make this an album',
+      (path) => {
+        if (!ph.album) ph.album = [];
+        ph.album.push({ id: nextId(), src: path });
+      }));
+}
+
 const DESC_HINT =
   'Optional. Write something and the picture opens into a card with this text when it is clicked; ' +
   'leave it empty and it stays a still picture. A blank line starts a new paragraph.';
@@ -1947,7 +1995,7 @@ function renderPhotos() {
   shared.photos.forEach((ph, i) => {
     const enP = LOC('en').photos[ph.id] || (LOC('en').photos[ph.id] = { caption: '' });
     const zhP = LOC('zh').photos[ph.id] || (LOC('zh').photos[ph.id] = { caption: '' });
-    const opensNow = opensInto(ph, enP, zhP);
+    const opensNow = (ph.album && ph.album.length) || opensInto(ph, enP, zhP);
     const opens = opensNow ? el('span', { className: 'live' }, T('opens')) : null;
     const title = el('span', {}, enP.caption || T('(no caption)'), ' ', opens,
                      problemBadge(problems, 'photo:' + ph.id), el('small', {}, ph.id));
@@ -1976,13 +2024,16 @@ function renderPhotos() {
         // nothing but the body of that card, so a picture that does not
         // open has nowhere to put one.
         bi('Caption', 'caption', (l) => (l === 'en' ? enP : zhP)),
-        opensCheck(ph, enP, zhP, rerender),
+        ph.album && ph.album.length
+          ? el('p', { className: 'hint' }, T('An album always opens, so the box below is not needed.'))
+          : opensCheck(ph, enP, zhP, rerender),
         opensNow
           ? bi('Description', 'desc', (l) => (l === 'en' ? enP : zhP),
             { multiline: true, rows: 4, dropWhenEmpty: true, hint: DESC_HINT })
           : el('p', { className: 'hint' },
             T('The picture does not open, so it has no description. Anything written here before '
               + 'is kept, and comes back if the box is ticked again.')),
+        albumEditor(ph, rerender),
       ));
 
     const remove = el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
@@ -2002,7 +2053,7 @@ function renderPhotos() {
       body,
       'visuals.cell.photo:' + ph.id,
       ph.src,
-      `${ph.shape || '?'} · ${photoSize(shared, ph).toUpperCase()}${['s', 'm', 'l'].includes(ph.size) ? '' : ' ' + T('auto')}`,
+      `${ph.album && ph.album.length ? T('album of {n}', { n: ph.album.length + 1 }) + ' · ' : ''}${ph.shape || '?'} · ${photoSize(shared, ph).toUpperCase()}${['s', 'm', 'l'].includes(ph.size) ? '' : ' ' + T('auto')}`,
     ));
   });
 

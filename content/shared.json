@@ -338,7 +338,29 @@
       "src": "img/placeholder/photo-01.webp",
       "shape": "portrait",
       "size": "l",
-      "tag": "portrait"
+      "tag": "portrait",
+      "album": [
+        {
+          "id": "a1",
+          "src": "img/placeholder/photo-05.webp"
+        },
+        {
+          "id": "a2",
+          "src": "img/placeholder/photo-07.webp"
+        },
+        {
+          "id": "a3",
+          "src": "img/placeholder/photo-09.webp"
+        },
+        {
+          "id": "a4",
+          "src": "img/placeholder/photo-11.webp"
+        },
+        {
+          "id": "a5",
+          "src": "img/placeholder/photo-13.webp"
+        }
+      ]
     },
     {
       "id": "photo-02",

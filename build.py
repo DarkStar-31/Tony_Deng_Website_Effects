@@ -94,6 +94,9 @@ ARROW_PREV = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4l-8 8 8 
 ARROW_NEXT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4l8 8-8 8"/></svg>'
 
 PLAY_SVG = '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>'
+# two stacked frames: "there is more than one picture in here"
+ALBUM_SVG = ('<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="3" width="14" height="14" rx="2"/>'
+             '<path d="M17 21H5a2 2 0 0 1-2-2V7"/></svg>')
 
 
 # ---------------------------------------------------------------- sections
@@ -945,7 +948,14 @@ def render_lens(loc: dict) -> list[str]:
         f'<dialog class="lens" id="lens" aria-label="{attr(loc["lens"]["open"])}">',
         '  <div class="lens__veil"></div>',
         '  <div class="lens__card">',
-        '    <div class="lens__media"><img class="lens__img" alt=""></div>',
+        '    <div class="lens__media"><img class="lens__img" alt="">',
+        # stepping through a gallery; main.js shows these only when there is one
+        f'      <button class="lens__step lens__step--prev" type="button" hidden'
+        f' aria-label="{attr(loc["lens"].get("prev", "Previous"))}">{ARROW_PREV}</button>',
+        f'      <button class="lens__step lens__step--next" type="button" hidden'
+        f' aria-label="{attr(loc["lens"].get("next", "Next"))}">{ARROW_NEXT}</button>',
+        '      <span class="lens__count" hidden></span>',
+        "    </div>",
         '    <div class="lens__body"></div>',
         f'    <button class="lens__close" type="button" aria-label="{attr(loc["lens"]["close"])}">&times;</button>',
         "  </div>",
@@ -1058,6 +1068,11 @@ def render_visuals_grid(loc: dict, shared: dict) -> list[str]:
         caption = c.get("caption", "")
         tag = tags.get(ph.get("tag", ""), "")
         desc = c.get("desc", "").strip()
+        # An album: one tile, several pictures. It opens into the same
+        # gallery a diary entry uses - the tile's own picture first - so
+        # stepping, swiping and "+N" all come from one place (entry_parts).
+        album = [a for a in ph.get("album", []) if a.get("src")]
+        later += f' data-album="{len(album) + 1}"' if album else ""
         out += [
             f'      <figure class="photo reveal" data-kind="photo"{later}'
             f' data-ar="{cols / rows:.4f}" style="--c:{cols};--r:{rows}">',
@@ -1067,16 +1082,26 @@ def render_visuals_grid(loc: dict, shared: dict) -> list[str]:
         if tag:
             out.append(f'          <span class="photo__tag">{tag}</span>')
         out += [f'          <span class="photo__title">{caption}</span>', "        </figcaption>"]
-        if opens_into_lens(ph, desc):
+        if album or opens_into_lens(ph, desc):
             tid = f'lens-{ph["id"]}'
             label = f'{loc["lens"]["open"]}: {plain(caption)}'
+            if album:
+                label += f' ({count_word(loc, "photo", len(album) + 1)})'
+            badge = (f'<span class="photo__badge photo__badge--album" aria-hidden="true">'
+                     f'{ALBUM_SVG}{len(album) + 1}</span>' if album
+                     else '<span class="photo__badge" aria-hidden="true">+</span>')
             out += [
                 f'        <button class="photo__open" type="button" data-lens="{attr(tid)}"'
                 f' aria-haspopup="dialog" aria-label="{attr(label)}">',
-                '          <span class="photo__badge" aria-hidden="true">+</span>',
+                f'          {badge}',
                 "        </button>",
             ]
-            out += ["        " + l for l in lens_template(tid, tag, caption, desc)]
+            entry = None
+            if album:
+                media = [{"id": a.get("id", f"a{i}"), "type": "image", "src": a["src"]}
+                         for i, a in enumerate(album, 1)]
+                entry = entry_parts(loc, shared, {"id": ph["id"], "src": ph["src"], "media": media}, {})
+            out += ["        " + l for l in lens_template(tid, tag, caption, desc, entry)]
         out.append("      </figure>")
     out += ["    </div>"]
     if len(pieces) > page:

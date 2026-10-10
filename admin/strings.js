@@ -623,6 +623,14 @@ const UI_STRINGS = {
   'No poster picture': '没有封面图',
   'No English title': '没有英文标题',
   'No Chinese title': '没有中文标题',
+  'Tile (shown first)': '封面（最先显示）',
+  'Album': '相册',
+  'Add more pictures and this tile becomes an album: it shows how many it holds, and opens into a viewer that steps left and right (and swipes on phones).':
+    '再加几张图片，这一格就变成相册：格子上会显示张数，点开后可以左右切换（手机上可以滑动）。',
+  'Drop more pictures here, or click to choose': '把更多图片拖到这里，或点击选择',
+  'Drop pictures here to make this an album': '把图片拖到这里，做成相册',
+  'An album always opens, so the box below is not needed.': '相册总是可以点开，所以不需要下面的勾选框。',
+  'album of {n}': '相册 {n} 张',
 };
 
 /* The admin's own language, kept in this browser rather than in the content:
