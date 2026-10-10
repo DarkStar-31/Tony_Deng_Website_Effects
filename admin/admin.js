@@ -296,6 +296,28 @@ function cardFold(id, titleNode, controls, body, pv, thumb, meta) {
   return node;
 }
 
+/* An ordinary card, given the same fold-down arrow as cardFold: its head
+ * becomes the <summary>, its body what opens. For the cards at the top of a
+ * tab that are made by shared helpers (pageMeta, sectionHeading) and so
+ * cannot be built as folds without changing every other tab too. Starts
+ * shut; open state is remembered by id, as cardFold's is. */
+function asFold(node, id) {
+  if (!node) return null;
+  const head = node.querySelector(':scope > .card__head');
+  const body = node.querySelector(':scope > .card__body');
+  const summary = el('summary', { className: 'card__head card__head--fold' },
+    el('span', { className: 'card__twist', 'aria-hidden': 'true' }),
+    ...head.childNodes);
+  const fold = el('details', { className: 'card card--fold', 'data-fold': id,
+                               'data-pv-target': node.getAttribute('data-pv-target'),
+                               open: cardOpen.has(id) || null },
+    summary, body);
+  fold.addEventListener('toggle', () => {
+    if (fold.open) cardOpen.add(id); else cardOpen.delete(id);
+  });
+  return fold;
+}
+
 function addButton(label, onClick) {
   return el('button', { className: 'additem', type: 'button', onclick: onClick }, T(label));
 }
@@ -3941,11 +3963,11 @@ function renderVisuals() {
   const shared = SHARED();
   return [
     visualProblemsCard(),
-    pageMeta('visuals'),
-    sectionHeading('videos', 'visuals.heading'),
-    visualsFilterCard(),
+    asFold(pageMeta('visuals'), 'visuals:meta'),
+    asFold(sectionHeading('videos', 'visuals.heading'), 'visuals:heading'),
+    asFold(visualsFilterCard(), 'visuals:filter'),
     visualsOrderCard(),
-    tagsCard(),
+    asFold(tagsCard(), 'visuals:categories'),
     fold('Images', { defaultOpen: true, key: 'visuals:images' }, T('{n} photos', { n: (shared.photos || []).length }),
       ...renderPhotos()),
     fold('Videos', { defaultOpen: true, key: 'visuals:videos' }, T('{n} videos', { n: shared.videos.length }),
