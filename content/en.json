@@ -555,7 +555,10 @@
         "recording-01": {
           "caption": "Sed do eiusmod",
           "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.",
-          "project": "New EP"
+          "project": "New EP",
+          "media": {
+            "m2": {}
+          }
         },
         "recording-02": {
           "caption": "Tempor incididunt",
@@ -580,7 +583,8 @@
           "media": {
             "m2": {
               "label": "Listen on the Music page"
-            }
+            },
+            "m1": {}
           }
         },
         "recording-05": {
