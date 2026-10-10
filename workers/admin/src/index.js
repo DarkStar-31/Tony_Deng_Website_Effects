@@ -234,6 +234,11 @@ async function commitFiles(env, { branch, files, message, author, expectedHead }
 
   const tree = [];
   for (const file of files) {
+    // a null sha in a tree entry is how git's tree API says "remove this"
+    if (file.remove) {
+      tree.push({ path: file.path, mode: '100644', type: 'blob', sha: null });
+      continue;
+    }
     const blob = await gh(env, `${repo(env)}/git/blobs`, {
       method: 'POST',
       body: JSON.stringify(
@@ -340,14 +345,78 @@ async function handleUpload(request, env, user) {
     throw new HttpError(413, `File is ${(size / 1e6).toFixed(1)}MB — the limit is ${Math.round(limit / 1e6)}MB`);
   }
 
+  // Never overwrite: a second "photo.webp" is saved as "photo-2.webp".
+  // Overwriting used to happen silently (client issue 12), and since the
+  // admin shows pictures from the live site, nobody could see it had.
+  const free = await freePath(env, path);
+
   const sha = await commitFiles(env, {
     branch: env.DRAFT_BRANCH,
-    files: [{ path, content: contentBase64, encoding: 'base64' }],
-    message: `Upload ${path}\n\nUploaded by ${user.email} via /admin`,
+    files: [{ path: free, content: contentBase64, encoding: 'base64' }],
+    message: `Upload ${free}\n\nUploaded by ${user.email} via /admin`,
     author: user.email,
   });
 
-  return json({ ok: true, commit: sha, path });
+  return json({ ok: true, commit: sha, path: free, renamed: free !== path });
+}
+
+async function exists(env, path) {
+  const res = await fetch(
+    `https://api.github.com${repo(env)}/contents/${path.split('/').map(encodeURIComponent).join('/')}?ref=${env.DRAFT_BRANCH}`,
+    { method: 'HEAD', headers: {
+      Authorization: `Bearer ${env.GITHUB_TOKEN}`, 'User-Agent': 'tony-site-admin',
+      Accept: 'application/vnd.github+json' } },
+  );
+  return res.ok;
+}
+
+async function freePath(env, path) {
+  if (!(await exists(env, path))) return path;
+  const slash = path.lastIndexOf('/');
+  const dot = path.lastIndexOf('.');
+  const base = path.slice(0, dot > slash ? dot : path.length);
+  const ext = dot > slash ? path.slice(dot) : '';
+  for (let n = 2; n < 100; n++) {
+    const next = `${base}-${n}${ext}`;
+    if (!(await exists(env, next))) return next;
+  }
+  throw new HttpError(409, 'Too many files with that name - rename the file and try again');
+}
+
+// ------------------------------------------------------------ files
+
+/* Everything under img/, audio/ and video/ on the draft branch, with sizes,
+ * so the admin can show what is no longer used and offer to delete it
+ * (client issue 13). Deciding what is "used" is the admin's job - it has the
+ * content in hand, including edits not yet saved. */
+async function handleFiles(env) {
+  const head = await ensureDraft(env);
+  const commit = await gh(env, `${repo(env)}/git/commits/${head}`);
+  const tree = await gh(env, `${repo(env)}/git/trees/${commit.tree.sha}?recursive=1`);
+  const files = (tree ? tree.tree : [])
+    .filter((e) => e.type === 'blob' && /^(img|audio|video)\//.test(e.path))
+    .map((e) => ({ path: e.path, size: e.size }));
+  return json({ files, truncated: !!(tree && tree.truncated) });
+}
+
+async function handleDelete(request, env, user) {
+  const { paths } = await request.json();
+  if (!Array.isArray(paths) || !paths.length || paths.length > 200) {
+    throw new HttpError(400, 'Nothing to delete');
+  }
+  for (const p of paths) {
+    if (typeof p !== 'string' || !/^(img|audio|video)\/[A-Za-z0-9._/-]+$/.test(p) || p.includes('..')) {
+      throw new HttpError(400, `Refusing to delete ${p}`);
+    }
+  }
+  const sha = await commitFiles(env, {
+    branch: env.DRAFT_BRANCH,
+    files: paths.map((path) => ({ path, remove: true })),
+    message: `Delete ${paths.length} unused file${paths.length === 1 ? '' : 's'}\n\n`
+      + paths.join('\n') + `\n\nDeleted by ${user.email} via /admin`,
+    author: user.email,
+  });
+  return json({ ok: true, commit: sha, deleted: paths.length });
 }
 
 /* A video's poster, fetched from YouTube and committed next to the others.
@@ -489,6 +558,8 @@ export default {
       if (request.method === 'POST' && path === '/upload') return await handleUpload(request, env, user);
       if (request.method === 'POST' && path === '/publish') return await handlePublish(env, user);
       if (request.method === 'POST' && path === '/poster') return await handlePoster(request, env, user);
+      if (request.method === 'GET' && path === '/files') return await handleFiles(env);
+      if (request.method === 'POST' && path === '/delete') return await handleDelete(request, env, user);
 
       throw new HttpError(404, `No admin route for ${request.method} ${path}`);
     } catch (err) {

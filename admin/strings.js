@@ -696,6 +696,28 @@ const UI_STRINGS = {
   'Images': '图片',
   '{n} photos': '{n} 张照片',
   '{n} videos': '{n} 个视频',
+  // ------------------------------------------------- uploads & files (10-09)
+  'Made web-sized: {from} → {to}.': '已压缩为网页尺寸：{from} → {to}。',
+  'A file called {name} already existed, so this one was saved as {path}.': '已有同名文件 {name}，所以这个保存为 {path}。',
+  'Files': '文件',
+  'Loading the file list…': '正在载入文件列表…',
+  'Try again': '重试',
+  'Delete {n} files? They disappear from the draft now, and from the live site when you publish.': '删除 {n} 个文件？它们会立刻从草稿中删除，发布后从正式网站删除。',
+  'Deleted {n} files': '已删除 {n} 个文件',
+  'Publish to take them off the live site too.': '发布后它们也会从正式网站上删除。',
+  'Delete selected ({n})': '删除所选（{n}）',
+  'Every picture, clip and song uploaded to the site. Files nothing uses any more can be deleted here.': '上传到网站的所有图片、视频片段和歌曲。没有再被使用的文件可以在这里删除。',
+  'Storage': '存储',
+  '{n} files, {size} in all.': '共 {n} 个文件，{size}。',
+  '{n} unused ({size}).': '其中 {n} 个未使用（{size}）。',
+  'Nothing unused.': '没有未使用的文件。',
+  'Deleting makes the site lighter, but the project keeps a history of every file ever uploaded, so its archive does not shrink. Moving pictures and video to Cloudflare R2 is the longer-term fix.': '删除能让网站更轻，但项目会保留每个上传过的文件的历史记录，所以存档本身不会变小。长远的办法是把图片和视频移到 Cloudflare R2。',
+  'The list is too long to show in full.': '列表太长，无法全部显示。',
+  'Not used anywhere': '没有被使用',
+  'Select all': '全选',
+  'Every file is in use.': '所有文件都在使用中。',
+  'In use': '使用中',
+  '{n} files — open to see them': '{n} 个文件——展开查看',
 };
 
 /* The admin's own language, kept in this browser rather than in the content:

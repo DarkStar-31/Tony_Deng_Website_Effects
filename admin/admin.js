@@ -320,19 +320,75 @@ function fileToBase64(file) {
  * waiting for Save, because a half-saved image reference is worse than an
  * unreferenced file sitting in the repo.
  */
-async function uploadInto(dir, file, onDone) {
+/* Pictures are made web-sized in the browser before they are sent (client
+ * issue 11): at most 2400px on the long side, re-encoded as WebP. A 6MB
+ * phone photo comes out at a few hundred KB and looks the same on screen.
+ * Small files are left exactly as they are - a favicon or a hand-drawn PNG
+ * gains nothing - and so is anything the re-encode would make bigger.
+ * Browsers that cannot write WebP (older Safari) get JPEG, or PNG for a
+ * PNG, so transparency is never flattened onto black. */
+const IMAGE_MAX_SIDE = 2400;
+const IMAGE_SMALL = 400 * 1024;
+
+async function webSized(file) {
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return file;
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = url;
+    });
+    const w = img.naturalWidth, h = img.naturalHeight;
+    const scale = Math.min(1, IMAGE_MAX_SIDE / Math.max(w, h));
+    if (scale === 1 && file.size <= IMAGE_SMALL) return file;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(w * scale);
+    canvas.height = Math.round(h * scale);
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    // a stuck encoder must not hold the upload hostage: give up and send the original
+    const encode = (type, q) => Promise.race([
+      new Promise((r) => canvas.toBlob(r, type, q)),
+      new Promise((r) => setTimeout(() => r(null), 20000)),
+    ]);
+    let blob = await encode('image/webp', 0.82);
+    if (!blob || blob.type !== 'image/webp') {
+      blob = file.type === 'image/png' ? await encode('image/png') : await encode('image/jpeg', 0.85);
+    }
+    if (!blob || (scale === 1 && blob.size >= file.size)) return file;
+    const ext = { 'image/webp': 'webp', 'image/png': 'png', 'image/jpeg': 'jpg' }[blob.type];
+    const name = file.name.replace(/\.[^.]+$/, '') + '.' + ext;
+    return new File([blob], name, { type: blob.type });
+  } catch {
+    return file;     // anything odd: send the original, as before
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+const kb = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1e3))}KB`);
+
+async function uploadInto(dir, original, onDone) {
+  const file = dir.startsWith('img') ? await webSized(original) : original;
   const name = file.name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-');
-  const path = `${dir}/${name}`;
+  const asked = `${dir}/${name}`;
   toast(T('Uploading {name}…', { name }));
   try {
     const b64 = await fileToBase64(file);
     const res = await api('/upload', {
       method: 'POST',
-      body: JSON.stringify({ path, contentBase64: b64 }),
+      body: JSON.stringify({ path: asked, contentBase64: b64 }),
     });
     state.headSha = res.commit;
-    toast(T('Uploaded {path}', { path }), 'good',
-          T('It is on the draft branch — Publish to put it on the live site.'));
+    // the server numbers a name that is already taken, so its answer is the path
+    const path = res.path || asked;
+    if (state.fileList) state.fileList = null;
+    const notes = [];
+    if (file !== original) notes.push(T('Made web-sized: {from} → {to}.', { from: kb(original.size), to: kb(file.size) }));
+    if (res.renamed) notes.push(T('A file called {name} already existed, so this one was saved as {path}.', { name, path }));
+    notes.push(T('It is on the draft branch — Publish to put it on the live site.'));
+    toast(T('Uploaded {path}', { path }), 'good', notes.join(' '));
     onDone(path, file);
   } catch (err) {
     toast(err.message, 'bad', err.detail);
@@ -374,6 +430,7 @@ const TABS = [
   { id: 'about', label: 'About', render: renderAboutPage },
   { id: 'making', label: 'In the Making', render: renderMaking },
   { id: 'contact', label: 'Contact & footer', render: renderContactPage },
+  { id: 'files', label: 'Files', render: renderFiles },
   { id: 'raw', label: 'Raw JSON', render: renderRaw },
 ];
 
@@ -3070,6 +3127,115 @@ function ringSectionControls(ring, total) {
 }
 
 // ---------------------------------------------------------------- raw// ---------------------------------------------------------------- raw
+
+// ---------------------------------------------------------------- files
+
+/* Every uploaded file, and which ones nothing uses any more (client issue
+ * 13). "Used" means its path appears in the content - as it is in this
+ * window, unsaved edits included - or in the site's own code (the
+ * stylesheet masks the hero with a picture from img/, the admin falls back
+ * to a placeholder poster). Only unused files can be deleted from here.
+ *
+ * A deletion is a commit to the draft branch, like an upload, and reaches
+ * the live site on Publish. Git keeps every old version, so deleting keeps
+ * the site and its download small but not the repository's history - that
+ * is what moving media to R2 would fix. */
+async function loadFileList() {
+  state.fileList = 'loading';
+  try {
+    const [list, ...code] = await Promise.all([
+      api('/files'),
+      ...['/css/styles.css', '/js/main.js', '/admin/admin.js']
+        .map((u) => fetch(u, { cache: 'no-store' }).then((r) => (r.ok ? r.text() : '')).catch(() => '')),
+    ]);
+    state.fileList = { ...list, code: code.join('\n') };
+  } catch (err) {
+    state.fileList = { error: err.message };
+  }
+  if (state.tab === 'files') renderPanel();
+}
+
+function renderFiles() {
+  const rerender = () => renderPanel();
+  const fl = state.fileList;
+  if (!fl) { loadFileList(); return [intro(T('Loading the file list…'))]; }
+  if (fl === 'loading') return [intro(T('Loading the file list…'))];
+  if (fl.error) {
+    return [card('Files', null, el('div', {},
+      el('p', { className: 'hint' }, fl.error),
+      el('button', { className: 'btn btn--small', type: 'button', onclick: () => { state.fileList = null; rerender(); } }, T('Try again'))))];
+  }
+
+  const content = Object.values(state.files).map((f) => JSON.stringify(f)).join('\n');
+  const used = (p) => content.includes(`"${p}"`) || fl.code.includes(p);
+  // media only: a README kept beside the songs is not something to delete here
+  const all = fl.files.filter((f) => !/(^|\/)README|\.md$/i.test(f.path));
+  const unused = all.filter((f) => !used(f.path));
+  const sum = (list) => list.reduce((a, f) => a + f.size, 0);
+  const picked = state.filePick || (state.filePick = new Set());
+  for (const p of [...picked]) if (!unused.some((f) => f.path === p)) picked.delete(p);
+
+  const isImg = (p) => /\.(webp|jpe?g|png|gif|svg)$/i.test(p);
+  const row = (f, selectable) => {
+    const box = selectable ? el('input', { type: 'checkbox' }) : null;
+    if (box) {
+      box.checked = picked.has(f.path);
+      // no rerender: redrawing the list under the pointer would drop a quick second tick
+      box.addEventListener('change', () => {
+        if (box.checked) picked.add(f.path); else picked.delete(f.path);
+        paintDel();
+      });
+    }
+    return el('label', { className: 'filerow' + (selectable ? '' : ' filerow--used') },
+      box,
+      isImg(f.path) ? el('img', { src: '/' + f.path, alt: '', loading: 'lazy' }) : el('span', { className: 'filerow__icon' }, f.path.split('.').pop()),
+      el('span', { className: 'filerow__path mono' }, f.path),
+      el('span', { className: 'filerow__size' }, kb(f.size)));
+  };
+
+  const del = el('button', {
+    className: 'btn btn--small btn--danger', type: 'button', disabled: !picked.size || null,
+    onclick: async () => {
+      if (!confirm(T('Delete {n} files? They disappear from the draft now, and from the live site when you publish.', { n: picked.size }))) return;
+      try {
+        const res = await api('/delete', { method: 'POST', body: JSON.stringify({ paths: [...picked] }) });
+        state.headSha = res.commit;
+        toast(T('Deleted {n} files', { n: res.deleted }), 'good', T('Publish to take them off the live site too.'));
+        picked.clear();
+        state.fileList = null;
+        if (typeof refreshStatus === 'function') refreshStatus();
+        rerender();
+      } catch (err) {
+        toast(err.message, 'bad', err.detail);
+      }
+    },
+  }, T('Delete selected ({n})', { n: picked.size }));
+  function paintDel() {
+    del.disabled = !picked.size;
+    del.textContent = T('Delete selected ({n})', { n: picked.size });
+  }
+
+  return [
+    intro(T('Every picture, clip and song uploaded to the site. Files nothing uses any more can be deleted here.')),
+    card('Storage', null, el('div', {},
+      el('p', {}, T('{n} files, {size} in all.', { n: all.length, size: kb(sum(all)) }), ' ',
+        unused.length ? T('{n} unused ({size}).', { n: unused.length, size: kb(sum(unused)) }) : T('Nothing unused.')),
+      el('p', { className: 'hint' },
+        T('Deleting makes the site lighter, but the project keeps a history of every file ever uploaded, so its archive does not shrink. Moving pictures and video to Cloudflare R2 is the longer-term fix.')),
+      fl.truncated ? el('p', { className: 'hint' }, T('The list is too long to show in full.')) : null)),
+    card(el('span', {}, T('Not used anywhere'), ' ', el('span', { className: 'pending' }, String(unused.length))),
+      unused.length ? el('div', { className: 'row', style: 'gap:6px' },
+        el('button', { className: 'btn btn--small btn--ghost', type: 'button',
+          onclick: () => { unused.forEach((f) => picked.add(f.path)); rerender(); } }, T('Select all')),
+        del) : null,
+      unused.length
+        ? el('div', { className: 'files' }, ...unused.map((f) => row(f, true)))
+        : el('p', { className: 'hint' }, T('Every file is in use.'))),
+    card('In use', null, el('details', {},
+      el('summary', { className: 'hint' }, T('{n} files — open to see them', { n: all.length - unused.length })),
+      el('div', { className: 'files' }, ...all.filter((f) => used(f.path)).map((f) => row(f, false))))),
+  ];
+}
 
 function renderRaw() {
   const out = [intro(

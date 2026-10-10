@@ -423,6 +423,16 @@ input[lang="zh-Hans"], textarea[lang="zh-Hans"] { font-family: "PingFang SC", "M
 .tagrow__side select { max-width: 130px; }
 .tagnew { margin-top: 8px; padding-left: 14px; }
 .tagnew input { flex: 1; }
+.files { display: grid; gap: 2px; }
+.filerow { display: flex; align-items: center; gap: 10px; padding: 4px 6px; border-radius: 6px; cursor: pointer; }
+.filerow:hover { background: var(--ink-3); }
+.filerow--used { cursor: default; }
+.filerow img, .filerow__icon {
+  width: 48px; height: 34px; object-fit: cover; border-radius: 4px; border: 1px solid var(--line); flex: none;
+}
+.filerow__icon { display: grid; place-items: center; font-size: 10px; color: var(--dim); text-transform: uppercase; }
+.filerow__path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.filerow__size { font-size: 12px; color: var(--dim); }
 .pending--bad { background: rgba(250, 39, 159, .14); color: var(--magenta); margin-left: 4px; }
 .problems ul { margin: 0; padding-left: 18px; }
 .problems li { margin: 4px 0; color: var(--dim); font-size: 13px; }

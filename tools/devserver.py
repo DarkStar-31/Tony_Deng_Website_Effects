@@ -76,6 +76,9 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path.startswith("/api/admin/"):
             route = self.path[len("/api/admin/"):].split("?")[0]
 
+            if route == "files":
+                return self.files_listing()
+
             if route == "status":
                 return self.send_json({
                     "email": FAKE_USER,
@@ -96,6 +99,14 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json({"error": f"No dev route for GET {route}"}, 404)
 
         return super().do_GET()
+
+    def files_listing(self):
+        out = []
+        for top in ("img", "audio", "video"):
+            for f in sorted((ROOT / top).rglob("*")):
+                if f.is_file():
+                    out.append({"path": f.relative_to(ROOT).as_posix(), "size": f.stat().st_size})
+        return self.send_json({"files": out, "truncated": False})
 
     def do_PUT(self):
         if self.path == "/api/admin/content":
@@ -121,10 +132,26 @@ class Handler(SimpleHTTPRequestHandler):
             path = body.get("path", "")
             if not re.fullmatch(r"(img|audio|video)/[A-Za-z0-9._/-]+", path) or ".." in path:
                 return self.send_json({"error": "Bad upload path"}, 400)
+            # same as the Worker: never overwrite, number the new one instead
+            asked = path
+            stem, dot, ext = path.rpartition(".")
+            n = 2
+            while (ROOT / path).exists():
+                path = f"{stem}-{n}.{ext}" if dot else f"{asked}-{n}"
+                n += 1
             dest = ROOT / path
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_bytes(base64.b64decode(body.get("contentBase64", "")))
-            return self.send_json({"ok": True, "commit": "local", "path": path})
+            return self.send_json({"ok": True, "commit": "local", "path": path, "renamed": path != asked})
+
+        if self.path == "/api/admin/delete":
+            paths = self.read_json().get("paths") or []
+            for p in paths:
+                if not re.fullmatch(r"(img|audio|video)/[A-Za-z0-9._/-]+", p) or ".." in p:
+                    return self.send_json({"error": f"Refusing to delete {p}"}, 400)
+            for p in paths:
+                (ROOT / p).unlink(missing_ok=True)
+            return self.send_json({"ok": True, "commit": "local", "deleted": len(paths)})
 
         if self.path == "/api/admin/poster":
             # same as the Worker's: fetch YouTube's thumbnail and keep it
