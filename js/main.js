@@ -1979,11 +1979,20 @@ class VisualsFilter {
   /* `facade` is the VideoFacade this grid shares. Filtering away a tile
      that is playing would otherwise leave its iframe alive inside a
      `hidden` cell - invisible, and still making sound. */
+  /* It also pages the grid. build.py marks everything past the first page
+     `data-later`, which the stylesheet hides only under html.js; here that
+     becomes `hidden` like any filtered cell, and "Load more" raises the
+     limit by a page. The limit counts what the current filter shows, so
+     Photos shows the first page of photos, not whatever photos happened
+     to fall in the first page of everything. The bar is optional - the
+     Chinese page can have nothing to filter and still need paging. */
   constructor (facade = null, gridSel = '.gallery', barSel = '.vfilter') {
     this.facade = facade;
     this.grid = document.querySelector(gridSel);
     this.bar = document.querySelector(barSel);
-    if (!this.grid || !this.bar) return;
+    if (!this.grid) return;
+    this.more = this.grid.parentElement.querySelector('.more');
+    if (!this.bar && !this.more) return;
 
     this.cells = [...this.grid.children].map((el) => ({
       el,
@@ -1995,22 +2004,53 @@ class VisualsFilter {
 
     this.mode = 'all';
     this.busy = false;
-    this.bar.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-filter]');
-      if (btn) this.apply(btn.dataset.filter);
-    });
+    this.page = this.more ? (parseInt(this.more.dataset.page, 10) || Infinity) : Infinity;
+    this.limit = this.page;
+    if (this.bar) {
+      this.bar.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-filter]');
+        if (btn) this.apply(btn.dataset.filter);
+      });
+    }
+    if (this.more) {
+      this.more.querySelector('button').addEventListener('click', () => this.loadMore());
+      // the stylesheet's hold on data-later hands over to `hidden` here
+      this.settle(true);
+      this.cells.forEach((c) => c.el.removeAttribute('data-later'));
+    }
   }
 
-  shows (cell) { return this.mode === 'all' || cell.kind === this.mode; }
+  matches (cell) { return this.mode === 'all' || cell.kind === this.mode; }
+
+  // which cells are on show: the filter's, up to the limit
+  showing () {
+    return new Set(this.cells.filter((c) => this.matches(c)).slice(0, this.limit));
+  }
+
+  loadMore () {
+    if (this.busy) return;
+    const before = this.showing();
+    this.limit += this.page;
+    this.settle();
+    // the button may have just hidden itself; keyboard focus moves on to
+    // the first new piece rather than being dropped back at the top
+    const first = this.cells.find((c) => !c.el.hidden && !before.has(c));
+    const target = first && first.el.querySelector('a, button, [tabindex]');
+    if (target && document.activeElement === this.more.querySelector('button')) {
+      target.focus({ preventScroll: true });
+    }
+  }
 
   apply (mode) {
     if (this.busy || mode === this.mode) return;
     this.mode = mode;
+    this.limit = this.page;
     this.bar.querySelectorAll('[data-filter]').forEach((b) => {
       b.setAttribute('aria-pressed', String(b.dataset.filter === mode));
     });
 
-    const leaving = this.cells.filter((c) => !c.el.hidden && !this.shows(c));
+    const on = this.showing();
+    const leaving = this.cells.filter((c) => !c.el.hidden && !on.has(c));
     leaving.forEach((c) => c.el.classList.add('is-going'));
 
     // Whatever is playing goes back to a poster before the grid moves:
@@ -2024,8 +2064,9 @@ class VisualsFilter {
     setTimeout(() => { this.busy = false; this.settle(); }, 220);
   }
 
-  settle () {
+  settle (instant = false) {
     const grid = this.grid;
+    const on = this.showing();
 
     // FIRST — where everything sits before the grid changes
     const first = new Map();
@@ -2035,17 +2076,20 @@ class VisualsFilter {
 
     const live = [];
     for (const c of this.cells) {
-      const on = this.shows(c);
+      const shown = on.has(c);
       c.el.classList.remove('is-going', 'is-coming');
-      c.el.hidden = !on;
-      if (on) live.push(c);
+      c.el.hidden = !shown;
+      if (shown) live.push(c);
     }
     for (const c of packVisuals(live)) {
       c.el.style.setProperty('--c', c.c);
       c.el.style.setProperty('--r', c.r);
     }
+    if (this.more) {
+      this.more.hidden = this.cells.filter((c) => this.matches(c)).length <= this.limit;
+    }
 
-    if (REDUCED) return;
+    if (REDUCED || instant) return;
 
     // LAST, then INVERT — hold every cell where it used to be
     let arriving = 0;

@@ -644,6 +644,20 @@ PHOTO_SPANS = {
 # takes the whole row (see .photo.is-playing in the stylesheet).
 VIDEO_SPANS = {"s": (4, 2), "m": (6, 3), "l": (8, 4)}
 
+# How many pieces of the Visuals grid show before "Load more". The rest are
+# on the page from the start - images are lazy, so they cost nothing until
+# shown - but held back until asked for, so the grid stays one screenful of
+# choices however long the catalogue gets. shared["visualsPage"] overrides.
+VISUALS_PAGE = 24
+
+
+def visuals_page(shared: dict) -> int:
+    try:
+        n = int(shared.get("visualsPage", VISUALS_PAGE))
+    except (TypeError, ValueError):
+        return VISUALS_PAGE
+    return n if n > 0 else VISUALS_PAGE
+
 
 HERO_LOOP_SECONDS = 6
 
@@ -923,12 +937,28 @@ def render_lens(loc: dict) -> list[str]:
     ]
 
 
-def visuals_order(shared: dict) -> list[tuple[str, dict]]:
+def plays_here(loc: dict | None, v: dict) -> bool:
+    """Whether a grid video has somewhere to play from on this page.
+
+    The Chinese page plays only from Bilibili, because YouTube does not load
+    in mainland China. A grid tile with no BV id yet used to stay on that
+    page as a poster flagged "coming soon" - thirteen of them, a whole grid
+    of things that could not be played. They are left out instead, the same
+    rule diary entries follow, and each comes back by itself once its BV id
+    is filled in. The title video keeps its tile and its flag, which points
+    to YouTube for anyone who can reach it."""
+    if loc is None or loc.get("videoBackend") != "bilibili":
+        return True
+    return bool(v.get("bv"))
+
+
+def visuals_order(shared: dict, loc: dict | None = None) -> list[tuple[str, dict]]:
     """Every photo and grid video, in shared["visualsOrder"] order. Anything
     the order does not mention is added at the end, so a newly added photo
-    or video still shows up; a reference to something deleted is skipped."""
+    or video still shows up; a reference to something deleted is skipped.
+    Given a locale, videos that cannot play on that page are dropped."""
     photos = {ph["id"]: ph for ph in shared.get("photos", [])}
-    videos = {v["id"]: v for v in shared["videos"] if not v.get("feature")}
+    videos = {v["id"]: v for v in shared["videos"] if not v.get("feature") and plays_here(loc, v)}
     seen, out = set(), []
     for ref in shared.get("visualsOrder", []):
         kind, _, key = ref.partition(":")
@@ -954,7 +984,7 @@ def render_visuals_filter(loc: dict, shared: dict) -> list[str]:
     if not f:
         return []
     counts = {"photo": 0, "video": 0}
-    for kind, _ in visuals_order(shared):
+    for kind, _ in visuals_order(shared, loc):
         counts[kind] = counts.get(kind, 0) + 1
     counts["all"] = counts["photo"] + counts["video"]
     # with nothing to separate - only photos, or only videos - the switch
@@ -991,11 +1021,16 @@ def render_visuals_grid(loc: dict, shared: dict) -> list[str]:
         '  <div class="gallery-wrap">',
         '    <div class="gallery">',
     ]
-    for kind, ph in visuals_order(shared):
+    page = visuals_page(shared)
+    pieces = visuals_order(shared, loc)
+    for n, (kind, ph) in enumerate(pieces):
+        # past the first page: hidden by the stylesheet only once JS is
+        # running, so with JS off the whole grid is simply there
+        later = " data-later" if n >= page else ""
         if kind == "video":
             cols, rows = VIDEO_SPANS[ph.get("size", "s")]
             out.append(
-                f'      <div class="photo photo--video reveal" data-kind="video"'
+                f'      <div class="photo photo--video reveal" data-kind="video"{later}'
                 f' data-ar="{cols / rows:.4f}" style="--c:{cols};--r:{rows}">'
             )
             # the tile's own reveal would double up with its cell's
@@ -1008,7 +1043,7 @@ def render_visuals_grid(loc: dict, shared: dict) -> list[str]:
         tag = tags.get(ph.get("tag", ""), "")
         desc = c.get("desc", "").strip()
         out += [
-            f'      <figure class="photo reveal" data-kind="photo"'
+            f'      <figure class="photo reveal" data-kind="photo"{later}'
             f' data-ar="{cols / rows:.4f}" style="--c:{cols};--r:{rows}">',
             f'        <img src="{p}{ph["src"]}" alt="{attr(plain(caption))}" loading="lazy" decoding="async">',
             '        <figcaption class="photo__cap">',
@@ -1027,7 +1062,14 @@ def render_visuals_grid(loc: dict, shared: dict) -> list[str]:
             ]
             out += ["        " + l for l in lens_template(tid, tag, caption, desc)]
         out.append("      </figure>")
-    out += ["    </div>", "  </div>"]
+    out += ["    </div>"]
+    if len(pieces) > page:
+        out += [
+            f'    <p class="more" data-page="{page}">',
+            f'      <button class="more__btn" type="button">{loc.get("loadMore", "Load more")}</button>',
+            "    </p>",
+        ]
+    out += ["  </div>"]
     return out
 
 
@@ -1236,7 +1278,7 @@ def render_videos(loc: dict, shared: dict, full: bool = False) -> list[str]:
     ]
 
     feature = [v for v in shared["videos"] if v.get("feature")]
-    grid = [v for v in shared["videos"] if not v.get("feature")]
+    grid = [v for v in shared["videos"] if not v.get("feature") and plays_here(loc, v)]
 
     # The homepage leads with one thing under this heading: the title video,
     # or a picture instead when there is no new video worth leading with.

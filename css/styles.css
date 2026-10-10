@@ -1651,6 +1651,20 @@ html[lang^="zh"] .photo__tag{ font-size:.72rem; letter-spacing:.06em; }
    too. It needs the extra weight because the two-column block layout
    under 720px sets `display:block` on every .photo. */
 .gallery .photo[hidden]{ display:none; }
+/* Past the first page until "Load more" - but only once JS is running to
+   answer the button; VisualsFilter swaps this for `hidden` on boot. */
+.js .gallery > [data-later]{ display:none; }
+.more{ margin:clamp(1.6rem,3vw,2.4rem) 0 0; text-align:center; }
+.more[hidden]{ display:none; }
+.more__btn{
+  padding:.8rem 1.8rem; border:1px solid var(--line); border-radius:999px;
+  background:rgba(11,10,12,.5); color:var(--bone); cursor:pointer;
+  font:inherit; font-size:.74rem; font-weight:600; letter-spacing:.16em; text-transform:uppercase;
+  transition:border-color .3s var(--ease), background .3s var(--ease);
+}
+html[lang^="zh"] .more__btn{ font-size:.85rem; letter-spacing:.06em; text-transform:none; }
+.more__btn:hover{ border-color:var(--magenta); background:rgba(250,39,159,.08); }
+.more__btn:focus-visible{ outline:2px solid var(--magenta); outline-offset:3px; }
 /* The three rules below are written `.js .gallery ...` only to outweigh
    `.js .reveal.is-in`, which sets `transform:none` and a 0.9s transition
    and is further down the file. Scroll-reveal has finished with these
