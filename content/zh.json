@@ -559,11 +559,20 @@
     "live": "现场·幕后",
     "press": "媒体照片"
   },
+  "tagGroups": {
+    "type": "类型"
+  },
   "visualsFilter": {
     "label": "筛选影像",
     "all": "全部",
     "photos": "照片",
     "videos": "视频"
+  },
+  "visualsFind": {
+    "button": "筛选",
+    "search": "搜索标题和标签",
+    "clear": "全部清除",
+    "none": "没有符合条件的内容。"
   },
   "loadMore": "加载更多",
   "visualsBannerAlt": "",

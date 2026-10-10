@@ -338,7 +338,6 @@
       "src": "img/placeholder/photo-01.webp",
       "shape": "portrait",
       "size": "l",
-      "tag": "portrait",
       "album": [
         {
           "id": "a1",
@@ -360,6 +359,9 @@
           "id": "a5",
           "src": "img/placeholder/photo-13.webp"
         }
+      ],
+      "tags": [
+        "portrait"
       ]
     },
     {
@@ -367,98 +369,126 @@
       "src": "img/placeholder/photo-02.webp",
       "shape": "landscape",
       "size": "m",
-      "tag": "studio"
+      "tags": [
+        "studio"
+      ]
     },
     {
       "id": "photo-03",
       "src": "img/placeholder/photo-03.webp",
       "shape": "portrait",
       "size": "s",
-      "tag": "portrait"
+      "tags": [
+        "portrait"
+      ]
     },
     {
       "id": "photo-04",
       "src": "img/placeholder/photo-04.webp",
       "shape": "portrait",
       "size": "s",
-      "tag": "live"
+      "tags": [
+        "live"
+      ]
     },
     {
       "id": "photo-05",
       "src": "img/placeholder/photo-05.webp",
       "shape": "wide",
       "size": "m",
-      "tag": "studio"
+      "tags": [
+        "studio"
+      ]
     },
     {
       "id": "photo-06",
       "src": "img/placeholder/photo-06.webp",
       "shape": "square",
       "size": "m",
-      "tag": "press"
+      "tags": [
+        "press"
+      ]
     },
     {
       "id": "photo-07",
       "src": "img/placeholder/photo-07.webp",
       "shape": "tall",
       "size": "m",
-      "tag": "portrait"
+      "tags": [
+        "portrait"
+      ]
     },
     {
       "id": "photo-08",
       "src": "img/placeholder/photo-08.webp",
       "shape": "square",
       "size": "l",
-      "tag": "live"
+      "tags": [
+        "live"
+      ]
     },
     {
       "id": "photo-09",
       "src": "img/placeholder/photo-09.webp",
       "shape": "tall",
       "size": "s",
-      "tag": "studio"
+      "tags": [
+        "studio"
+      ]
     },
     {
       "id": "photo-10",
       "src": "img/placeholder/photo-10.webp",
       "shape": "tall",
       "size": "s",
-      "tag": "press"
+      "tags": [
+        "press"
+      ]
     },
     {
       "id": "photo-11",
       "src": "img/placeholder/photo-11.webp",
       "shape": "panorama",
       "size": "m",
-      "tag": "live"
+      "tags": [
+        "live"
+      ]
     },
     {
       "id": "photo-12",
       "src": "img/placeholder/photo-12.webp",
       "shape": "square",
       "size": "s",
-      "tag": "portrait"
+      "tags": [
+        "portrait"
+      ]
     },
     {
       "id": "photo-13",
       "src": "img/placeholder/photo-13.webp",
       "shape": "wide",
       "size": "s",
-      "tag": "studio"
+      "tags": [
+        "studio"
+      ]
     },
     {
       "id": "photo-14",
       "src": "img/placeholder/photo-14.webp",
       "shape": "wide",
       "size": "s",
-      "tag": "live"
+      "tags": [
+        "live"
+      ]
     },
     {
       "id": "photo-15",
       "src": "img/placeholder/photo-15.webp",
       "shape": "wide",
       "size": "s",
-      "tag": "press"
+      "tags": [
+        "press"
+      ]
     }
   ],
   "milestones": [
@@ -616,6 +646,17 @@
           "type": "image",
           "src": "img/placeholder/photo-15.webp"
         }
+      ]
+    }
+  ],
+  "tagGroups": [
+    {
+      "id": "type",
+      "tags": [
+        "portrait",
+        "studio",
+        "live",
+        "press"
       ]
     }
   ]

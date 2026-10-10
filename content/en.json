@@ -536,11 +536,20 @@
     "live": "Live &amp; behind the scenes",
     "press": "Press photos"
   },
+  "tagGroups": {
+    "type": "Type"
+  },
   "visualsFilter": {
     "label": "Filter visuals",
     "all": "All",
     "photos": "Photos",
     "videos": "Videos"
+  },
+  "visualsFind": {
+    "button": "Filter",
+    "search": "Search titles and tags",
+    "clear": "Clear all",
+    "none": "Nothing matches those filters."
   },
   "loadMore": "Load more",
   "visualsBannerAlt": "",

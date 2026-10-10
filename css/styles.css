@@ -1517,6 +1517,65 @@ html[lang^="zh"] .press__src{ font-size:.78rem; letter-spacing:.08em; }
 .section__head--split .section__title{ margin-bottom:0; }
 .section__headline{ min-width:0; }
 
+/* Filter, then the switch, side by side beside the heading. */
+.vtools{ display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; }
+.vfind{ display:none; position:relative; }
+html.js .vfind{ display:block; }
+.vfind__btn{
+  display:flex; align-items:center; gap:.5rem;
+  padding:.8rem 1.15rem; border:1px solid var(--line); border-radius:999px;
+  background:rgba(11,10,12,.5); color:var(--bone); cursor:pointer;
+  font:inherit; font-size:.72rem; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+  transition:border-color .3s var(--ease);
+}
+html[lang^="zh"] .vfind__btn{ font-size:.8rem; letter-spacing:.04em; text-transform:none; }
+.vfind__btn svg{ width:1rem; height:1rem; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; }
+.vfind__btn:hover,
+.vfind__btn[aria-expanded="true"]{ border-color:var(--magenta); }
+.vfind__btn:focus-visible{ outline:2px solid var(--magenta); outline-offset:2px; }
+.vfind__n{
+  min-width:1.3rem; height:1.3rem; padding:0 .3rem; border-radius:999px;
+  display:grid; place-items:center; background:var(--magenta); color:#fff;
+  font-size:.68rem; letter-spacing:0;
+}
+.vfind__n[hidden]{ display:none; }
+.vfind__panel{
+  position:absolute; right:0; top:calc(100% + .5rem); z-index:20;
+  width:min(24rem, calc(100vw - 2 * var(--pad)));
+  padding:1rem; border:1px solid var(--line); border-radius:16px;
+  background:rgba(19,17,20,.97); backdrop-filter:blur(10px);
+  box-shadow:0 30px 70px rgba(0,0,0,.55);
+}
+.vfind__panel[hidden]{ display:none; }
+.vfind__search{
+  width:100%; box-sizing:border-box; margin-bottom:.9rem;
+  padding:.65rem .9rem; border:1px solid var(--line); border-radius:10px;
+  background:var(--ink, #0B0A0C); color:var(--bone); font:inherit; font-size:.9rem;
+}
+.vfind__search:focus{ outline:none; border-color:var(--magenta); }
+.vfind__group + .vfind__group{ margin-top:.8rem; }
+.vfind__name{
+  margin:0 0 .45rem; font-size:.64rem; letter-spacing:.18em; text-transform:uppercase; color:var(--bone-dim);
+}
+html[lang^="zh"] .vfind__name{ font-size:.78rem; letter-spacing:.06em; }
+.vfind__chips{ display:flex; flex-wrap:wrap; gap:.4rem; }
+.vfind__chip{
+  padding:.4rem .8rem; border:1px solid var(--line); border-radius:999px;
+  background:transparent; color:var(--bone-dim); cursor:pointer; font:inherit; font-size:.82rem;
+  transition:color .25s var(--ease), border-color .25s var(--ease), background .25s var(--ease);
+}
+.vfind__chip:hover{ color:var(--bone); border-color:rgba(237,230,220,.4); }
+.vfind__chip:focus-visible{ outline:2px solid var(--magenta); outline-offset:2px; }
+.vfind__chip[aria-pressed="true"]{ background:var(--magenta); border-color:var(--magenta); color:#fff; }
+.vfind__clear{
+  margin-top:1rem; padding:0; border:0; background:none; cursor:pointer;
+  color:var(--bone-dim); font:inherit; font-size:.8rem; text-decoration:underline; text-underline-offset:3px;
+}
+.vfind__clear:hover{ color:var(--bone); }
+.vfind__clear[hidden]{ display:none; }
+.vempty{ margin:2rem 0 0; text-align:center; color:var(--bone-dim); }
+.vempty[hidden]{ display:none; }
+
 /* Nothing answers a click without JS, so the switch is not shown at all
    until main.js has set html.js - the whole grid is there either way. */
 .vfilter{ display:none; }
@@ -1544,8 +1603,12 @@ html[lang^="zh"] .vfilter__btn{ font-size:.8rem; letter-spacing:.04em; text-tran
    switch becomes a full-width segmented control under the heading. */
 @media (max-width:700px){
   .section__head--split{ display:block; }
-  html.js .vfilter{ display:flex; margin-top:1.25rem; }
+  .vtools{ margin-top:1.25rem; flex-wrap:nowrap; }
+  html.js .vfilter{ display:flex; flex:1; }
   .vfilter__btn{ flex:1; padding:.6rem .5rem; }
+  .vfind__btn{ padding:.75rem .9rem; }
+  .vfind__btn > span:first-of-type{ position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+  .vfind__panel{ left:0; right:auto; }
 }
 
 /* ---- the homepage's lead picture ----
@@ -1739,19 +1802,27 @@ html[lang^="zh"] .photo__tag{ font-size:.72rem; letter-spacing:.06em; }
   border:1px solid rgba(237,230,220,.35);
   transition:background .3s var(--ease), border-color .3s var(--ease), transform .3s var(--ease);
 }
-/* an album says how many pictures it holds instead of "+" */
+.photo__open:hover .photo__badge,
+.photo__open:focus-visible .photo__badge{
+  background:var(--magenta); border-color:var(--magenta); transform:rotate(90deg);
+}
+/* An album says how many pictures it holds instead of "+". The badge
+   lights up like the other, but only the icon turns - a number on its
+   side is not a number any more. Written after the rule above, which it
+   has to beat at the same weight. */
 .photo__badge--album{
   width:auto; padding:0 .6rem 0 .5rem; gap:.3rem; border-radius:999px;
   display:flex; align-items:center;
   font-size:.75rem; font-weight:600; letter-spacing:.04em;
 }
-.photo__badge--album svg{ width:.95rem; height:.95rem; fill:none; stroke:currentColor; stroke-width:2; }
+.photo__badge--album svg{
+  width:.95rem; height:.95rem; fill:none; stroke:currentColor; stroke-width:2;
+  transition:transform .3s var(--ease);
+}
 .photo__open:hover .photo__badge--album,
 .photo__open:focus-visible .photo__badge--album{ transform:none; }
-.photo__open:hover .photo__badge,
-.photo__open:focus-visible .photo__badge{
-  background:var(--magenta); border-color:var(--magenta); transform:rotate(90deg);
-}
+.photo__open:hover .photo__badge--album svg,
+.photo__open:focus-visible .photo__badge--album svg{ transform:rotate(90deg); }
 
 /* ---- filtered out ----
    An attribute rather than a class so it leaves the accessibility tree

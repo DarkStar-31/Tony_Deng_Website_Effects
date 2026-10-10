@@ -1006,37 +1006,97 @@ def visuals_order(shared: dict, loc: dict | None = None) -> list[tuple[str, dict
     return out
 
 
+def item_tags(item: dict) -> list[str]:
+    """A photo's or video's tags. `tag` (one, a string) is what content
+    had before tags were a list, and is still read."""
+    tags = item.get("tags")
+    if isinstance(tags, list):
+        return [t for t in tags if isinstance(t, str) and t]
+    return [item["tag"]] if item.get("tag") else []
+
+
+def tag_groups(loc: dict, shared: dict, used: set[str]) -> list[tuple[str, str, list[str]]]:
+    """(group id, group name, tags) in the order the admin arranged them,
+    keeping only tags something on this page actually carries - a chip
+    that can only ever empty the grid is not a filter. A tag in no group
+    is gathered into a last, unnamed one so it can still be searched."""
+    names = loc.get("tagGroups", {})
+    out, placed = [], set()
+    for g in shared.get("tagGroups", []):
+        tags = [t for t in g.get("tags", []) if t in used]
+        placed.update(g.get("tags", []))
+        if tags:
+            out.append((g["id"], names.get(g["id"], ""), tags))
+    loose = sorted(t for t in used if t not in placed)
+    if loose:
+        out.append(("other", "", loose))
+    return out
+
+
 def render_visuals_filter(loc: dict, shared: dict) -> list[str]:
-    """The All / Photos / Videos switch beside the Visuals heading.
+    """Beside the Visuals heading: Filter (tags by category, and a search
+    box) and then the All / Photos / Videos switch.
 
-    Three plain buttons rather than a <select>: there are only ever three
-    states. With JS off the group is hidden by the stylesheet (it only
-    appears under `html.js`), because nothing would answer a click.
-
-    The counts are still worked out here, but only to decide whether the
-    switch is worth showing at all - they are deliberately not printed."""
+    The switch is three plain buttons rather than a <select>: there are only
+    ever three states, and it only appears when the grid holds both kinds.
+    Neither part is shown with JS off (the stylesheet waits for html.js),
+    because nothing would answer a click - the whole grid is there anyway."""
     f = loc.get("visualsFilter")
     if not f:
         return []
+    pieces = visuals_order(shared, loc)
     counts = {"photo": 0, "video": 0}
-    for kind, _ in visuals_order(shared, loc):
+    used: set[str] = set()
+    for kind, item in pieces:
         counts[kind] = counts.get(kind, 0) + 1
-    counts["all"] = counts["photo"] + counts["video"]
-    # with nothing to separate - only photos, or only videos - the switch
-    # would be three buttons that all show the same grid
-    if not (counts["photo"] and counts["video"]):
-        return []
-    out = [
-        f'<div class="vfilter" role="group" aria-label="{attr(f["label"])}">',
-    ]
-    for key, which in (("all", "all"), ("photos", "photo"), ("videos", "video")):
-        on = "true" if which == "all" else "false"
+        used.update(item_tags(item))
+
+    out = ['<div class="vtools">']
+    find = loc.get("visualsFind")
+    groups = tag_groups(loc, shared, used)
+    if find and pieces:
+        tagname = loc["photoTags"]
         out += [
-            f'  <button class="vfilter__btn" type="button" data-filter="{which}"'
-            f' aria-pressed="{on}">{f[key]}</button>',
+            f'  <div class="vfind" data-none="{attr(plain(find["none"]))}">',
+            '    <button class="vfind__btn" type="button" aria-expanded="false" aria-controls="vfindPanel">',
+            '      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>',
+            f'      <span>{find["button"]}</span><span class="vfind__n" hidden></span>',
+            "    </button>",
+            f'    <div class="vfind__panel" id="vfindPanel" hidden>',
+            f'      <input class="vfind__search" type="search" placeholder="{attr(find["search"])}"'
+            f' aria-label="{attr(find["search"])}">',
         ]
+        for gid, name, tags in groups:
+            label = f' aria-label="{attr(plain(name))}"' if name else ""
+            out.append(f'      <div class="vfind__group" role="group"{label}>')
+            if name:
+                out.append(f'        <p class="vfind__name">{name}</p>')
+            out.append('        <div class="vfind__chips">')
+            out += [f'          <button class="vfind__chip" type="button" data-tag="{attr(t)}"'
+                    f' data-group="{attr(gid)}" aria-pressed="false">{tagname.get(t, t)}</button>'
+                    for t in tags]
+            out += ["        </div>", "      </div>"]
+        out += [
+            f'      <button class="vfind__clear" type="button" hidden>{find["clear"]}</button>',
+            "    </div>",
+            "  </div>",
+        ]
+    # with only photos, or only videos, the switch would be three buttons
+    # that all show the same grid
+    if counts["photo"] and counts["video"]:
+        out.append(f'  <div class="vfilter" role="group" aria-label="{attr(f["label"])}">')
+        for key, which in (("all", "all"), ("photos", "photo"), ("videos", "video")):
+            on = "true" if which == "all" else "false"
+            out.append(f'    <button class="vfilter__btn" type="button" data-filter="{which}"'
+                       f' aria-pressed="{on}">{f[key]}</button>')
+        out.append("  </div>")
     out.append("</div>")
-    return out
+    return out if len(out) > 2 else []
+
+
+def search_text(*parts: str) -> str:
+    """What the search box matches a cell against, lowercased once here."""
+    return " ".join(plain(x) for x in parts if x).lower()
 
 
 def render_visuals_grid(loc: dict, shared: dict) -> list[str]:
@@ -1062,7 +1122,12 @@ def render_visuals_grid(loc: dict, shared: dict) -> list[str]:
         # past the first page: hidden by the stylesheet only once JS is
         # running, so with JS off the whole grid is simply there
         later = " data-later" if n >= page else ""
+        mine = item_tags(ph)
+        later += f' data-tags="{attr(" ".join(mine))}"' if mine else ""
+        names = [tags.get(t, "") for t in mine]
         if kind == "video":
+            vw = loc["videos"].get(ph["id"], {})
+            later += f' data-text="{attr(search_text(vw.get("title", ""), vw.get("sub", ""), *names))}"'
             cols, rows = VIDEO_SPANS[ph.get("size", "s")]
             out.append(
                 f'      <div class="photo photo--video reveal" data-kind="video"{later}'
@@ -1075,8 +1140,10 @@ def render_visuals_grid(loc: dict, shared: dict) -> list[str]:
         c = loc["photos"].get(ph["id"], {})
         cols, rows = PHOTO_SPANS.get(ph.get("shape"), PHOTO_SPANS["square"])[photo_size(shared, ph)]
         caption = c.get("caption", "")
-        tag = tags.get(ph.get("tag", ""), "")
+        # the tile's small label is its first tag
+        tag = names[0] if names else ""
         desc = c.get("desc", "").strip()
+        later += f' data-text="{attr(search_text(caption, *names))}"'
         # An album: one tile, several pictures. It opens into the same
         # gallery a diary entry uses - the tile's own picture first - so
         # stepping, swiping and "+N" all come from one place (entry_parts).

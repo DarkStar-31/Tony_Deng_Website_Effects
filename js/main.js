@@ -2047,15 +2047,23 @@ class VisualsFilter {
     this.bar = document.querySelector(barSel);
     if (!this.grid) return;
     this.more = this.grid.parentElement.querySelector('.more');
-    if (!this.bar && !this.more) return;
+    this.find = document.querySelector('.vfind');
+    if (!this.bar && !this.more && !this.find) return;
 
     this.cells = [...this.grid.children].map((el) => ({
       el,
       kind: el.dataset.kind,
+      tags: new Set((el.dataset.tags || '').split(' ').filter(Boolean)),
+      text: el.dataset.text || '',
       ar: parseFloat(el.dataset.ar) || 1,
       c0: parseInt(el.style.getPropertyValue('--c'), 10) || 1,
     }));
     if (!this.cells.length) return;
+
+    // tags picked in the Filter panel, by category, and the search words
+    this.picked = new Map();
+    this.query = '';
+    if (this.find) this.wireFind();
 
     this.mode = 'all';
     this.busy = false;
@@ -2075,7 +2083,91 @@ class VisualsFilter {
     }
   }
 
-  matches (cell) { return this.mode === 'all' || cell.kind === this.mode; }
+  /* Within a category any picked tag will do (Studio OR Live); across
+     categories every one must be met (a studio photo AND a press one).
+     Search words must all appear somewhere in the title or tags. */
+  matches (cell) {
+    if (this.mode !== 'all' && cell.kind !== this.mode) return false;
+    for (const tags of this.picked.values()) {
+      if (tags.size && ![...tags].some((t) => cell.tags.has(t))) return false;
+    }
+    if (this.query) {
+      for (const word of this.query.split(/\s+/)) {
+        if (word && !cell.text.includes(word)) return false;
+      }
+    }
+    return true;
+  }
+
+  wireFind () {
+    const btn = this.find.querySelector('.vfind__btn');
+    const panel = this.find.querySelector('.vfind__panel');
+    const count = this.find.querySelector('.vfind__n');
+    const clear = this.find.querySelector('.vfind__clear');
+    const search = this.find.querySelector('.vfind__search');
+    this.empty = document.createElement('p');
+    this.empty.className = 'vempty';
+    this.empty.hidden = true;
+    this.empty.textContent = this.find.dataset.none || '';
+    this.grid.after(this.empty);
+
+    const show = (open) => {
+      panel.hidden = !open;
+      btn.setAttribute('aria-expanded', String(open));
+      if (open && matchMedia('(hover:hover)').matches) search.focus({ preventScroll: true });
+    };
+    btn.addEventListener('click', () => show(panel.hidden));
+    document.addEventListener('click', (e) => { if (!this.find.contains(e.target)) show(false); });
+    this.find.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !panel.hidden) { show(false); btn.focus(); }
+    });
+
+    const changed = () => {
+      const n = [...this.picked.values()].reduce((a, s) => a + s.size, 0) + (this.query ? 1 : 0);
+      count.hidden = !n;
+      count.textContent = n;
+      clear.hidden = !n;
+      this.limit = this.page;
+      this.refilter();
+    };
+    panel.addEventListener('click', (e) => {
+      const chip = e.target.closest('.vfind__chip');
+      if (!chip) return;
+      const on = chip.getAttribute('aria-pressed') !== 'true';
+      chip.setAttribute('aria-pressed', String(on));
+      const g = chip.dataset.group;
+      if (!this.picked.has(g)) this.picked.set(g, new Set());
+      this.picked.get(g)[on ? 'add' : 'delete'](chip.dataset.tag);
+      changed();
+    });
+    let timer = null;
+    search.addEventListener('input', () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => { this.query = search.value.trim().toLowerCase(); changed(); }, 180);
+    });
+    clear.addEventListener('click', () => {
+      this.picked.clear();
+      this.query = '';
+      search.value = '';
+      panel.querySelectorAll('.vfind__chip').forEach((c) => c.setAttribute('aria-pressed', 'false'));
+      changed();
+      search.focus({ preventScroll: true });
+    });
+  }
+
+  // the same two-beat move a mode change makes, for any change of filter
+  refilter () {
+    if (this.busy) { clearTimeout(this._again); this._again = setTimeout(() => this.refilter(), 240); return; }
+    const on = this.showing();
+    const leaving = this.cells.filter((c) => !c.el.hidden && !on.has(c));
+    leaving.forEach((c) => c.el.classList.add('is-going'));
+    if (this.facade) {
+      this.grid.querySelectorAll('.vid--playing').forEach((el) => this.facade.collapse(el));
+    }
+    if (REDUCED || !leaving.length) { this.settle(); return; }
+    this.busy = true;
+    setTimeout(() => { this.busy = false; this.settle(); }, 220);
+  }
 
   // which cells are on show: the filter's, up to the limit
   showing () {
@@ -2103,20 +2195,9 @@ class VisualsFilter {
     this.bar.querySelectorAll('[data-filter]').forEach((b) => {
       b.setAttribute('aria-pressed', String(b.dataset.filter === mode));
     });
-
-    const on = this.showing();
-    const leaving = this.cells.filter((c) => !c.el.hidden && !on.has(c));
-    leaving.forEach((c) => c.el.classList.add('is-going'));
-
     // Whatever is playing goes back to a poster before the grid moves:
     // collapse() is what removes the iframe, and so what stops the sound.
-    if (this.facade) {
-      this.grid.querySelectorAll('.vid--playing').forEach((el) => this.facade.collapse(el));
-    }
-
-    if (REDUCED || !leaving.length) { this.settle(); return; }
-    this.busy = true;
-    setTimeout(() => { this.busy = false; this.settle(); }, 220);
+    this.refilter();
   }
 
   settle (instant = false) {
@@ -2143,6 +2224,7 @@ class VisualsFilter {
     if (this.more) {
       this.more.hidden = this.cells.filter((c) => this.matches(c)).length <= this.limit;
     }
+    if (this.empty) this.empty.hidden = live.length > 0;
 
     if (REDUCED || instant) return;
 

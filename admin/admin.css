@@ -404,6 +404,25 @@ input[lang="zh-Hans"], textarea[lang="zh-Hans"] { font-family: "PingFang SC", "M
 .album__pic--cover img { border-color: var(--magenta); }
 .album__pic figcaption { display: flex; gap: 2px; justify-content: center; margin-top: 4px; font-size: 11px; color: var(--dim); }
 .album__pic figcaption .btn { padding: 1px 6px; }
+.tagpick { display: grid; gap: 6px; }
+.tagpick__group { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.tagpick__name { font-size: 11px; color: var(--dim); margin-right: 4px; min-width: 70px; }
+.tagchip {
+  padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px;
+  background: transparent; color: var(--dim); font: inherit; font-size: 12px; cursor: pointer;
+}
+.tagchip:hover { color: var(--bone); }
+.tagchip.is-on { background: var(--magenta); border-color: var(--magenta); color: #fff; }
+.taggroup { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+.taggroup__head { display: flex; gap: 10px; align-items: flex-start; }
+.taggroup__name { flex: 1; min-width: 0; }
+.taggroup__loose { margin: 0 0 6px; font-size: 12px; color: var(--dim); }
+.tagrow { display: flex; gap: 10px; align-items: center; padding: 4px 0 4px 14px; border-top: 1px dashed var(--line); }
+.tagrow__words { flex: 1; min-width: 0; }
+.tagrow__side { display: flex; gap: 4px; align-items: center; }
+.tagrow__side select { max-width: 130px; }
+.tagnew { margin-top: 8px; padding-left: 14px; }
+.tagnew input { flex: 1; }
 .pending--bad { background: rgba(250, 39, 159, .14); color: var(--magenta); margin-left: 4px; }
 .problems ul { margin: 0; padding-left: 18px; }
 .problems li { margin: 4px 0; color: var(--dim); font-size: 13px; }

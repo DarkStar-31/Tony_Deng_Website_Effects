@@ -555,9 +555,19 @@ function renderVideos() {
   const shared = SHARED();
   const problems = visualProblems(shared);
   const rerender = () => renderPanel();
-  const out = [];
+  const out = [addButton('+ Add a video', () => {
+    const id = newId('video', shared.videos.map((v) => v.id));
+    shared.videos.push({ id, yt: '', bv: '', poster: PLACEHOLDER_POSTER, feature: false, tags: [] });
+    LOC('en').videos[id] = { title: '', sub: '' };
+    LOC('zh').videos[id] = { title: '', sub: '' };
+    cardOpen.add('video:' + id);
+    markDirty();
+    rerender();
+  })];
 
-  shared.videos.forEach((v, i) => {
+  // newest first, like the photos; the arrows follow the screen (invert)
+  [...shared.videos].reverse().forEach((v) => {
+    const i = shared.videos.indexOf(v);
     const enV = LOC('en').videos[v.id] || (LOC('en').videos[v.id] = { title: '', sub: '' });
     const zhV = LOC('zh').videos[v.id] || (LOC('zh').videos[v.id] = { title: '', sub: '' });
 
@@ -654,6 +664,7 @@ function renderVideos() {
                 + 'showed thirteen broken images. Do not paste a YouTube thumbnail URL here.'),
           v.feature ? null : field('Size in the grid', choice(v, 'size', PHOTO_SIZES)),
         ),
+        v.feature ? null : field('Tags', tagPicker(v, rerender), 'What the Filter panel finds it by.'),
         el('details', {}, el('summary', { className: 'hint' }, T('Language attributes')),
            row(
              field('EN title lang attr', input(enV, 'titleLang', { mono: true, dropWhenEmpty: true }),
@@ -670,6 +681,7 @@ function renderVideos() {
       'video:' + v.id,
       title,
       listControls(shared.videos, i, rerender, {
+        invert: true,
         onDelete: (gone) => {
           delete LOC('en').videos[gone.id];
           delete LOC('zh').videos[gone.id];
@@ -681,15 +693,6 @@ function renderVideos() {
       (v.size || 's').toUpperCase(),
     ));
   });
-
-  out.push(addButton('+ Add a video', () => {
-    const id = newId('video', shared.videos.map((v) => v.id));
-    shared.videos.push({ id, yt: '', bv: '', poster: PLACEHOLDER_POSTER, feature: false });
-    LOC('en').videos[id] = { title: '', sub: '' };
-    LOC('zh').videos[id] = { title: '', sub: '' };
-    markDirty();
-    rerender();
-  }));
 
   return out;
 }
@@ -1968,6 +1971,183 @@ function visualsOrderCard() {
     ...rows));
 }
 
+// ---------------------------------------------------------------- tags
+
+/* Tags are what the Filter panel on the Visuals page searches by. Each tag
+ * has a name in both languages (LOC.photoTags, kept under its old name so
+ * older content still reads), and belongs to a category
+ * (shared.tagGroups: [{id, tags: [...]}], names in LOC.tagGroups). The
+ * order of the categories, and of the tags inside each, is the order the
+ * Filter panel shows them in. Photos and videos carry `tags: [...]`; the
+ * first one is the small label on the tile. */
+function itemTags(item) {
+  if (!Array.isArray(item.tags)) {
+    item.tags = item.tag ? [item.tag] : [];
+    delete item.tag;
+  }
+  return item.tags;
+}
+
+function tagName(id) {
+  const l = UI.lang === 'zh' ? 'zh' : 'en';
+  return plainWords(LOC(l).photoTags?.[id]) || plainWords(LOC('en').photoTags?.[id]) || id;
+}
+
+function tagGroupsList() {
+  const shared = SHARED();
+  if (!shared.tagGroups) shared.tagGroups = [];
+  for (const l of ['en', 'zh']) {
+    if (!LOC(l).photoTags) LOC(l).photoTags = {};
+    if (!LOC(l).tagGroups) LOC(l).tagGroups = {};
+  }
+  return shared.tagGroups;
+}
+
+// tags with a name but in no category, so they can still be placed
+function looseTags() {
+  const placed = new Set(tagGroupsList().flatMap((g) => g.tags || []));
+  return Object.keys(LOC('en').photoTags).filter((t) => !placed.has(t));
+}
+
+/* The chips on a photo or video card: every tag, by category, pressed if
+ * the item carries it. */
+function tagPicker(item, rerender) {
+  const mine = itemTags(item);
+  const groups = tagGroupsList().map((g) => [g.id, g.tags || []]);
+  const loose = looseTags();
+  if (loose.length) groups.push(['', loose]);
+  if (!groups.some(([, tags]) => tags.length)) {
+    return el('p', { className: 'hint' }, T('No tags yet. Make some under Categories above.'));
+  }
+  const l = UI.lang === 'zh' ? 'zh' : 'en';
+  return el('div', { className: 'tagpick' },
+    ...groups.filter(([, tags]) => tags.length).map(([gid, tags]) => el('div', { className: 'tagpick__group' },
+      el('span', { className: 'tagpick__name' },
+         gid ? (plainWords(LOC(l).tagGroups[gid]) || plainWords(LOC('en').tagGroups[gid]) || gid) : T('Not in a category')),
+      ...tags.map((t) => el('button', {
+        className: 'tagchip' + (mine.includes(t) ? ' is-on' : ''), type: 'button',
+        'aria-pressed': String(mine.includes(t)),
+        onclick: () => {
+          const at = mine.indexOf(t);
+          if (at === -1) mine.push(t); else mine.splice(at, 1);
+          markDirty();
+          rerender();
+        },
+      }, tagName(t))))));
+}
+
+/* Categories: make tags, name them, group them, and set the order the
+ * Filter panel shows them in. */
+function tagsCard() {
+  const shared = SHARED();
+  const rerender = () => renderPanel();
+  const groups = tagGroupsList();
+  const everything = () => [...(shared.photos || []), ...shared.videos];
+
+  const removeTag = (t) => {
+    const n = everything().filter((x) => itemTags(x).includes(t)).length;
+    if (n && !confirm(T('Take the tag “{tag}” off {n} items and delete it?', { tag: tagName(t), n }))) return;
+    everything().forEach((x) => { const a = itemTags(x); const i = a.indexOf(t); if (i !== -1) a.splice(i, 1); });
+    groups.forEach((g) => { g.tags = (g.tags || []).filter((x) => x !== t); });
+    delete LOC('en').photoTags[t];
+    delete LOC('zh').photoTags[t];
+    markDirty();
+    rerender();
+  };
+  const moveTo = (t, gid) => {
+    groups.forEach((g) => { g.tags = (g.tags || []).filter((x) => x !== t); });
+    const g = groups.find((x) => x.id === gid);
+    if (g) g.tags.push(t);
+    markDirty();
+    rerender();
+  };
+  const newTag = (g) => {
+    const box = el('input', { type: 'text', placeholder: T('New tag name (English)') });
+    const go = () => {
+      const name = box.value.trim();
+      if (!name) return;
+      const id = newId(slug(name) || 'tag', Object.keys(LOC('en').photoTags));
+      LOC('en').photoTags[id] = richEscape(name);
+      LOC('zh').photoTags[id] = '';
+      if (g) (g.tags || (g.tags = [])).push(id);
+      markDirty();
+      rerender();
+    };
+    box.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+    return el('div', { className: 'row tagnew' }, box,
+      el('button', { className: 'btn btn--small', type: 'button', onclick: go }, T('+ Add tag')));
+  };
+
+  const tagRow = (t, list, i) => {
+    const where = el('select', { title: T('Category') });
+    groups.forEach((g) => {
+      const opt = el('option', { value: g.id }, plainWords(LOC('en').tagGroups[g.id]) || g.id);
+      if (list && g.tags === list) opt.selected = true;
+      where.append(opt);
+    });
+    if (!list) where.prepend(el('option', { value: '', selected: true }, T('Not in a category')));
+    where.addEventListener('change', () => moveTo(t, where.value));
+    const used = everything().filter((x) => itemTags(x).includes(t)).length;
+    return el('div', { className: 'tagrow' },
+      el('div', { className: 'tagrow__words' },
+        bi(T('Tag'), t, (l) => LOC(l).photoTags)),
+      el('div', { className: 'tagrow__side' },
+        el('small', { className: 'hint' }, T('on {n}', { n: used })),
+        where,
+        list ? el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Earlier'),
+          onclick: () => { if (i) { list.splice(i - 1, 0, list.splice(i, 1)[0]); markDirty(); rerender(); } } }, '↑') : null,
+        list ? el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Later'),
+          onclick: () => { if (i < list.length - 1) { list.splice(i + 1, 0, list.splice(i, 1)[0]); markDirty(); rerender(); } } }, '↓') : null,
+        el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button', title: T('Delete tag'),
+          onclick: () => removeTag(t) }, '×')));
+  };
+
+  const groupCards = groups.map((g, gi) => {
+    if (!g.tags) g.tags = [];
+    const controls = el('div', { className: 'listctl' },
+      el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Move up'),
+        onclick: () => { if (gi) { groups.splice(gi - 1, 0, groups.splice(gi, 1)[0]); markDirty(); rerender(); } } }, '↑'),
+      el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Move down'),
+        onclick: () => { if (gi < groups.length - 1) { groups.splice(gi + 1, 0, groups.splice(gi, 1)[0]); markDirty(); rerender(); } } }, '↓'),
+      el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
+        onclick: () => {
+          if (g.tags.length && !confirm(T('Delete this category? Its tags are kept, under “Not in a category”.'))) return;
+          groups.splice(gi, 1);
+          delete LOC('en').tagGroups[g.id];
+          delete LOC('zh').tagGroups[g.id];
+          markDirty();
+          rerender();
+        } }, T('Remove')));
+    return el('div', { className: 'taggroup' },
+      el('div', { className: 'taggroup__head' },
+        el('div', { className: 'taggroup__name' }, bi(T('Category name'), g.id, (l) => LOC(l).tagGroups)),
+        controls),
+      ...g.tags.map((t, i) => tagRow(t, g.tags, i)),
+      newTag(g));
+  });
+  const loose = looseTags();
+
+  return card('Categories', null, el('div', {},
+    el('p', { className: 'hint' },
+      T('The tags people can filter the grid by, grouped into categories. Top to bottom here is the order '
+        + 'they appear in the Filter panel on the page. Within a category a visitor can pick several '
+        + '(Studio or Live); across categories every pick has to match. Tag photos and videos on their own cards below.')),
+    ...groupCards,
+    loose.length
+      ? el('div', { className: 'taggroup' },
+        el('p', { className: 'taggroup__loose' }, T('Not in a category')),
+        ...loose.map((t) => tagRow(t, null, 0)))
+      : null,
+    addButton('+ Add a category', () => {
+      const id = newId('category', groups.map((g) => g.id));
+      groups.push({ id, tags: [] });
+      LOC('en').tagGroups[id] = '';
+      LOC('zh').tagGroups[id] = '';
+      markDirty();
+      rerender();
+    })));
+}
+
 function renderPhotos() {
   const shared = SHARED();
   const rerender = () => renderPanel();
@@ -1976,23 +2156,25 @@ function renderPhotos() {
     if (!LOC(l).photos) LOC(l).photos = {};
     if (!LOC(l).photoTags) LOC(l).photoTags = {};
   }
-  const tagKeys = Object.keys(LOC('en').photoTags);
   const problems = visualProblems(shared);
   const out = [
-    intro(
-      'One grid under the title video holds the photos and the videos together. Its order is set in ' +
-      '<b>Grid order</b> below; the grid packs the pieces, so mixing shapes and sizes is what makes it look ' +
-      'designed. The gradient pictures are placeholders — use <b>Replace</b> as the real photos arrive.',
-    ),
-    visualsOrderCard(),
-    card('Photo categories', null, el('div', {},
-      ...tagKeys.map((k) => bi(T('Category: {key}', { key: k }), k, (l) => LOC(l).photoTags)),
-      bi('"Open" label (screen readers)', 'open', (l) => LOC(l).lens),
-      bi('"Close" label (screen readers)', 'close', (l) => LOC(l).lens),
-    )),
+    el('div', { style: 'margin-bottom:16px' },
+      uploadButton('img/photos', '+ Add a photo', async (path, file) => {
+        const id = newId('photo', shared.photos.map((p) => p.id));
+        // no size: the grid gives it one (Auto), so an upload needs no decisions
+        shared.photos.push({ id, src: path, shape: await shapeOf(file), tags: [] });
+        (shared.visualsOrder || (shared.visualsOrder = [])).push(`photo:${id}`);
+        LOC('en').photos[id] = { caption: '' };
+        LOC('zh').photos[id] = { caption: '' };
+        cardOpen.add('photo:' + id);
+        markDirty();
+        rerender();
+      })),
   ];
 
-  shared.photos.forEach((ph, i) => {
+  // newest first: the list is stored oldest first, and only the view turns round
+  [...shared.photos].reverse().forEach((ph) => {
+    const i = shared.photos.indexOf(ph);
     const enP = LOC('en').photos[ph.id] || (LOC('en').photos[ph.id] = { caption: '' });
     const zhP = LOC('zh').photos[ph.id] || (LOC('zh').photos[ph.id] = { caption: '' });
     const opensNow = (ph.album && ph.album.length) || opensInto(ph, enP, zhP);
@@ -2017,8 +2199,8 @@ function renderPhotos() {
                 'Set automatically when you upload.'),
           field('Size', choice(ph, 'size', [['auto', T('Auto ({size})', { size: T(SIZE_NAMES[autoSize(shared, ph)]) })], ...PHOTO_SIZES], rerender),
                 'Auto picks a size from a rhythm that packs well. Pick one only to make a photo stand out.'),
-          field('Category', choice(ph, 'tag', tagKeys.map((k) => [k, LOC('en').photoTags[k]]))),
         ),
+        field('Tags', tagPicker(ph, rerender), 'What the Filter panel finds it by. The first one is the small label on the tile.'),
         // The caption stays either way: it is the tile's own words and its
         // alt text, not only the heading of the card. The description is
         // nothing but the body of that card, so a picture that does not
@@ -2057,17 +2239,12 @@ function renderPhotos() {
     ));
   });
 
-  out.push(el('div', { style: 'margin-bottom:24px' },
-    uploadButton('img/photos', '+ Add a photo', async (path, file) => {
-      const id = newId('photo', shared.photos.map((p) => p.id));
-      // no size: the grid gives it one (Auto), so an upload needs no decisions
-      shared.photos.push({ id, src: path, shape: await shapeOf(file), tag: tagKeys[0] || '' });
-      (shared.visualsOrder || (shared.visualsOrder = [])).push(`photo:${id}`);
-      LOC('en').photos[id] = { caption: '' };
-      LOC('zh').photos[id] = { caption: '' };
-      markDirty();
-      rerender();
-    })));
+  out.push(card('Photo viewer words', null, el('div', {},
+    el('p', { className: 'hint' }, T('Read out by screen readers in the viewer a photo opens into.')),
+    bi('"Open" label (screen readers)', 'open', (l) => LOC(l).lens, { rich: false }),
+    bi('"Close" label (screen readers)', 'close', (l) => LOC(l).lens, { rich: false }),
+    bi('Previous picture', 'prev', (l) => LOC(l).lens, { rich: false }),
+    bi('Next picture', 'next', (l) => LOC(l).lens, { rich: false }))));
   return out;
 }
 
@@ -3554,6 +3731,13 @@ function visualsFilterCard() {
     bi('Videos', 'videos', (l) => LOC(l).visualsFilter),
     bi('Group name (screen readers)', 'label', (l) => LOC(l).visualsFilter,
        { hint: 'Not shown on the page. Announced when a screen reader reaches the buttons.' }),
+    LOC('en').visualsFind ? el('div', {},
+      el('p', { className: 'entryed__head' }, T('Filter panel')),
+      el('p', { className: 'hint' }, T('The Filter button to the left of the switch, and the panel it opens. The tags in it are set under Categories.')),
+      bi('Button', 'button', (l) => LOC(l).visualsFind, { rich: false }),
+      bi('Search box', 'search', (l) => LOC(l).visualsFind, { rich: false }),
+      bi('Clear', 'clear', (l) => LOC(l).visualsFind, { rich: false }),
+      bi('When nothing matches', 'none', (l) => LOC(l).visualsFind, { rich: false })) : null,
   ), 'visuals.filter');
 }
 
@@ -3583,17 +3767,25 @@ function visualsBannerCard() {
   ), 'visuals.banner');
 }
 
+/* Browser tab, heading, filter, grid order, categories, images, videos -
+ * the order Josie set (2026-10-09). Images and videos each start with their
+ * Add button and then list newest first. "Needs attention" sits above it
+ * all because it is a to-do list for the whole tab, not a part of the page. */
 function renderVisuals() {
+  const shared = SHARED();
   return [
+    visualProblemsCard(),
     pageMeta('visuals'),
     sectionHeading('videos', 'visuals.heading'),
-    visualProblemsCard(),
     visualsFilterCard(),
-    visualsBannerCard(),
-    ...renderPhotos(),
-    intro('The videos: the title video at the top of the page, and the grid under the heading.'),
-    ...renderVideos(),
-    ...bilibiliCards(),
+    visualsOrderCard(),
+    tagsCard(),
+    fold('Images', { defaultOpen: true, key: 'visuals:images' }, T('{n} photos', { n: (shared.photos || []).length }),
+      ...renderPhotos()),
+    fold('Videos', { defaultOpen: true, key: 'visuals:videos' }, T('{n} videos', { n: shared.videos.length }),
+      ...renderVideos(),
+      visualsBannerCard(),
+      ...bilibiliCards()),
   ];
 }
 
