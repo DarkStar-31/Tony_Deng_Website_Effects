@@ -126,6 +126,25 @@ class Handler(SimpleHTTPRequestHandler):
             dest.write_bytes(base64.b64decode(body.get("contentBase64", "")))
             return self.send_json({"ok": True, "commit": "local", "path": path})
 
+        if self.path == "/api/admin/poster":
+            # same as the Worker's: fetch YouTube's thumbnail and keep it
+            import urllib.request
+            yt = str(self.read_json().get("yt", ""))
+            if not re.fullmatch(r"[A-Za-z0-9_-]{11}", yt):
+                return self.send_json({"error": "That is not a YouTube video ID"}, 400)
+            for url, ext in ((f"https://i.ytimg.com/vi_webp/{yt}/maxresdefault.webp", "webp"),
+                             (f"https://i.ytimg.com/vi/{yt}/maxresdefault.jpg", "jpg"),
+                             (f"https://i.ytimg.com/vi_webp/{yt}/hqdefault.webp", "webp"),
+                             (f"https://i.ytimg.com/vi/{yt}/hqdefault.jpg", "jpg")):
+                try:
+                    data = urllib.request.urlopen(url, timeout=10).read()
+                except Exception:
+                    continue
+                path = f"img/video/{yt}.{ext}"
+                (ROOT / path).write_bytes(data)
+                return self.send_json({"ok": True, "commit": "local", "path": path})
+            return self.send_json({"error": "YouTube has no thumbnail for that ID"}, 404)
+
         if self.path == "/api/message":
             # Stands in for the not-yet-built message Worker: logs to the
             # terminal and to messages.local.jsonl (gitignored), so the

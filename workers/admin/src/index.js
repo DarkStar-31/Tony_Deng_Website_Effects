@@ -350,6 +350,47 @@ async function handleUpload(request, env, user) {
   return json({ ok: true, commit: sha, path });
 }
 
+/* A video's poster, fetched from YouTube and committed next to the others.
+ *
+ * Posters are kept in the repository because i.ytimg.com is blocked in
+ * mainland China, so the page cannot hot-link them - but nothing stops this
+ * Worker, which runs outside China, from fetching one once and storing it.
+ * That turns "find the thumbnail, save it, convert it, upload it" into one
+ * button. maxresdefault is not made for every video; YouTube answers 404
+ * for those, and the next size down is tried. */
+async function handlePoster(request, env, user) {
+  const { yt } = await request.json();
+  if (typeof yt !== 'string' || !/^[A-Za-z0-9_-]{11}$/.test(yt)) {
+    throw new HttpError(400, 'That is not a YouTube video ID');
+  }
+  const tries = [
+    [`https://i.ytimg.com/vi_webp/${yt}/maxresdefault.webp`, 'webp'],
+    [`https://i.ytimg.com/vi/${yt}/maxresdefault.jpg`, 'jpg'],
+    [`https://i.ytimg.com/vi_webp/${yt}/hqdefault.webp`, 'webp'],
+    [`https://i.ytimg.com/vi/${yt}/hqdefault.jpg`, 'jpg'],
+  ];
+  for (const [url, ext] of tries) {
+    const res = await fetch(url);
+    if (!res.ok) continue;
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    }
+    const path = `img/video/${yt}.${ext}`;
+    const sha = await commitFiles(env, {
+      branch: env.DRAFT_BRANCH,
+      files: [{ path, content: btoa(bin), encoding: 'base64' }],
+      message: `Poster for ${yt} from YouTube
+
+Fetched by ${user.email} via /admin`,
+      author: user.email,
+    });
+    return json({ ok: true, commit: sha, path });
+  }
+  throw new HttpError(404, 'YouTube has no thumbnail for that ID', 'Check the ID, or upload a poster by hand.');
+}
+
 async function handleStatus(env, user) {
   await ensureDraft(env);
   const compare = await gh(
@@ -447,6 +488,7 @@ export default {
       if (request.method === 'PUT' && path === '/content') return await handleSave(request, env, user);
       if (request.method === 'POST' && path === '/upload') return await handleUpload(request, env, user);
       if (request.method === 'POST' && path === '/publish') return await handlePublish(env, user);
+      if (request.method === 'POST' && path === '/poster') return await handlePoster(request, env, user);
 
       throw new HttpError(404, `No admin route for ${request.method} ${path}`);
     } catch (err) {

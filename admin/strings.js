@@ -593,6 +593,36 @@ const UI_STRINGS = {
     '主打视频下方的同一个网格里同时放着照片和视频。顺序在下面的<b>网格顺序</b>里设置；网格会自动拼排，所以混用不同形状和大小才会显得是设计过的。渐变色的图片是占位图 — 真实照片到位后用<b>替换</b>换掉即可。',
   'Press &amp; Mentions, which closes the About page. The English page shows an English title with a gloss underneath; those are descriptions for readers, not official headlines, so keep them descriptive rather than authoritative.':
     '媒体报道，位于页面末尾。英文页显示英文标题并在下方附一行释义；那些是写给读者看的描述，而非官方标题，所以措辞应保持描述性，不要显得像正式定论。',
+  // ----------------------------------------------- visuals: upkeep (10-09)
+  'Auto ({size})': '自动（{size}）',
+  'auto': '自动',
+  'Auto picks a size from a rhythm that packs well. Pick one only to make a photo stand out.':
+    '“自动”会按照一个排列整齐的节奏给出尺寸。只有想让某张照片更突出时才需要手动选。',
+  'Paste a link': '粘贴链接',
+  'A YouTube or Bilibili address. The ID is taken out of it and put in the right box below.':
+    'YouTube 或 B 站的网址。会自动取出 ID，填进下面对应的框里。',
+  'b23.tv short links cannot be read here. Open it, then copy the address from the browser bar.':
+    'b23.tv 短链接无法在这里识别。请先打开它，再从浏览器地址栏复制网址。',
+  'That does not look like a YouTube or Bilibili address.': '这看起来不像 YouTube 或 B 站的网址。',
+  'YouTube ID set: {id}': '已填入 YouTube ID：{id}',
+  'Bilibili ID set: {id}': '已填入 B 站 BV 号：{id}',
+  'Getting the poster from YouTube…': '正在从 YouTube 获取封面…',
+  'Poster saved as {path}': '封面已保存为 {path}',
+  'Use YouTube’s poster instead': '改用 YouTube 的封面',
+  'Get poster from YouTube': '从 YouTube 获取封面',
+  'Needs attention': '待处理',
+  'Nothing missing. Every photo and video is complete.': '没有缺漏，所有照片和视频都已填写完整。',
+  '{n} to fix': '{n} 项待补',
+  '{n} waiting on a Bilibili link (fine for now)': '{n} 个在等 B 站链接（暂时没问题）',
+  'Placeholder picture, not a real photo yet': '还是占位图，不是真实照片',
+  'No English caption (it is also what screen readers say)': '没有英文说明（读屏软件也会读这一句）',
+  'No Chinese caption (it is also what screen readers say)': '没有中文说明（读屏软件也会读这一句）',
+  'No YouTube link, so the English page cannot play it': '没有 YouTube 链接，英文页无法播放',
+  'No Bilibili link yet: the Chinese page shows it as “coming soon”': '还没有 B 站链接：中文页显示为“即将上线”',
+  'No Bilibili link yet: left off the Chinese page until there is one': '还没有 B 站链接：在有链接之前不出现在中文页',
+  'No poster picture': '没有封面图',
+  'No English title': '没有英文标题',
+  'No Chinese title': '没有中文标题',
 };
 
 /* The admin's own language, kept in this browser rather than in the content:

@@ -286,7 +286,7 @@ function cardFold(id, titleNode, controls, body, pv, thumb, meta) {
       : null);
 
   const node = el('details',
-    { className: 'card card--fold', 'data-pv-target': pv, open: cardOpen.has(id) || null },
+    { className: 'card card--fold', 'data-pv-target': pv, 'data-fold': id, open: cardOpen.has(id) || null },
     head,
     el('div', { className: 'card__body' }, body));
 
@@ -459,8 +459,101 @@ function sectionHeading(key, pv) {
 
 // ---------------------------------------------------------------- videos
 
+/* A pasted video address, reduced to the ID the site needs. Takes any of
+ * the shapes people copy - youtu.be/..., watch?v=..., /shorts/, /embed/,
+ * /live/, bilibili.com/video/BV..., the mobile sites - or a bare ID. b23.tv
+ * short links are redirects only Bilibili can resolve, so they are named
+ * rather than guessed at. */
+function parseVideoLink(text) {
+  const t = (text || '').trim();
+  if (!t) return null;
+  const bv = t.match(/(BV[0-9A-Za-z]{10})/);
+  if (bv) return { bv: bv[1] };
+  if (/b23[.]tv/i.test(t)) return { error: 'b23.tv short links cannot be read here. Open it, then copy the address from the browser bar.' };
+  const yt = t.match(/(?:youtu[.]be\/|[?&]v=|\/shorts\/|\/embed\/|\/live\/)([A-Za-z0-9_-]{11})/)
+    || t.match(/^([A-Za-z0-9_-]{11})$/);
+  if (yt) return { yt: yt[1] };
+  return { error: 'That does not look like a YouTube or Bilibili address.' };
+}
+
+const PLACEHOLDER_POSTER = 'img/video/placeholder.webp';
+
+/* What is missing, per photo and per video, in words a non-technical
+ * editor can act on. `pending` problems are expected for a while (no BV
+ * id yet) and are shown quieter than the ones that look broken. */
+function visualProblems(shared) {
+  const out = [];
+  const enW = (k) => LOC('en')[k] || {};
+  const zhW = (k) => LOC('zh')[k] || {};
+  for (const ph of shared.photos || []) {
+    const list = [];
+    if (!ph.src || ph.src.startsWith('img/placeholder/')) list.push({ text: 'Placeholder picture, not a real photo yet' });
+    if (!plainWords(enW('photos')[ph.id]?.caption)) list.push({ text: 'No English caption (it is also what screen readers say)' });
+    if (!plainWords(zhW('photos')[ph.id]?.caption)) list.push({ text: 'No Chinese caption (it is also what screen readers say)' });
+    if (list.length) out.push({ id: 'photo:' + ph.id, name: plainWords(enW('photos')[ph.id]?.caption) || ph.id, list });
+  }
+  for (const v of shared.videos) {
+    const list = [];
+    if (!v.yt) list.push({ text: 'No YouTube link, so the English page cannot play it' });
+    if (!v.bv) {
+      list.push({ pending: true, text: v.feature
+        ? 'No Bilibili link yet: the Chinese page shows it as “coming soon”'
+        : 'No Bilibili link yet: left off the Chinese page until there is one' });
+    }
+    if (!v.poster || v.poster === PLACEHOLDER_POSTER) list.push({ text: 'No poster picture' });
+    if (!plainWords(enW('videos')[v.id]?.title)) list.push({ text: 'No English title' });
+    if (!plainWords(zhW('videos')[v.id]?.title)) list.push({ text: 'No Chinese title' });
+    if (list.length) out.push({ id: 'video:' + v.id, name: plainWords(enW('videos')[v.id]?.title) || v.id, list });
+  }
+  return out;
+}
+
+function problemBadge(problems, id) {
+  const p = problems.find((x) => x.id === id);
+  if (!p) return null;
+  const real = p.list.filter((x) => !x.pending).length;
+  return real
+    ? el('span', { className: 'pending pending--bad', title: p.list.map((x) => T(x.text)).join('\n') },
+         T('{n} to fix', { n: real }))
+    : null;
+}
+
+/* The top of the Visuals tab: everything that needs doing, each name a
+ * link that opens its card. Rebuilt with the panel, so it empties as the
+ * fields are filled in. */
+function visualProblemsCard() {
+  const problems = visualProblems(SHARED());
+  const real = problems.filter((p) => p.list.some((x) => !x.pending));
+  const pendingOnly = problems.filter((p) => p.list.every((x) => x.pending));
+  if (!problems.length) {
+    return card('Needs attention', null, el('p', { className: 'hint' }, T('Nothing missing. Every photo and video is complete.')));
+  }
+  const jump = (id) => {
+    cardOpen.add(id);
+    renderPanel();
+    const node = [...document.querySelectorAll('details.card--fold')].find((d) => d.dataset.fold === id);
+    if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  const line = (p) => el('li', {},
+    el('button', { className: 'linkish', type: 'button', onclick: () => jump(p.id) }, p.name),
+    ' — ',
+    p.list.map((x) => T(x.text)).join('; '));
+  return card(el('span', {}, T('Needs attention'), ' ',
+                 real.length ? el('span', { className: 'pending pending--bad' }, String(real.length)) : null),
+    null,
+    el('div', { className: 'problems' },
+      real.length ? el('ul', {}, ...real.map(line)) : null,
+      pendingOnly.length
+        ? el('details', {},
+          el('summary', { className: 'hint' },
+             T('{n} waiting on a Bilibili link (fine for now)', { n: pendingOnly.length })),
+          el('ul', {}, ...pendingOnly.map(line)))
+        : null));
+}
+
 function renderVideos() {
   const shared = SHARED();
+  const problems = visualProblems(shared);
   const rerender = () => renderPanel();
   const out = [];
 
@@ -479,8 +572,42 @@ function renderVideos() {
       ' ',
       badge,
       v.feature ? el('span', { className: 'live' }, T('feature')) : null,
+      problemBadge(problems, 'video:' + v.id),
       el('small', {}, v.id),
     );
+
+    // paste any address; the right ID lands in the right box
+    const paste = el('input', { type: 'text', placeholder: 'https://youtu.be/…  /  https://www.bilibili.com/video/BV…' });
+    const pasteNote = el('p', { className: 'hint' });
+    paste.addEventListener('input', () => {
+      const got = parseVideoLink(paste.value);
+      if (!got) { pasteNote.textContent = ''; return; }
+      if (got.error) { pasteNote.textContent = T(got.error); return; }
+      if (got.yt) v.yt = got.yt;
+      if (got.bv) v.bv = got.bv;
+      markDirty();
+      pasteNote.textContent = got.yt ? T('YouTube ID set: {id}', { id: got.yt }) : T('Bilibili ID set: {id}', { id: got.bv });
+      setTimeout(rerender, 900);
+    });
+
+    const fetchPoster = v.yt
+      ? el('button', { className: 'btn btn--small', type: 'button', onclick: async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        toast(T('Getting the poster from YouTube…'));
+        try {
+          const res = await api('/poster', { method: 'POST', body: JSON.stringify({ yt: v.yt }) });
+          state.headSha = res.commit;
+          v.poster = res.path;
+          markDirty();
+          toast(T('Poster saved as {path}', { path: res.path }), 'good');
+          rerender();
+        } catch (err) {
+          toast(err.message, 'bad', err.detail);
+          btn.disabled = false;
+        }
+      } }, T(v.poster && v.poster !== PLACEHOLDER_POSTER ? 'Use YouTube’s poster instead' : 'Get poster from YouTube'))
+      : null;
 
     const thumb = el('img', {
       className: 'vidrow__thumb',
@@ -496,16 +623,19 @@ function renderVideos() {
         'div',
         {},
         thumb,
-        el('div', { style: 'margin-top:8px' },
+        el('div', { style: 'margin-top:8px;display:flex;flex-direction:column;gap:6px;align-items:flex-start' },
           uploadButton('img/video', 'Replace poster', (path) => {
             v.poster = path;
             markDirty();
             rerender();
-          })),
+          }),
+          fetchPoster),
       ),
       el(
         'div',
         { className: 'vidrow__fields' },
+        field('Paste a link', paste, 'A YouTube or Bilibili address. The ID is taken out of it and put in the right box below.'),
+        pasteNote,
         row(
           field('YouTube ID', input(v, 'yt', { mono: true }),
                 'The part after <code>youtu.be/</code>. Also names the poster file.'),
@@ -554,7 +684,7 @@ function renderVideos() {
 
   out.push(addButton('+ Add a video', () => {
     const id = newId('video', shared.videos.map((v) => v.id));
-    shared.videos.push({ id, yt: '', bv: '', poster: 'img/video/placeholder.webp', feature: false });
+    shared.videos.push({ id, yt: '', bv: '', poster: PLACEHOLDER_POSTER, feature: false });
     LOC('en').videos[id] = { title: '', sub: '' };
     LOC('zh').videos[id] = { title: '', sub: '' };
     markDirty();
@@ -1670,6 +1800,18 @@ const PHOTO_SHAPES = [
 ];
 const PHOTO_SIZES = [['s', 'Small'], ['m', 'Medium'], ['l', 'Large']];
 
+/* A photo with no size of its own takes one from this rhythm, by its place
+ * in the photo list. Mirrors AUTO_SIZES in build.py - keep them in step. */
+const AUTO_SIZES = ['m', 's', 's', 'l', 's', 'm', 's', 's'];
+function autoSize(shared, ph) {
+  const k = Math.max(0, (shared.photos || []).indexOf(ph));
+  return AUTO_SIZES[k % AUTO_SIZES.length];
+}
+function photoSize(shared, ph) {
+  return ['s', 'm', 'l'].includes(ph.size) ? ph.size : autoSize(shared, ph);
+}
+const SIZE_NAMES = { s: 'Small', m: 'Medium', l: 'Large' };
+
 function choice(obj, key, options, onChange) {
   const node = el('select', {});
   options.forEach(([value, label]) => {
@@ -1760,7 +1902,7 @@ function visualsOrderCard() {
     const label = isPhoto
       ? (LOC('en').photos?.[item.id]?.caption || item.id)
       : (LOC('en').videos[item.id]?.title || item.id);
-    const shape = isPhoto ? `${item.shape} · ${item.size}` : `video · ${item.size || 's'}`;
+    const shape = isPhoto ? `${item.shape} · ${photoSize(shared, item)}` : `video · ${item.size || 's'}`;
     return el('div', { style: 'display:flex;align-items:center;gap:10px;padding:5px 0;border-top:1px solid var(--line)' },
       el('span', { className: 'mono', style: 'width:2.2em;opacity:.6' }, String(i + 1)),
       el('img', { src: '/' + (isPhoto ? item.src : item.poster), alt: '', loading: 'lazy',
@@ -1787,6 +1929,7 @@ function renderPhotos() {
     if (!LOC(l).photoTags) LOC(l).photoTags = {};
   }
   const tagKeys = Object.keys(LOC('en').photoTags);
+  const problems = visualProblems(shared);
   const out = [
     intro(
       'One grid under the title video holds the photos and the videos together. Its order is set in ' +
@@ -1806,7 +1949,8 @@ function renderPhotos() {
     const zhP = LOC('zh').photos[ph.id] || (LOC('zh').photos[ph.id] = { caption: '' });
     const opensNow = opensInto(ph, enP, zhP);
     const opens = opensNow ? el('span', { className: 'live' }, T('opens')) : null;
-    const title = el('span', {}, enP.caption || T('(no caption)'), ' ', opens, el('small', {}, ph.id));
+    const title = el('span', {}, enP.caption || T('(no caption)'), ' ', opens,
+                     problemBadge(problems, 'photo:' + ph.id), el('small', {}, ph.id));
 
     const body = el('div', { className: 'vidrow' },
       el('div', {},
@@ -1823,7 +1967,8 @@ function renderPhotos() {
         row(
           field('Shape', choice(ph, 'shape', PHOTO_SHAPES.map(([v, , label]) => [v, label])),
                 'Set automatically when you upload.'),
-          field('Size', choice(ph, 'size', PHOTO_SIZES)),
+          field('Size', choice(ph, 'size', [['auto', T('Auto ({size})', { size: T(SIZE_NAMES[autoSize(shared, ph)]) })], ...PHOTO_SIZES], rerender),
+                'Auto picks a size from a rhythm that packs well. Pick one only to make a photo stand out.'),
           field('Category', choice(ph, 'tag', tagKeys.map((k) => [k, LOC('en').photoTags[k]]))),
         ),
         // The caption stays either way: it is the tile's own words and its
@@ -1857,14 +2002,15 @@ function renderPhotos() {
       body,
       'visuals.cell.photo:' + ph.id,
       ph.src,
-      `${ph.shape || '?'} · ${(ph.size || 'm').toUpperCase()}`,
+      `${ph.shape || '?'} · ${photoSize(shared, ph).toUpperCase()}${['s', 'm', 'l'].includes(ph.size) ? '' : ' ' + T('auto')}`,
     ));
   });
 
   out.push(el('div', { style: 'margin-bottom:24px' },
     uploadButton('img/photos', '+ Add a photo', async (path, file) => {
       const id = newId('photo', shared.photos.map((p) => p.id));
-      shared.photos.push({ id, src: path, shape: await shapeOf(file), size: 'm', tag: tagKeys[0] || '' });
+      // no size: the grid gives it one (Auto), so an upload needs no decisions
+      shared.photos.push({ id, src: path, shape: await shapeOf(file), tag: tagKeys[0] || '' });
       (shared.visualsOrder || (shared.visualsOrder = [])).push(`photo:${id}`);
       LOC('en').photos[id] = { caption: '' };
       LOC('zh').photos[id] = { caption: '' };
@@ -3164,6 +3310,7 @@ function renderVisuals() {
   return [
     pageMeta('visuals'),
     sectionHeading('videos', 'visuals.heading'),
+    visualProblemsCard(),
     visualsFilterCard(),
     visualsBannerCard(),
     ...renderPhotos(),

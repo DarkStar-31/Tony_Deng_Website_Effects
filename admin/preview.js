@@ -432,7 +432,7 @@ function visualsOrderPreview(shared) {
   const photos = new Map((shared.photos || []).map((p) => [
     `photo:${p.id}`,
     cell(`photo:${p.id}`, 'photo', p.src,
-         ((PV_PHOTO_SPANS[p.shape] || PV_PHOTO_SPANS.square)[p.size]
+         ((PV_PHOTO_SPANS[p.shape] || PV_PHOTO_SPANS.square)[photoSize(shared, p)]
           || PV_PHOTO_SPANS.square.m)),
   ]));
   const videos = new Map((shared.videos || []).filter((v) => !v.feature).map((v) => [

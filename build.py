@@ -639,6 +639,22 @@ PHOTO_SPANS = {
     "wide":      {"s": (4, 2), "m": (8, 4), "l": (12, 6)},
     "panorama":  {"s": (6, 2), "m": (9, 3), "l": (12, 4)},
 }
+# A photo with no size of its own (the admin's "Auto", which is what a new
+# upload gets) takes one from this rhythm by its place in shared["photos"]:
+# mostly small, a medium now and then, one large in every eight - the mix
+# the grid packs best with, so nobody has to hand-tune it. A size set by
+# hand always wins. AUTO_SIZES in admin/admin.js must match.
+AUTO_SIZES = ("m", "s", "s", "l", "s", "m", "s", "s")
+
+
+def photo_size(shared: dict, ph: dict) -> str:
+    size = ph.get("size")
+    if size in ("s", "m", "l"):
+        return size
+    k = next((i for i, other in enumerate(shared.get("photos", [])) if other is ph), 0)
+    return AUTO_SIZES[k % len(AUTO_SIZES)]
+
+
 # Video tiles in the same grid. 2:1 is the nearest whole-number fit to 16:9;
 # the poster is cropped by a sliver top and bottom. When one is played it
 # takes the whole row (see .photo.is-playing in the stylesheet).
@@ -1038,7 +1054,7 @@ def render_visuals_grid(loc: dict, shared: dict) -> list[str]:
             out.append("      </div>")
             continue
         c = loc["photos"].get(ph["id"], {})
-        cols, rows = PHOTO_SPANS[ph["shape"]][ph["size"]]
+        cols, rows = PHOTO_SPANS.get(ph.get("shape"), PHOTO_SPANS["square"])[photo_size(shared, ph)]
         caption = c.get("caption", "")
         tag = tags.get(ph.get("tag", ""), "")
         desc = c.get("desc", "").strip()
