@@ -339,8 +339,8 @@ async function uploadInto(dir, file, onDone) {
   }
 }
 
-function uploadButton(dir, label, onDone) {
-  const picker = el('input', { type: 'file', accept: '.webp,.jpg,.jpeg,.png' });
+function uploadButton(dir, label, onDone, accept = '.webp,.jpg,.jpeg,.png') {
+  const picker = el('input', { type: 'file', accept });
   picker.style.display = 'none';
   picker.addEventListener('change', () => {
     if (picker.files[0]) uploadInto(dir, picker.files[0], onDone);
@@ -1711,7 +1711,12 @@ function shapeOf(file) {
  * own. Clicking it is what makes the choice explicit. */
 function opensInto(item, enC, zhC) {
   if ('opens' in item) return !!item.opens;
-  return !!(enC.desc || zhC.desc);
+  return !!(enC.desc || zhC.desc || hasEntry(item));
+}
+
+// same rule as has_entry in build.py
+function hasEntry(item) {
+  return !!(item.date || item.kind || (item.media && item.media.length));
 }
 
 function opensCheck(item, enC, zhC, rerender) {
@@ -2261,6 +2266,7 @@ function ringPhotoCards(ring) {
                { hint: 'The heading of the card it opens into. Not shown on the ring itself.' }),
             bi('Description', 'desc', (l) => (l === 'en' ? enP : zhP),
                { multiline: true, rows: 3, dropWhenEmpty: true, hint: DESC_HINT }),
+            ringEntryFields(ring, ph, rerender),
           ]
           : [el('p', { className: 'hint' },
             T('Decoration: it turns with the ring and cannot be clicked. Anything written here '
@@ -2278,6 +2284,155 @@ function ringPhotoCards(ring) {
       ph.src,
     );
   });
+}
+
+/* A ring picture's diary entry: what the card beside it shows when it is
+ * opened, besides the caption and description above - a date, what kind of
+ * work it was, which project, and any mix of photos, videos, audio and
+ * links. Every part is optional; build.py's entry_parts draws it, and the
+ * shape is written out above has_entry there.
+ *
+ * Media sit in one list in the order they were added. On the page, photos
+ * and videos go into the gallery, audio becomes players and links become
+ * buttons, each group keeping this list's order. */
+const ENTRY_KINDS = ['song', 'ep', 'demo', 'recording', 'arranging', 'inspiration', 'behind', 'teaser'];
+
+function ringEntryFields(ring, ph, rerender) {
+  const shared = SHARED();
+  const kindWords = (LOC(UI.lang === 'zh' ? 'zh' : 'en').making || {}).kinds || {};
+  const media = ph.media || [];
+  // a media item's words, made on demand like the photo's own
+  const words = (l, id) => {
+    const photo = ring.words(l).photos[ph.id] || (ring.words(l).photos[ph.id] = { caption: '' });
+    const all = photo.media || (photo.media = {});
+    return all[id] || (all[id] = {});
+  };
+  const dropWords = (id) => {
+    for (const l of ['en', 'zh']) {
+      const photo = ring.words(l).photos[ph.id];
+      if (photo && photo.media) {
+        delete photo.media[id];
+        if (!Object.keys(photo.media).length) delete photo.media;
+      }
+    }
+  };
+  const add = (item) => {
+    if (!ph.media) ph.media = [];
+    // m1, m2, ... - the same numbering the sample entries use
+    const taken = ph.media.map((m) => m.id);
+    let n = 1;
+    while (taken.includes(`m${n}`)) n++;
+    item.id = `m${n}`;
+    ph.media.push(item);
+    markDirty();
+    rerender();
+  };
+
+  const date = el('input', { type: 'date', value: ph.date || '' });
+  date.addEventListener('change', () => {
+    if (date.value) ph.date = date.value; else delete ph.date;
+    markDirty();
+  });
+
+  const kind = el('select', {});
+  [['', '—'], ...ENTRY_KINDS.map((k) => [k, kindWords[k] || k])].forEach(([value, label]) => {
+    const opt = el('option', { value, html: label });
+    if ((ph.kind || '') === value) opt.selected = true;
+    kind.append(opt);
+  });
+  kind.addEventListener('change', () => {
+    if (kind.value) ph.kind = kind.value; else delete ph.kind;
+    markDirty();
+  });
+
+  const label = (m, hint) => bi('Label', 'label', (l) => words(l, m.id), { dropWhenEmpty: true, hint });
+
+  const rows = media.map((m, i) => {
+    let body;
+    if (m.type === 'image') {
+      body = el('div', { className: 'vidrow' },
+        el('img', { className: 'vidrow__thumb', src: '/' + m.src, alt: '', loading: 'lazy',
+                    style: 'aspect-ratio:auto;max-height:90px;object-fit:contain' }),
+        el('div', {}, uploadButton('img/rings', 'Replace', (path) => { m.src = path; markDirty(); rerender(); })));
+    } else if (m.type === 'video' && 'video' in m) {
+      const pick = el('select', {});
+      pick.append(el('option', { value: '' }, T('Choose a video…')));
+      shared.videos.forEach((v) => {
+        const name = plainWords(LOC('en').videos[v.id]?.title) || v.id;
+        const opt = el('option', { value: v.id }, name + (v.bv ? '' : ' — ' + T('no Bilibili id, English page only')));
+        if (m.video === v.id) opt.selected = true;
+        pick.append(opt);
+      });
+      pick.addEventListener('change', () => { m.video = pick.value; markDirty(); });
+      body = el('div', {},
+        field('One of the site’s videos', pick,
+          'Plays from YouTube on the English page and from Bilibili on the Chinese one. '
+          + 'A video with no Bilibili id is left out of the Chinese page, because YouTube does not load in mainland China.'),
+        label(m));
+    } else if (m.type === 'video') {
+      body = el('div', {},
+        el('div', { className: 'vidrow' },
+          m.poster ? el('img', { className: 'vidrow__thumb', src: '/' + m.poster, alt: '', loading: 'lazy' }) : null,
+          el('div', {},
+            el('p', { className: 'hint' }, m.src ? m.src : T('No clip uploaded yet.')),
+            el('div', { className: 'row' },
+              uploadButton('video', m.src ? 'Replace clip' : 'Upload clip (mp4, up to 20MB)',
+                           (path) => { m.src = path; markDirty(); rerender(); }, '.mp4,.webm'),
+              uploadButton('img/rings', m.poster ? 'Replace still' : 'Upload a still for the tile',
+                           (path) => { m.poster = path; markDirty(); rerender(); })))),
+        label(m));
+    } else if (m.type === 'audio') {
+      body = el('div', {},
+        el('div', { className: 'row' },
+          el('p', { className: 'hint' }, m.src || T('No clip uploaded yet.')),
+          uploadButton('audio', m.src ? 'Replace clip' : 'Upload clip (mp3)',
+                       (path) => { m.src = path; markDirty(); rerender(); }, '.mp3,.m4a,.ogg')),
+        label(m, 'Shown above the player, e.g. “Before” and “After”.'));
+    } else {
+      const href = el('input', { type: 'text', className: 'mono', value: m.href || '',
+                                 placeholder: 'https://…' });
+      const bad = el('p', { className: 'hint', hidden: true },
+        T('That does not look like a web address, so the link is left out.'));
+      href.addEventListener('input', () => {
+        // one of the site's own pages stays relative, so the Chinese page
+        // links to the Chinese copy of it; anything else goes through the
+        // same allow-list as links typed into the text
+        const v = href.value.trim();
+        const safe = /^[a-z0-9-]+[.]html(#[A-Za-z0-9_-]*)?$/i.test(v) ? v : richSafeHref(v);
+        bad.hidden = !href.value.trim() || !!safe;
+        m.href = safe || '';
+        markDirty();
+      });
+      body = el('div', {}, field('Address', href), bad, label(m, 'The words on the button. Without them the address is shown.'));
+    }
+    const names = { image: 'Photo', audio: 'Audio clip', link: 'Link' };
+    const title = m.type === 'video' ? ('video' in m ? 'Site video' : 'Video clip') : names[m.type];
+    return card(T(title), listControls(media, i, rerender, { onDelete: (gone) => dropWords(gone.id) }), body);
+  });
+
+  return el('div', { className: 'entryed' },
+    el('p', { className: 'entryed__head' }, T('Studio diary entry')),
+    el('p', { className: 'hint' },
+      T('All optional. Shown in the card beside the picture when it is opened: the date and tags at the top, '
+        + 'then the caption, the photos, videos, audio and links below, then the description.')),
+    el('div', { className: 'row' },
+      field('Date', date),
+      field('Kind', kind)),
+    bi('Project', 'project', (l) => {
+      const w = ring.words(l).photos;
+      return w[ph.id] || (w[ph.id] = { caption: '' });
+    }, { dropWhenEmpty: true, hint: 'A second tag, e.g. “New EP” / “全新 EP”.' }),
+    ...rows,
+    el('div', { className: 'row entryed__add' },
+      uploadButton('img/rings', '+ Photo', (path) => add({ type: 'image', src: path })),
+      el('button', { className: 'btn btn--small', type: 'button',
+                     onclick: () => add({ type: 'video', src: '' }) }, T('+ Video clip')),
+      el('button', { className: 'btn btn--small', type: 'button',
+                     onclick: () => add({ type: 'video', video: '' }) }, T('+ Site video')),
+      el('button', { className: 'btn btn--small', type: 'button',
+                     onclick: () => add({ type: 'audio', src: '' }) }, T('+ Audio clip')),
+      el('button', { className: 'btn btn--small', type: 'button',
+                     onclick: () => add({ type: 'link', href: '' }) }, T('+ Link'))));
 }
 
 /* Move this ring up or down the page, or take it off it. These sit in the

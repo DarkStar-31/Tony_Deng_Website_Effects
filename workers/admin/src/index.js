@@ -38,9 +38,15 @@ const IMAGE_TYPES = {
 
 const AUDIO_TYPES = { mp3: 'audio/mpeg', m4a: 'audio/mp4', ogg: 'audio/ogg' };
 
+// Short clips for In the Making entries. Anything long belongs on Bilibili /
+// YouTube as a site video, which an entry can point at instead.
+const VIDEO_TYPES = { mp4: 'video/mp4', webm: 'video/webm' };
+const UPLOAD_TYPES = { img: IMAGE_TYPES, audio: AUDIO_TYPES, video: VIDEO_TYPES };
+
 // GitHub's blob API takes base64; anything much larger than this belongs in
 // R2 rather than in git history.
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
 
 class HttpError extends Error {
   constructor(status, message, detail) {
@@ -318,19 +324,20 @@ async function handleUpload(request, env, user) {
   const body = await request.json();
   const { path, contentBase64 } = body;
 
-  if (typeof path !== 'string' || !/^(img|audio)\/[A-Za-z0-9._/-]+$/.test(path) || path.includes('..')) {
-    throw new HttpError(400, 'Uploads must go to img/ or audio/ with a simple filename');
+  if (typeof path !== 'string' || !/^(img|audio|video)\/[A-Za-z0-9._/-]+$/.test(path) || path.includes('..')) {
+    throw new HttpError(400, 'Uploads must go to img/, audio/ or video/ with a simple filename');
   }
 
   const ext = path.split('.').pop().toLowerCase();
-  const allowed = path.startsWith('img/') ? IMAGE_TYPES : AUDIO_TYPES;
+  const allowed = UPLOAD_TYPES[path.split('/')[0]];
   if (!allowed[ext]) {
     throw new HttpError(400, `${ext} is not an allowed file type for ${path.split('/')[0]}/`);
   }
 
   const size = Math.floor((contentBase64.length * 3) / 4);
-  if (size > MAX_UPLOAD_BYTES) {
-    throw new HttpError(413, `File is ${(size / 1e6).toFixed(1)}MB — the limit is ${MAX_UPLOAD_BYTES / 1e6}MB`);
+  const limit = path.startsWith('video/') ? MAX_VIDEO_BYTES : MAX_UPLOAD_BYTES;
+  if (size > limit) {
+    throw new HttpError(413, `File is ${(size / 1e6).toFixed(1)}MB — the limit is ${Math.round(limit / 1e6)}MB`);
   }
 
   const sha = await commitFiles(env, {

@@ -106,7 +106,7 @@
     "$pressComment": "第 05 部分现为「创作手记」。键名、页面文件 press.html 与 #press 锚点均保持原样，以免既有链接失效；改动仅限读者可见的文字。",
     "press": {
       "title": "创作手记",
-      "desc": "新歌创作中——记录它们成形的过程。"
+      "desc": "新歌、EP、demo、录音、编曲、创作灵感和幕后花絮——以及新歌发布前的预告。"
     },
     "coverage": {
       "title": "媒体报道",
@@ -577,18 +577,34 @@
       "photos": {
         "recording-01": {
           "caption": "Sed do eiusmod",
-          "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."
+          "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.",
+          "project": "全新 EP"
         },
         "recording-02": {
           "caption": "Tempor incididunt",
-          "desc": "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.\n\nNeque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit."
+          "desc": "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.\n\nNeque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit.",
+          "project": "全新 EP",
+          "media": {
+            "m1": {
+              "label": "加之前"
+            },
+            "m2": {
+              "label": "加之后"
+            }
+          }
         },
         "recording-03": {
           "caption": "Ut labore et dolore"
         },
         "recording-04": {
           "caption": "Magna aliqua",
-          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur."
+          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
+          "project": "全新 EP",
+          "media": {
+            "m2": {
+              "label": "去音乐页面收听"
+            }
+          }
         },
         "recording-05": {
           "caption": "Ut enim ad minim",
@@ -673,5 +689,35 @@
   "pressNav": {
     "prev": "上一条报道",
     "next": "下一条报道"
+  },
+  "making": {
+    "kinds": {
+      "song": "新歌",
+      "ep": "EP",
+      "demo": "Demo",
+      "recording": "录音",
+      "arranging": "编曲",
+      "inspiration": "创作灵感",
+      "behind": "花絮",
+      "teaser": "预告"
+    },
+    "count": {
+      "photo": {
+        "one": "{n} 张照片",
+        "other": "{n} 张照片"
+      },
+      "video": {
+        "one": "{n} 段视频",
+        "other": "{n} 段视频"
+      },
+      "audio": {
+        "one": "{n} 段音频",
+        "other": "{n} 段音频"
+      }
+    },
+    "viewAll": "查看全部 {n} 项",
+    "showPhoto": "查看这张照片",
+    "playVideo": "播放视频",
+    "playAudio": "播放"
   }
 }

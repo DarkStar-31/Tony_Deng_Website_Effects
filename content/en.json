@@ -106,7 +106,7 @@
     "$pressComment": "Section 05 is In the Making. The key, the page file (press.html) and the #press anchor keep their old names so existing links still resolve; only what readers see changed.",
     "press": {
       "title": "In the Making",
-      "desc": "New songs in progress — notes from the studio as they take shape."
+      "desc": "New songs and EPs in the making: demos, recording, arranging, inspiration and behind the scenes — and a first look before each release."
     },
     "coverage": {
       "title": "Press &amp; Mentions",
@@ -554,18 +554,34 @@
       "photos": {
         "recording-01": {
           "caption": "Sed do eiusmod",
-          "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."
+          "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.",
+          "project": "New EP"
         },
         "recording-02": {
           "caption": "Tempor incididunt",
-          "desc": "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.\n\nNeque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit."
+          "desc": "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.\n\nNeque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit.",
+          "project": "New EP",
+          "media": {
+            "m1": {
+              "label": "Before"
+            },
+            "m2": {
+              "label": "After"
+            }
+          }
         },
         "recording-03": {
           "caption": "Ut labore et dolore"
         },
         "recording-04": {
           "caption": "Magna aliqua",
-          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur."
+          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
+          "project": "New EP",
+          "media": {
+            "m2": {
+              "label": "Listen on the Music page"
+            }
+          }
         },
         "recording-05": {
           "caption": "Ut enim ad minim",
@@ -650,5 +666,35 @@
   "pressNav": {
     "prev": "Previous coverage",
     "next": "Next coverage"
+  },
+  "making": {
+    "kinds": {
+      "song": "New song",
+      "ep": "EP",
+      "demo": "Demo",
+      "recording": "Recording",
+      "arranging": "Arranging",
+      "inspiration": "Inspiration",
+      "behind": "Behind the scenes",
+      "teaser": "Teaser"
+    },
+    "count": {
+      "photo": {
+        "one": "{n} photo",
+        "other": "{n} photos"
+      },
+      "video": {
+        "one": "{n} video",
+        "other": "{n} videos"
+      },
+      "audio": {
+        "one": "{n} clip",
+        "other": "{n} clips"
+      }
+    },
+    "viewAll": "View all {n}",
+    "showPhoto": "Show this photo",
+    "playVideo": "Play video",
+    "playAudio": "Play"
   }
 }

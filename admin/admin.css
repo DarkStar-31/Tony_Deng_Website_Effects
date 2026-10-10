@@ -336,7 +336,7 @@ body {
 .f > span .tag--en { color: #8FB8FF; }
 .f > span .tag--zh { color: #FFB38F; }
 
-input[type="text"], textarea, select {
+input[type="text"], input[type="date"], textarea, select {
   width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--line);
@@ -1167,3 +1167,11 @@ html[lang^="zh"] .pv__colhead { letter-spacing: .04em; text-transform: none; fon
 .rich__inline:focus-within .rich,
 .singles__track:hover .rich,
 .singles__track:focus-within .rich { visibility: visible; }
+
+/* a ring picture's diary entry, inside its card */
+.entryed { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.entryed__head { margin: 0 0 4px; font-weight: 600; color: var(--bone); }
+.entryed .card { margin: 10px 0; }
+.entryed__add { flex-wrap: wrap; }
+.entryed__add > * { flex: 0 0 auto; }
+input[type="date"] { color-scheme: dark; }

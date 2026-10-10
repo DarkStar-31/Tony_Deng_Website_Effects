@@ -709,21 +709,202 @@ def opens_into_lens(item: dict, desc: str) -> bool:
     return bool(desc)
 
 
-def lens_template(tid: str, kicker: str, title: str, desc: str) -> list[str]:
+def lens_template(tid: str, kicker: str, title: str, desc: str,
+                  entry: tuple[list[str], list[str], list[str]] | None = None) -> list[str]:
     """What the detail view shows for one picture. A <template> is inert, so
     none of this is on the page until someone opens it. Blank lines in the
-    description split it into paragraphs."""
+    description split it into paragraphs.
+
+    `entry` is a diary entry's three parts - see entry_parts - placed the
+    way the client's mock-ups have them: date and tags above the title, the
+    media between the title and the words, "view all" at the very end."""
+    top, media, tail = entry or ([], [], [])
     out = [f'<template id="{attr(tid)}">']
+    out += ["  " + l for l in top]
     if kicker:
         out.append(f'  <p class="lens__kicker">{kicker}</p>')
     out.append(f'  <h3 class="lens__title">{title}</h3>')
+    out += ["  " + l for l in media]
     # A picture can open without carrying any text, so this is guarded:
     # splitting "" yields one empty string and would print a blank paragraph.
     paras = re.split(r"\n\s*\n", desc.replace("\r\n", "\n").strip()) if desc.strip() else []
     for para in paras:
         out.append(f'  <p class="lens__text">{para.strip().replace(chr(10), "<br>")}</p>')
+    out += ["  " + l for l in tail]
     out.append("</template>")
     return out
+
+
+# ---------------------------------------------------------------- entries
+#
+# A ring picture on In the Making can carry a diary entry: when it opens,
+# the card beside it reads like a page of the studio notebook - a date, what
+# kind of work it was, which project, the words, and then any mix of further
+# photos, videos, audio clips and links. (Client brief, 2026-10: the page
+# carries new songs, EPs, demos, recording, arranging, inspiration, behind
+# the scenes and pre-release teasers.)
+#
+# The shape (shared.json, on the ring photo; every key optional):
+#
+#   "date":  "2026-10-04"
+#   "kind":  "recording"        a key of making.kinds in both locales
+#   "media": [ {"id": "m1", "type": "image", "src": "img/rings/x.webp"},
+#              {"id": "m2", "type": "video", "src": "video/x.mp4", "poster": "img/..."},
+#              {"id": "m3", "type": "video", "video": "<id from shared.videos>"},
+#              {"id": "m4", "type": "audio", "src": "audio/x.mp3"},
+#              {"id": "m5", "type": "link",  "href": "https://..."} ]
+#
+# The words (en/zh.json, rings.<ring>.photos.<photo>): caption is the title,
+# desc the body, `project` the second tag ("全新 EP"), and media.<id>.label
+# names a clip or a link.
+
+ENTRY_MEDIA = ("image", "video", "audio", "link")
+EN_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+             "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+GALLERY_SHOWN = 4      # tiles before the last one shown turns into "+N"
+
+
+def has_entry(photo: dict) -> bool:
+    return bool(photo.get("date") or photo.get("kind") or photo.get("media"))
+
+
+def entry_date(loc: dict, iso: str) -> str:
+    m = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", iso or "")
+    if not m:
+        raise SystemExit(f'ring photo date "{iso}" is not YYYY-MM-DD')
+    y, mo, d = int(m[1]), int(m[2]), int(m[3])
+    day = f"{mo}月{d}日" if loc["lang"].startswith("zh") else f"{EN_MONTHS[mo - 1]} {d}"
+    return (f'<p class="entry__date"><time datetime="{iso}">'
+            f'<span class="entry__day">{day}</span><span class="entry__year">{y}</span></time></p>')
+
+
+def count_word(loc: dict, what: str, n: int) -> str:
+    forms = loc["making"]["count"][what]
+    return (forms["one"] if n == 1 else forms["other"]).replace("{n}", str(n))
+
+
+def entry_video(loc: dict, shared: dict, item: dict) -> dict | None:
+    """Where a video item plays from, or None when it cannot play on this
+    page. A site video follows the site's rule: the Chinese page plays only
+    from Bilibili, because YouTube does not load in mainland China, so a
+    video with no BV id yet is left out there rather than shown broken."""
+    if item.get("src"):
+        return {"file": item["src"], "poster": item.get("poster", "")}
+    vid = next((v for v in shared["videos"] if v["id"] == item.get("video")), None)
+    if vid is None:
+        return None
+    if loc["videoBackend"] == "bilibili":
+        return {"bv": vid["bv"], "poster": vid["poster"]} if vid.get("bv") else None
+    return {"yt": vid["yt"], "poster": vid["poster"]}
+
+
+def entry_parts(loc: dict, shared: dict, photo: dict, words: dict) -> tuple:
+    """(above the title, below the title, after the words) for one ring
+    picture's entry."""
+    p = loc["assetPrefix"]
+    mk = loc["making"]
+    labels = words.get("media", {})
+
+    # The picture on the ring is the first thing in the gallery, so the
+    # reader can always step back to it after looking at the others.
+    tiles = [("image", {"src": photo["src"]}, "")]
+    audios, links = [], []
+    for m in photo.get("media", []):
+        label = labels.get(m.get("id", ""), {}).get("label", "")
+        kind = m.get("type")
+        if kind == "image" and m.get("src"):
+            tiles.append(("image", {"src": m["src"]}, label))
+        elif kind == "video":
+            v = entry_video(loc, shared, m)
+            if v:
+                tiles.append(("video", v, label))
+        elif kind == "audio" and m.get("src"):
+            audios.append((m["src"], label))
+        elif kind == "link" and m.get("href"):
+            # content is printed into the page as written, so a script URL
+            # typed into the JSON by hand must not become a live link
+            if re.match(r"\s*(javascript|data|vbscript):", m["href"], re.I):
+                raise SystemExit(f'ring photo {photo["id"]}: refusing link {m["href"]!r}')
+            links.append((m["href"], label))
+
+    n_img = sum(1 for t in tiles if t[0] == "image")
+    n_vid = len(tiles) - n_img
+    counts = [count_word(loc, "photo", n_img)] if len(tiles) > 1 else []
+    if n_vid:
+        counts.append(count_word(loc, "video", n_vid))
+    if audios:
+        counts.append(count_word(loc, "audio", len(audios)))
+
+    meta = []
+    if photo.get("kind"):
+        kind = mk["kinds"].get(photo["kind"])
+        if kind is None:
+            raise SystemExit(f'ring photo {photo["id"]}: no making.kinds.{photo["kind"]} in {loc["lang"]}')
+        meta.append(f'<span class="entry__kind">{kind}</span>')
+    if words.get("project"):
+        meta.append(f'<span>{words["project"]}</span>')
+    if counts:
+        meta.append(f'<span>{" · ".join(counts)}</span>')
+
+    top = []
+    if photo.get("date"):
+        top.append(entry_date(loc, photo["date"]))
+    if meta:
+        top.append(f'<p class="entry__meta">{"".join(meta)}</p>')
+
+    after = []
+    if len(tiles) > 1:
+        extra = len(tiles) - GALLERY_SHOWN
+        after.append(f'<div class="entry__gallery" data-count="{len(tiles)}">')
+        for i, (kind, src, label) in enumerate(tiles):
+            data = f' data-kind="{kind}"'
+            if kind == "image":
+                data += f' data-src="{attr(p + src["src"])}"'
+                thumb = p + src["src"]
+            else:
+                for key in ("file", "yt", "bv"):
+                    if src.get(key):
+                        val = p + src[key] if key == "file" else src[key]
+                        data += f' data-{key}="{attr(val)}"'
+                thumb = p + src["poster"] if src.get("poster") else ""
+            name = plain(label) or (mk["playVideo"] if kind == "video" else mk["showPhoto"])
+            cls = "entry__tile" + (" is-current" if i == 0 else "")
+            if extra > 0 and i >= GALLERY_SHOWN:
+                cls += " is-extra"
+            more = (f'<span class="entry__more" aria-hidden="true">+{extra + 1}</span>'
+                    if extra > 0 and i == GALLERY_SHOWN - 1 else "")
+            img = f'<img src="{attr(thumb)}" alt="" loading="lazy">' if thumb else ""
+            play = f'<span class="entry__play" aria-hidden="true">{PLAY_SVG}</span>' if kind == "video" else ""
+            after.append(f'  <button class="{cls}" type="button"{data} aria-label="{attr(name)}">'
+                         f'{img}{play}{more}</button>')
+        after.append("</div>")
+    tail = []
+    if len(tiles) > GALLERY_SHOWN:
+        tail.append(f'<button class="entry__all" type="button">'
+                     f'{mk["viewAll"].replace("{n}", str(len(tiles)))}'
+                     f'<span aria-hidden="true"> &rarr;</span></button>')
+    for src, label in audios:
+        name = f'{mk["playAudio"]}: {plain(label)}' if label else mk["playAudio"]
+        after += [
+            f'<div class="entry__audio" data-audio="{attr(p + src)}">',
+            f'  <button class="entry__audio-btn" type="button" aria-label="{attr(name)}">{PLAY_SVG}</button>',
+            '  <div class="entry__audio-body">',
+        ]
+        if label:
+            after.append(f'    <span class="entry__audio-name">{label}</span>')
+        after += [
+            '    <span class="entry__audio-bar"><span class="entry__audio-fill"></span></span>',
+            '    <span class="entry__audio-time">0:00</span>',
+            "  </div>",
+            "</div>",
+        ]
+    if links:
+        after.append('<ul class="entry__links">')
+        for href, label in links:
+            after.append(f'  <li><a href="{attr(href)}" target="_blank" rel="noopener">'
+                         f'{label or attr(href)}<span aria-hidden="true"> &#8599;</span></a></li>')
+        after.append("</ul>")
+    return top, after, tail
 
 
 def render_lens(loc: dict) -> list[str]:
@@ -1359,14 +1540,19 @@ def render_ring(loc: dict, shared: dict, ring: dict) -> list[str]:
         desc = c.get("desc", "").strip()
         caption = c.get("caption", "")
         img = f'{p}{photo["src"]}'
-        if opens_into_lens(photo, desc):
+        # A picture carrying an entry opens, since there is something to
+        # show - unless the admin's "opens" box was unticked on purpose.
+        entry = has_entry(photo)
+        opens = bool(photo["opens"]) if "opens" in photo else (entry or bool(desc))
+        if opens:
             tid = f'lens-{photo["id"]}'
             label = f'{loc["lens"]["open"]}: {plain(caption)}'
             out.append(
                 f'        <img class="orbit__card" style="--i:{i}" src="{img}" alt="{attr(label)}"'
                 f' role="button" tabindex="0" aria-haspopup="dialog" data-lens="{attr(tid)}" decoding="async">'
             )
-            templates += lens_template(tid, "", caption, desc)
+            parts = entry_parts(loc, shared, photo, c) if entry else None
+            templates += lens_template(tid, "", caption, desc, parts)
         else:
             out.append(
                 f'        <img class="orbit__card" style="--i:{i}" src="{img}"'
@@ -1625,7 +1811,7 @@ def load(name: str) -> dict:
 
 # Everything Cloudflare Pages should serve. The repo also holds build.py,
 # content/, tools/ and workers/, and none of those belong on a public host.
-DEPLOY_DIRS = ("css", "js", "img", "fonts", "admin", "audio")
+DEPLOY_DIRS = ("css", "js", "img", "fonts", "admin", "audio", "video")
 
 
 def build_dist(shared: dict, pages: list[tuple[dict, str]]) -> None:

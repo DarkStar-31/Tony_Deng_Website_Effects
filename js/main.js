@@ -1598,6 +1598,7 @@ class Lens {
     this.card.style.setProperty('--ar', ar.toFixed(4));
     this.img.src = src.currentSrc || src.src;
     this.body.replaceChildren(tpl.content.cloneNode(true));
+    this.entry();
 
     this.lock(true);
     this.dlg.showModal();
@@ -1660,6 +1661,7 @@ class Lens {
     if (REDUCED || this.state === 'opening') { this.finish(); return; }
 
     this.state = 'closing';
+    this.stopMedia();
     const slot = this.img.getBoundingClientRect();
     const home = this.src.getBoundingClientRect();
     const onScreen = home.width > 0 && home.bottom > 0 && home.top < innerHeight &&
@@ -1696,7 +1698,140 @@ class Lens {
     this.finish();
   }
 
+  /* A ring picture that carries a diary entry (entry_parts in build.py)
+     brings a gallery, audio clips and links with it. The picture slot on
+     the left is a stage: a gallery tile puts its photo or its video there,
+     and the first tile - the picture from the ring - puts things back. */
+  entry () {
+    this.home = this.img.src;
+    this.audios = [];
+    this.card.classList.toggle('lens__card--entry',
+      !!this.body.querySelector('.entry__date, .entry__meta, .entry__gallery, .entry__audio, .entry__links'));
+
+    const gallery = this.body.querySelector('.entry__gallery');
+    const all = this.body.querySelector('.entry__all');
+    const expand = () => {
+      if (!gallery) return;
+      gallery.classList.add('is-all');
+      gallery.querySelectorAll('.entry__more').forEach((n) => n.remove());
+      if (all) all.remove();
+    };
+    if (gallery) {
+      gallery.addEventListener('click', (e) => {
+        const tile = e.target.closest('.entry__tile');
+        if (!tile) return;
+        // the "+N" tile opens the rest out as well as showing itself
+        if (tile.querySelector('.entry__more')) expand();
+        this.show(tile);
+      });
+    }
+    if (all) all.addEventListener('click', expand);
+    this.body.querySelectorAll('.entry__audio').forEach((node) => this.clip(node));
+  }
+
+  show (tile) {
+    const gallery = tile.closest('.entry__gallery');
+    gallery.querySelectorAll('.entry__tile').forEach((t) => t.classList.toggle('is-current', t === tile));
+    this.clearStage();
+    const media = this.img.parentElement;
+    const d = tile.dataset;
+
+    if (d.kind === 'image') {
+      this.img.src = d.src;
+      // the slot keeps the ring picture's shape; anything else fits inside it
+      media.classList.toggle('is-other', d.src !== this.home && !this.home.endsWith(d.src));
+      return;
+    }
+
+    this.pauseClips();
+    let stage;
+    if (d.file) {
+      stage = document.createElement('video');
+      stage.src = d.file;
+      stage.controls = true;
+      stage.autoplay = true;
+      stage.playsInline = true;
+    } else {
+      stage = document.createElement('iframe');
+      stage.src = d.bv
+        ? `https://player.bilibili.com/player.html?bvid=${d.bv}&autoplay=1&high_quality=1`
+        : `https://www.youtube-nocookie.com/embed/${d.yt}?autoplay=1&rel=0`;
+      stage.allow = 'autoplay; encrypted-media; picture-in-picture';
+      stage.allowFullscreen = true;
+    }
+    stage.title = tile.getAttribute('aria-label') || '';
+    stage.className = 'lens__stage';
+    media.append(stage);
+    this.stage = stage;
+  }
+
+  clearStage () {
+    if (this.stage) { this.stage.remove(); this.stage = null; }
+  }
+
+  // one small player per clip; the <audio> is only made when it is pressed
+  clip (node) {
+    const btn = node.querySelector('.entry__audio-btn');
+    const bar = node.querySelector('.entry__audio-bar');
+    const fill = node.querySelector('.entry__audio-fill');
+    const time = node.querySelector('.entry__audio-time');
+    const playIcon = btn.innerHTML;
+    const pauseIcon = '<svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>';
+    const fmt = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+
+    const a = new Audio();
+    a.preload = 'metadata';
+    a.src = node.dataset.audio;
+    this.audios.push(a);
+    const paint = () => {
+      const on = !a.paused;
+      node.classList.toggle('is-playing', on);
+      btn.innerHTML = on ? pauseIcon : playIcon;
+    };
+    a.addEventListener('loadedmetadata', () => { time.textContent = fmt(a.duration); });
+    a.addEventListener('timeupdate', () => {
+      if (!a.duration) return;
+      fill.style.width = `${(a.currentTime / a.duration) * 100}%`;
+      time.textContent = fmt(a.currentTime);
+    });
+    a.addEventListener('play', paint);
+    a.addEventListener('pause', paint);
+    a.addEventListener('ended', () => {
+      a.currentTime = 0;
+      fill.style.width = '0%';
+      time.textContent = fmt(a.duration);
+    });
+    btn.addEventListener('click', () => {
+      if (a.paused) {
+        // one sound at a time: other clips stop, and a playing video goes
+        this.pauseClips();
+        if (this.stage) this.show(this.body.querySelector('.entry__tile'));
+        a.play().catch(() => {});
+      } else {
+        a.pause();
+      }
+    });
+    bar.addEventListener('click', (e) => {
+      if (!a.duration) return;
+      const r = bar.getBoundingClientRect();
+      a.currentTime = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * a.duration;
+    });
+  }
+
+  pauseClips () {
+    (this.audios || []).forEach((a) => a.pause());
+  }
+
+  // everything that can make a sound stops, and the ring picture is back
+  stopMedia () {
+    this.pauseClips();
+    this.clearStage();
+    if (this.home && this.img.src !== this.home) this.img.src = this.home;
+    if (this.img.parentElement) this.img.parentElement.classList.remove('is-other');
+  }
+
   finish () {
+    this.stopMedia();
     this.dlg.getAnimations({ subtree: true }).forEach((a) => a.cancel());
     if (this.fl) { this.fl.remove(); this.fl = null; }
     this.img.style.visibility = '';

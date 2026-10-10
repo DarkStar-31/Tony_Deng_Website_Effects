@@ -119,7 +119,7 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/admin/upload":
             body = self.read_json()
             path = body.get("path", "")
-            if not re.fullmatch(r"(img|audio)/[A-Za-z0-9._/-]+", path) or ".." in path:
+            if not re.fullmatch(r"(img|audio|video)/[A-Za-z0-9._/-]+", path) or ".." in path:
                 return self.send_json({"error": "Bad upload path"}, 400)
             dest = ROOT / path
             dest.parent.mkdir(parents=True, exist_ok=True)
