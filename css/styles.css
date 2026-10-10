@@ -1568,6 +1568,104 @@ html[lang^="zh"] .vfilter__btn{ font-size:.8rem; letter-spacing:.04em; text-tran
   border-radius:12px; border:1px solid var(--line);
 }
 
+/* ================= JOURNAL =================
+   Under the rings on In the Making: a list of cards, each a link to the
+   post's own page (journal-<id>.html). Picture on the left, words on the
+   right; on a phone the picture goes on top. */
+.journal{ border-top:1px solid var(--line); }
+.journal__list{ display:grid; gap:1.1rem; max-width:64rem; }
+.jcard{
+  display:grid; grid-template-columns:minmax(0,15rem) minmax(0,1fr); gap:1.4rem;
+  align-items:center; padding:1rem; border-radius:14px;
+  border:1px solid var(--line); background:var(--ink-2);
+  color:inherit; text-decoration:none;
+  transition:border-color .35s var(--ease), transform .35s var(--ease);
+}
+.jcard:hover,
+.jcard:focus-visible{ border-color:rgba(250,39,159,.6); transform:translateY(-2px); }
+.jcard:focus-visible{ outline:2px solid var(--magenta); outline-offset:3px; }
+.jcard__pic{ display:block; aspect-ratio:4/3; border-radius:9px; overflow:hidden; background:var(--ink-3, #1C1A20); }
+.jcard__pic img{ display:block; width:100%; height:100%; object-fit:cover; transition:transform .6s var(--ease); }
+.jcard:hover .jcard__pic img{ transform:scale(1.04); }
+.jcard__blank{
+  display:block; width:100%; height:100%;
+  background:radial-gradient(120% 90% at 20% 10%, rgba(250,39,159,.35), transparent 60%),
+             linear-gradient(135deg, #1d1a22, #0f0e11);
+}
+.jcard__body{ display:block; min-width:0; }
+.jcard__body .entry__date,
+.jcard__body .entry__meta{ display:block; margin-bottom:.45rem; }
+.jcard__title{
+  display:block; margin:.15rem 0 .5rem;
+  font-family:var(--f-serif); font-size:clamp(1.45rem,2.4vw,1.9rem); line-height:1.1;
+}
+.jcard__excerpt{
+  display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
+  color:var(--bone-dim); font-size:.93rem; line-height:1.6;
+}
+.jcard__read{
+  display:inline-block; margin-top:.8rem;
+  font-size:.7rem; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:var(--bone);
+}
+html[lang^="zh"] .jcard__read{ font-size:.82rem; letter-spacing:.06em; }
+.jcard__read span{ color:var(--magenta); }
+.js .journal__list > [data-later]{ display:none; }
+.journal__list > [hidden]{ display:none; }
+@media (max-width:640px){
+  .jcard{ grid-template-columns:minmax(0,1fr); gap:1rem; }
+}
+
+/* ---- one post ---- */
+.post{ max-width:46rem; margin:0 auto; box-sizing:content-box; }
+.post__back{ margin:0 0 2rem; font-size:.8rem; letter-spacing:.08em; }
+.post__back a{ color:var(--bone-dim); text-decoration:none; }
+.post__back a:hover{ color:var(--bone); }
+.post__head{ margin-bottom:1.8rem; }
+.post__title{
+  margin:.4rem 0 0;
+  font-family:var(--f-serif); font-weight:400;
+  font-size:clamp(2.3rem,5.4vw,3.6rem); line-height:1.04; letter-spacing:-.01em;
+}
+.post__cover{ margin:0 0 2.2rem; }
+.post__cover img{ display:block; width:100%; height:auto; border-radius:14px; border:1px solid var(--line); }
+.post__body{ font-size:1.04rem; line-height:1.75; color:#CFC8C0; }
+.post__body > p{ margin:0 0 1.2rem; }
+.post__body a{ color:var(--bone); text-underline-offset:3px; }
+.post__fig{ margin:2rem 0; }
+.post__fig img,
+.post__fig video{ display:block; width:100%; height:auto; border-radius:12px; border:1px solid var(--line); background:#000; }
+/* a tall photo would otherwise be two screens of one picture */
+.post__fig img{ width:auto; max-width:100%; max-height:min(80vh, 44rem); margin:0 auto; }
+.post__fig .vid--feature{ max-width:none; margin:0; }
+.post__fig figcaption,
+.post__gallery figcaption{ margin-top:.6rem; font-size:.82rem; color:var(--bone-dim); }
+.post__gallery{
+  display:grid; gap:.6rem; margin:2rem 0;
+  grid-template-columns:repeat(auto-fill, minmax(min(12rem,100%),1fr));
+}
+.post__gallery img{ display:block; width:100%; aspect-ratio:1; object-fit:cover; border-radius:10px; border:1px solid var(--line); }
+.post__gallery figcaption{ grid-column:1 / -1; margin-top:0; }
+.post__pager{
+  display:grid; grid-template-columns:1fr 1fr; gap:1rem;
+  margin-top:3.2rem; padding-top:1.6rem; border-top:1px solid var(--line);
+}
+.post__pager a{
+  display:block; padding:1rem 1.1rem; border-radius:12px; border:1px solid var(--line);
+  color:var(--bone); text-decoration:none; font-family:var(--f-serif); font-size:1.2rem; line-height:1.2;
+  transition:border-color .3s var(--ease);
+}
+.post__pager a:hover{ border-color:var(--magenta); }
+.post__pager small{
+  display:block; margin-bottom:.35rem; font-family:var(--f-sans, inherit); font-size:.68rem;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--bone-dim);
+}
+html[lang^="zh"] .post__pager small{ font-size:.8rem; letter-spacing:.06em; }
+.post__older{ grid-column:2; text-align:right; }
+@media (max-width:560px){
+  .post__pager{ grid-template-columns:1fr; }
+  .post__older{ grid-column:auto; }
+}
+
 /* ================= PHOTOS ================= */
 /* Twelve columns, and each row as tall as a column is wide (container
    query units), so a photo spanning 4 columns and 5 rows is a 4:5 picture.

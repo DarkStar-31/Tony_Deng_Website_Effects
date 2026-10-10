@@ -2632,6 +2632,232 @@ function ringEntryFields(ring, ph, rerender) {
                      onclick: () => add({ type: 'link', href: '' }) }, T('+ Link'))));
 }
 
+// ---------------------------------------------------------------- journal
+
+/* The making-of journal (client issue 5). Posts live in shared.json →
+ * journal, their words in each locale's journal.posts.<id>; build.py
+ * documents the shape above render_journal_list. Each post becomes its own
+ * page, journal-<id>.html, and a card in the list under the rings.
+ *
+ * A new post starts unpublished, so a half-written one can be saved as a
+ * draft - even published - without appearing on the site. A post shows on a
+ * language's page only once it has a title in that language. */
+const JOURNAL_DEFAULTS = {
+  en: { read: 'Read', back: 'All journal entries', newer: 'Newer', older: 'Older',
+        pager: 'More journal entries', siteName: 'Tony D', posts: {} },
+  zh: { read: '阅读', back: '全部日志', newer: '较新', older: '较早',
+        pager: '更多日志', siteName: 'Tony D', posts: {} },
+};
+
+function journalWords(l) {
+  const loc = LOC(l);
+  if (!loc.journal) loc.journal = JSON.parse(JSON.stringify(JOURNAL_DEFAULTS[l]));
+  if (!loc.journal.posts) loc.journal.posts = {};
+  return loc.journal;
+}
+
+function postWords(l, id) {
+  const posts = journalWords(l).posts;
+  return posts[id] || (posts[id] = { title: '' });
+}
+
+function blockWords(l, postId, blockId) {
+  const w = postWords(l, postId);
+  const blocks = w.blocks || (w.blocks = {});
+  return blocks[blockId] || (blocks[blockId] = {});
+}
+
+function journalBlockEditor(post, block, rerender) {
+  const shared = SHARED();
+  const words = (l) => blockWords(l, post.id, block.id);
+  const caption = () => bi('Caption', 'caption', words, { dropWhenEmpty: true, hint: 'Optional. Shown under it.' });
+  if (block.type === 'text') {
+    return bi('Text', 'text', words, { multiline: true, rows: 6,
+      hint: 'A blank line starts a new paragraph. Links and bold work as everywhere else.' });
+  }
+  if (block.type === 'image') {
+    return el('div', {},
+      singleImage(block.src, 'img/journal', (path) => { block.src = path; }),
+      caption());
+  }
+  if (block.type === 'gallery') {
+    const imgs = block.images || (block.images = []);
+    return el('div', {},
+      el('div', { className: 'album' },
+        ...imgs.map((im, i) => el('figure', { className: 'album__pic' },
+          el('img', { src: '/' + im.src, alt: '', loading: 'lazy' }),
+          el('figcaption', {},
+            el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Earlier'),
+              onclick: () => { if (i) { imgs.splice(i - 1, 0, imgs.splice(i, 1)[0]); markDirty(); rerender(); } } }, '←'),
+            el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Later'),
+              onclick: () => { if (i < imgs.length - 1) { imgs.splice(i + 1, 0, imgs.splice(i, 1)[0]); markDirty(); rerender(); } } }, '→'),
+            el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button', title: T('Remove'),
+              onclick: () => { imgs.splice(i, 1); markDirty(); rerender(); } }, '×'))))),
+      dropZone('img/journal', '.webp,.png,.jpg,.jpeg', 'Drop pictures here, or click to choose',
+        (path) => imgs.push({ src: path })),
+      caption());
+  }
+  if (block.type === 'video' && 'video' in block) {
+    const pick = el('select', {});
+    pick.append(el('option', { value: '' }, T('Choose a video…')));
+    shared.videos.forEach((v) => {
+      const name = plainWords(LOC('en').videos[v.id]?.title) || v.id;
+      const opt = el('option', { value: v.id }, name + (v.bv ? '' : ' — ' + T('no Bilibili id, English page only')));
+      if (block.video === v.id) opt.selected = true;
+      pick.append(opt);
+    });
+    pick.addEventListener('change', () => { block.video = pick.value; markDirty(); });
+    return el('div', {},
+      field('One of the site’s videos', pick,
+        'Plays from YouTube on the English page and from Bilibili on the Chinese one. '
+        + 'A video with no Bilibili id is left out of the Chinese page, because YouTube does not load in mainland China.'),
+      caption());
+  }
+  // a clip uploaded to the site
+  return el('div', {},
+    el('div', { className: 'vidrow' },
+      block.poster ? el('img', { className: 'vidrow__thumb', src: '/' + block.poster, alt: '', loading: 'lazy' }) : null,
+      el('div', {},
+        el('p', { className: 'hint' }, block.src ? block.src : T('No clip uploaded yet.')),
+        el('div', { className: 'row' },
+          uploadButton('video', block.src ? 'Replace clip' : 'Upload clip (mp4, up to 20MB)',
+                       (path) => { block.src = path; markDirty(); rerender(); }, '.mp4,.webm'),
+          uploadButton('img/journal', block.poster ? 'Replace still' : 'Upload a still for the tile',
+                       (path) => { block.poster = path; markDirty(); rerender(); })))),
+    caption());
+}
+
+const BLOCK_NAMES = { text: 'Text', image: 'Photo', gallery: 'Gallery', video: 'Video' };
+
+function journalPostBody(post, rerender) {
+  const blocks = post.blocks || (post.blocks = []);
+  const add = (block) => {
+    const taken = blocks.map((b) => b.id);
+    let n = 1;
+    while (taken.includes(`b${n}`)) n++;
+    block.id = `b${n}`;
+    blocks.push(block);
+    markDirty();
+    rerender();
+  };
+  const dropBlockWords = (id) => {
+    for (const l of ['en', 'zh']) {
+      const w = journalWords(l).posts[post.id];
+      if (w && w.blocks) delete w.blocks[id];
+    }
+  };
+
+  const date = el('input', { type: 'date', value: post.date || '' });
+  date.addEventListener('change', () => {
+    if (date.value) post.date = date.value; else delete post.date;
+    markDirty();
+  });
+  const kindWords = (LOC(UI.lang === 'zh' ? 'zh' : 'en').making || {}).kinds || {};
+  const kind = el('select', {});
+  [['', '—'], ...ENTRY_KINDS.map((k) => [k, kindWords[k] || k])].forEach(([value, label]) => {
+    const opt = el('option', { value, html: label });
+    if ((post.kind || '') === value) opt.selected = true;
+    kind.append(opt);
+  });
+  kind.addEventListener('change', () => {
+    if (kind.value) post.kind = kind.value; else delete post.kind;
+    markDirty();
+  });
+
+  const live = el('input', { type: 'checkbox' });
+  live.checked = !post.hidden;
+  live.addEventListener('change', () => {
+    if (live.checked) delete post.hidden; else post.hidden = true;
+    markDirty();
+    rerender();
+  });
+
+  return el('div', {},
+    row(field('Date', date), field('Kind', kind)),
+    el('label', { className: 'check' }, live,
+      el('span', {}, T('On the site (untick to unpublish without deleting)'))),
+    bi('Title', 'title', (l) => postWords(l, post.id),
+       { hint: 'A post appears on a language’s page only once it has a title in that language.' }),
+    bi('Excerpt', 'excerpt', (l) => postWords(l, post.id),
+       { multiline: true, rows: 2, dropWhenEmpty: true,
+         hint: 'Optional. The line under the title in the list. Left empty, the start of the first text block is used.' }),
+    field('Cover', singleImage(post.cover, 'img/journal', (path) => { post.cover = path; },
+                               { missingNote: 'No cover — the first photo is used' }),
+          'Top of the post and on its card in the list.'),
+    post.cover
+      ? el('button', { className: 'btn btn--small btn--ghost', type: 'button',
+                       onclick: () => { delete post.cover; markDirty(); rerender(); } }, T('Remove cover'))
+      : null,
+    el('p', { className: 'entryed__head' }, T('Body')),
+    el('p', { className: 'hint' }, T('Blocks, top to bottom. Use the arrows to move one past another.')),
+    ...blocks.map((b, i) => card(
+      T(b.type === 'video' ? ('video' in b ? 'Site video' : 'Video clip') : BLOCK_NAMES[b.type] || b.type),
+      listControls(blocks, i, rerender, { onDelete: (gone) => dropBlockWords(gone.id) }),
+      journalBlockEditor(post, b, rerender))),
+    el('div', { className: 'row entryed__add' },
+      el('button', { className: 'btn btn--small', type: 'button', onclick: () => add({ type: 'text' }) }, T('+ Text')),
+      uploadButton('img/journal', '+ Photo', (path) => add({ type: 'image', src: path })),
+      el('button', { className: 'btn btn--small', type: 'button', onclick: () => add({ type: 'gallery', images: [] }) }, T('+ Gallery')),
+      el('button', { className: 'btn btn--small', type: 'button', onclick: () => add({ type: 'video', video: '' }) }, T('+ Site video')),
+      el('button', { className: 'btn btn--small', type: 'button', onclick: () => add({ type: 'video', src: '' }) }, T('+ Video clip'))),
+    el('p', { className: 'hint' },
+      el('a', { href: `/journal-${post.id}.html`, target: '_blank', rel: 'noopener' },
+         T('Open this post on the site')), ' ',
+      T('(after Publish; the preview shows the last published version)')));
+}
+
+function journalCards() {
+  const shared = SHARED();
+  const rerender = () => renderPanel();
+  if (!shared.journal) shared.journal = [];
+  const posts = shared.journal;
+  journalWords('en'); journalWords('zh');
+
+  const out = [
+    card('Journal words', null, el('div', {},
+      el('p', { className: 'hint' }, T('The small words around the journal, on the list and on each post.')),
+      bi('“Read” on each card', 'read', (l) => journalWords(l), { rich: false }),
+      bi('Back to the list', 'back', (l) => journalWords(l), { rich: false }),
+      bi('Newer post', 'newer', (l) => journalWords(l), { rich: false }),
+      bi('Older post', 'older', (l) => journalWords(l), { rich: false }),
+      bi('Site name in the browser tab', 'siteName', (l) => journalWords(l), { rich: false }),
+    )),
+    addButton('+ New journal post', () => {
+      // local date, not UTC: in the evening in the Americas UTC is already tomorrow
+      const now = new Date();
+      const today = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'),
+                     String(now.getDate()).padStart(2, '0')].join('-');
+      const id = newId(today, posts.map((x) => x.id));
+      // newest first, and unpublished until someone says otherwise
+      posts.unshift({ id, date: today, hidden: true, blocks: [{ id: 'b1', type: 'text' }] });
+      postWords('en', id); postWords('zh', id);
+      cardOpen.add('post:' + id);
+      markDirty();
+      rerender();
+    }),
+  ];
+
+  posts.forEach((post, i) => {
+    const en = plainWords(journalWords('en').posts[post.id]?.title);
+    const zh = plainWords(journalWords('zh').posts[post.id]?.title);
+    const status = [];
+    if (post.hidden) status.push(el('span', { className: 'pending' }, T('unpublished')));
+    else if (!en && !zh) status.push(el('span', { className: 'pending pending--bad' }, T('no title: not on the site')));
+    else if (!en) status.push(el('span', { className: 'pending' }, T('Chinese page only')));
+    else if (!zh) status.push(el('span', { className: 'pending' }, T('English page only')));
+    const title = el('span', {}, (UI.lang === 'zh' ? zh || en : en || zh) || T('(untitled)'), ' ', ...status);
+    out.push(cardFold('post:' + post.id, title,
+      listControls(posts, i, rerender, {
+        onDelete: (gone) => { for (const l of ['en', 'zh']) delete journalWords(l).posts[gone.id]; },
+      }),
+      journalPostBody(post, rerender),
+      'making.journal',
+      post.cover || (post.blocks || []).find((b) => b.type === 'image' && b.src)?.src,
+      post.date || ''));
+  });
+  return out;
+}
+
 /* Move this ring up or down the page, or take it off it. These sit in the
  * section's own header, which is a <summary>, so fold() stops their clicks
  * before the section opens and shuts under them. */
@@ -3451,6 +3677,16 @@ function renderMaking() {
     ringCentreCard(ring),
     ...ringPhotoCards(ring),
   )));
+
+  if (!LOC('en').sections.journal) LOC('en').sections.journal = { title: 'Journal' };
+  if (!LOC('zh').sections.journal) LOC('zh').sections.journal = { title: '创作日志' };
+  const posts = SHARED().journal || [];
+  out.push(fold('Journal', { defaultOpen: true, key: 'journal' },
+    T('{n} posts', { n: posts.length }),
+    el('p', { className: 'hint' },
+      T('Posts under the rings, newest at the top. Each one is a page of its own; the list shows six, then “Load more”.')),
+    sectionHeading('journal', 'making.journal'),
+    ...journalCards()));
 
   return out;
 }

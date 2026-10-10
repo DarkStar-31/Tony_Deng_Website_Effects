@@ -101,10 +101,16 @@ ALBUM_SVG = ('<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="3" widt
 
 # ---------------------------------------------------------------- sections
 
-def render_head(loc: dict, page: str, shared: dict | None = None) -> list[str]:
+def render_head(loc: dict, page: str, shared: dict | None = None,
+                own: tuple[str, str, str] | None = None) -> list[str]:
+    """`own` is (title, description, file) for a page that is not one of
+    the five - a journal post - which still borrows its section's head."""
     p = loc["assetPrefix"]
     head = loc["pages"][page]
     rel = PAGE_FILE[page]
+    if own:
+        head = {"title": own[0], "description": own[1]}
+        rel = own[2]
     # The tab icon, if one has been uploaded. No entry means no <link>, which
     # is what the site did before there was a field for it: browsers then ask
     # for /favicon.ico, get a 404, and show their own placeholder.
@@ -131,8 +137,11 @@ def render_head(loc: dict, page: str, shared: dict | None = None) -> list[str]:
     ]
 
 
-def render_nav(loc: dict, page: str) -> list[str]:
-    """Six evenly spaced slots; CSS orders the wordmark into the middle."""
+def render_nav(loc: dict, page: str, rel: str | None = None) -> list[str]:
+    """Six evenly spaced slots; CSS orders the wordmark into the middle.
+
+    `rel` is the file this page really is, when that is not its section's
+    own (a journal post sits under In the Making but is its own file)."""
     nav = loc["nav"]
     mark = "#top" if page == "home" else "index.html"
 
@@ -149,7 +158,7 @@ def render_nav(loc: dict, page: str) -> list[str]:
     cta_href = cta["href"]
     alt = nav["altLang"]
     # the other locale's copy of *this* page, not its homepage
-    alt_href = ("zh/" if loc["assetPrefix"] == "" else "../") + PAGE_FILE[page]
+    alt_href = ("zh/" if loc["assetPrefix"] == "" else "../") + (rel or PAGE_FILE[page])
 
     out = [
         "<!-- nav -->",
@@ -1682,6 +1691,223 @@ def render_making(loc: dict, shared: dict) -> list[str]:
     if out[-1] == "":
         out.pop()
     out.append("</section>")
+    out += render_journal_list(loc, shared)
+    return out
+
+
+# ---------------------------------------------------------------- journal
+#
+# The making-of journal (client issue 5): posts with a title, a date and a
+# cover, and a body built from blocks that can be put in any order. The list
+# sits under the rings on In the Making, newest first by default, and each
+# post is a page of its own - journal-<id>.html - so a post can be linked to,
+# shared on WeChat, and found by a search engine, which a pop-up could not.
+#
+# The shape (shared.json; `hidden` takes a post off the site without
+# deleting it - the admin calls it unpublishing):
+#
+#   "journal": [ {"id": "temple-week-one", "date": "2026-10-04",
+#                 "kind": "recording", "cover": "img/journal/x.webp",
+#                 "hidden": false,
+#                 "blocks": [ {"id": "b1", "type": "text"},
+#                             {"id": "b2", "type": "image", "src": "img/..."},
+#                             {"id": "b3", "type": "gallery", "images": [{"src": "..."}]},
+#                             {"id": "b4", "type": "video", "video": "<shared.videos id>"},
+#                             {"id": "b5", "type": "video", "src": "video/x.mp4", "poster": "img/..."} ]} ]
+#
+# The words (en/zh.json, journal.posts.<id>): title, excerpt (optional - the
+# first text block stands in), and blocks.<block id>.text / .caption.
+# A post is on a language's page only once it has a title in that language,
+# so one written in Chinese first simply is not on the English page yet.
+
+JOURNAL_PAGE = 6              # posts in the list before "Load more"
+JOURNAL_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,60}")
+
+
+def journal_posts(shared: dict) -> list[dict]:
+    """The posts that are on the site, in the order the admin has them."""
+    out = []
+    for post in shared.get("journal", []):
+        if post.get("hidden"):
+            continue
+        if not JOURNAL_ID.fullmatch(post.get("id", "")):
+            raise SystemExit(f'journal post id {post.get("id")!r} must be lowercase letters, digits and dashes')
+        out.append(post)
+    return out
+
+
+def journal_file(post: dict) -> str:
+    return f'journal-{post["id"]}.html'
+
+
+def journal_words(loc: dict, post: dict) -> dict:
+    return loc.get("journal", {}).get("posts", {}).get(post["id"], {})
+
+
+def journal_excerpt(loc: dict, post: dict, words: dict) -> str:
+    if words.get("excerpt"):
+        return words["excerpt"]
+    for b in post.get("blocks", []):
+        if b.get("type") == "text":
+            text = re.sub(r"\s+", " ", plain(words.get("blocks", {}).get(b.get("id", ""), {}).get("text", ""))).strip()
+            if text:
+                # Chinese runs about twice as dense as English
+                cut = 70 if loc["lang"].startswith("zh") else 150
+                if len(text) <= cut:
+                    return text
+                short = text[:cut]
+                if " " in short and not loc["lang"].startswith("zh"):
+                    short = short[: short.rfind(" ")]
+                return short.rstrip(" ,.;:，。；：") + "…"
+    return ""
+
+
+def journal_cover(post: dict) -> str:
+    """The post's cover, or else its first picture, or nothing."""
+    if post.get("cover"):
+        return post["cover"]
+    for b in post.get("blocks", []):
+        if b.get("type") == "image" and b.get("src"):
+            return b["src"]
+        if b.get("type") == "gallery" and b.get("images"):
+            return b["images"][0]["src"]
+    return ""
+
+
+def journal_meta(loc: dict, post: dict) -> list[str]:
+    """Date and kind, the same as a diary entry's top line."""
+    out = []
+    if post.get("date"):
+        out.append(entry_date(loc, post["date"]))
+    if post.get("kind"):
+        kind = loc["making"]["kinds"].get(post["kind"])
+        if kind:
+            out.append(f'<p class="entry__meta"><span class="entry__kind">{kind}</span></p>')
+    return out
+
+
+def render_journal_list(loc: dict, shared: dict) -> list[str]:
+    posts = [x for x in journal_posts(shared) if journal_words(loc, x).get("title")]
+    if not posts or not loc.get("journal"):
+        return []
+    p = loc["assetPrefix"]
+    j = loc["journal"]
+    out = [
+        "",
+        "<!-- the making-of journal: each card is a link to the post's own page -->",
+        '<section class="section journal" id="journal">',
+    ] + section_head(loc, "journal") + [
+        "",
+        '  <div class="journal__list" data-paged>',
+    ]
+    for n, post in enumerate(posts):
+        words = journal_words(loc, post)
+        later = " data-later" if n >= JOURNAL_PAGE else ""
+        cover = journal_cover(post)
+        pic = (f'<img src="{p}{attr(cover)}" alt="" loading="lazy" decoding="async">' if cover
+               else '<span class="jcard__blank" aria-hidden="true"></span>')
+        excerpt = journal_excerpt(loc, post, words)
+        out += [
+            f'    <a class="jcard reveal" href="{journal_file(post)}"{later}>',
+            f'      <span class="jcard__pic">{pic}</span>',
+            '      <span class="jcard__body">',
+        ]
+        out += ["        " + l.replace("<p ", "<span ").replace("</p>", "</span>") for l in journal_meta(loc, post)]
+        out.append(f'        <span class="jcard__title">{words["title"]}</span>')
+        if excerpt:
+            out.append(f'        <span class="jcard__excerpt">{excerpt}</span>')
+        out += [
+            f'        <span class="jcard__read">{j["read"]}<span aria-hidden="true"> &rarr;</span></span>',
+            "      </span>",
+            "    </a>",
+        ]
+    out.append("  </div>")
+    if len(posts) > JOURNAL_PAGE:
+        out += [
+            f'  <p class="more" data-page="{JOURNAL_PAGE}">',
+            f'    <button class="more__btn" type="button">{loc.get("loadMore", "Load more")}</button>',
+            "  </p>",
+        ]
+    out.append("</section>")
+    return out
+
+
+def render_journal_block(loc: dict, shared: dict, block: dict, words: dict) -> list[str]:
+    p = loc["assetPrefix"]
+    w = words.get("blocks", {}).get(block.get("id", ""), {})
+    kind = block.get("type")
+    cap = (f'    <figcaption>{w["caption"]}</figcaption>' if w.get("caption") else None)
+    if kind == "text":
+        text = w.get("text", "").replace("\r\n", "\n").strip()
+        if not text:
+            return []
+        return [f'  <p>{para.strip().replace(chr(10), "<br>")}</p>' for para in re.split(r"\n\s*\n", text)]
+    if kind == "image" and block.get("src"):
+        return ['  <figure class="post__fig">',
+                f'    <img src="{p}{attr(block["src"])}" alt="{attr(plain(w.get("caption", "")))}" loading="lazy" decoding="async">',
+                *([cap] if cap else []), "  </figure>"]
+    if kind == "gallery" and block.get("images"):
+        imgs = [i for i in block["images"] if i.get("src")]
+        out = [f'  <figure class="post__gallery" data-count="{len(imgs)}">']
+        out += [f'    <img src="{p}{attr(i["src"])}" alt="" loading="lazy" decoding="async">' for i in imgs]
+        if cap:
+            out.append(cap)
+        out.append("  </figure>")
+        return out
+    if kind == "video":
+        if block.get("src"):
+            poster = f' poster="{p}{attr(block["poster"])}"' if block.get("poster") else ""
+            return ['  <figure class="post__fig post__fig--video">',
+                    f'    <video src="{p}{attr(block["src"])}"{poster} controls playsinline preload="none"></video>',
+                    *([cap] if cap else []), "  </figure>"]
+        vid = next((v for v in shared["videos"] if v["id"] == block.get("video")), None)
+        # same rule as everywhere else: no BV id, no video on the Chinese page
+        if vid is None or not plays_here(loc, vid) or (loc["videoBackend"] != "bilibili" and not vid.get("yt")):
+            return []
+        out = ['  <figure class="post__fig post__fig--video">']
+        out += render_video_tile(loc, vid, 4, True)
+        if cap:
+            out.append(cap)
+        out.append("  </figure>")
+        return out
+    return []
+
+
+def render_post(loc: dict, shared: dict, post: dict) -> list[str]:
+    p = loc["assetPrefix"]
+    j = loc["journal"]
+    posts = [x for x in journal_posts(shared) if journal_words(loc, x).get("title")]
+    words = journal_words(loc, post)
+    i = next(n for n, x in enumerate(posts) if x["id"] == post["id"])
+    cover = journal_cover(post)
+    out = [
+        "<!-- ================= JOURNAL POST ================= -->",
+        '<article class="section section--lead post" id="post">',
+        f'  <p class="post__back"><a href="{PAGE_FILE["press"]}#journal"><span aria-hidden="true">&larr; </span>{j["back"]}</a></p>',
+        '  <header class="post__head">',
+    ]
+    out += ["    " + l for l in journal_meta(loc, post)]
+    out += [f'    <h1 class="post__title">{words["title"]}</h1>', "  </header>"]
+    if post.get("cover"):
+        out += ['  <figure class="post__cover">',
+                f'    <img src="{p}{attr(cover)}" alt="" decoding="async">', "  </figure>"]
+    out.append('  <div class="post__body">')
+    for block in post.get("blocks", []):
+        out += ["  " + l for l in render_journal_block(loc, shared, block, words)]
+    out.append("  </div>")
+    # newer is up the list, older is down it
+    newer = posts[i - 1] if i > 0 else None
+    older = posts[i + 1] if i + 1 < len(posts) else None
+    if newer or older:
+        out.append(f'  <nav class="post__pager" aria-label="{attr(j["pager"])}">')
+        if newer:
+            out.append(f'    <a class="post__newer" href="{journal_file(newer)}"><small>{j["newer"]}</small>'
+                       f'{journal_words(loc, newer)["title"]}</a>')
+        if older:
+            out.append(f'    <a class="post__older" href="{journal_file(older)}"><small>{j["older"]}</small>'
+                       f'{journal_words(loc, older)["title"]}</a>')
+        out.append("  </nav>")
+    out.append("</article>")
     return out
 
 
@@ -1806,8 +2032,15 @@ def render_footer(loc: dict, shared: dict) -> list[str]:
 
 # ---------------------------------------------------------------- page
 
-def render_page(loc: dict, shared: dict, page: str) -> str:
+def render_page(loc: dict, shared: dict, page: str, other: dict | None = None) -> str:
+    """`page` is a PAGE_FILE key, or "post:<id>" for a journal post, which
+    also needs `other` - the other locale - to know whether that language has
+    a copy of the post for the language switch to point at."""
     p = loc["assetPrefix"]
+    post = None
+    if page.startswith("post:"):
+        post = next(x for x in journal_posts(shared) if x["id"] == page[5:])
+        page = "press"
     html_attrs = f' lang="{attr(loc["lang"])}"'
     lines = ["<!DOCTYPE html>", BANNER]
 
@@ -1820,10 +2053,18 @@ def render_page(loc: dict, shared: dict, page: str) -> str:
         html_attrs += ' data-video="bilibili"'
 
     lines.append(f"<html{html_attrs}>")
-    lines += render_head(loc, page, shared)
+    own = None
+    if post:
+        words = journal_words(loc, post)
+        # the other language's copy of this post, or its journal if there is none yet
+        alt_rel = journal_file(post) if journal_words(other or {}, post).get("title") else PAGE_FILE["press"]
+        own = (f'{plain(words["title"])} — {plain(loc["journal"]["siteName"])}',
+               journal_excerpt(loc, post, words) or loc["pages"]["press"]["description"],
+               alt_rel)
+    lines += render_head(loc, page, shared, own)
 
     # the skip link has to name a section that exists on this page
-    first = "music" if page == "home" else page
+    first = "music" if page == "home" else "post" if post else page
     lines += ["<body>", "", "<!-- film grain overlay, and the light that follows the pointer -->",
               '<div class="grain" aria-hidden="true"></div>',
               '<div class="glow" aria-hidden="true"></div>', "",
@@ -1863,6 +2104,11 @@ def render_page(loc: dict, shared: dict, page: str) -> str:
             render_milestones(loc, shared, full=True),
             render_press(loc, shared),
         ]
+    elif post:
+        blocks = [
+            render_nav(loc, page, alt_rel),
+            render_post(loc, shared, post),
+        ]
     else:
         blocks = [
             render_nav(loc, page),
@@ -1877,7 +2123,7 @@ def render_page(loc: dict, shared: dict, page: str) -> str:
         render_contact(loc, shared),
     ]
     # the detail view, on the pages that have pictures to open
-    if page in ("videos", "press") and loc.get("lens"):
+    if page in ("videos", "press") and loc.get("lens") and not post:
         blocks.append(render_lens(loc))
 
     for block in blocks:
@@ -1924,10 +2170,10 @@ def build_dist(shared: dict, pages: list[tuple[dict, str]]) -> None:
         if src.is_dir():
             shutil.copytree(src, dist / name, dirs_exist_ok=True)
 
-    for loc, page, rel in pages:
+    for loc, page, rel, other in pages:
         out = dist / rel
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(render_page(loc, shared, page), encoding="utf-8", newline="\n")
+        out.write_text(render_page(loc, shared, page, other), encoding="utf-8", newline="\n")
 
     # The admin is gated by Cloudflare Access, but keep it out of search
     # indexes too — Access returns a login page, not a 404, and that is
@@ -1966,12 +2212,15 @@ def build_dist(shared: dict, pages: list[tuple[dict, str]]) -> None:
 
 def main() -> int:
     shared = load("shared.json")
-    # five pages per locale: the homepage plus one for each full section
-    pages = [
-        (loc, page, f"{prefix}{PAGE_FILE[page]}")
-        for loc, prefix in ((load("en.json"), ""), (load("zh.json"), "zh/"))
-        for page in PAGE_FILE
-    ]
+    en, zh = load("en.json"), load("zh.json")
+    # five pages per locale - the homepage plus one for each full section -
+    # and then one per journal post that has a title in either language
+    pages = []
+    for loc, other, prefix in ((en, zh, ""), (zh, en, "zh/")):
+        pages += [(loc, page, f"{prefix}{PAGE_FILE[page]}", other) for page in PAGE_FILE]
+        if loc.get("journal"):
+            pages += [(loc, f'post:{post["id"]}', f"{prefix}{journal_file(post)}", other)
+                      for post in journal_posts(shared) if journal_words(loc, post).get("title")]
 
     if "--dist" in sys.argv:
         build_dist(shared, pages)
@@ -1980,9 +2229,9 @@ def main() -> int:
     check = "--check" in sys.argv
     stale = []
 
-    for loc, page, rel in pages:
+    for loc, page, rel, other in pages:
         path = ROOT / rel
-        html = render_page(loc, shared, page)
+        html = render_page(loc, shared, page, other)
         if check:
             current = path.read_text(encoding="utf-8") if path.exists() else ""
             if current != html:

@@ -2181,6 +2181,41 @@ class VisualsFilter {
 
 
 /* ---------------------------------------------------------
+   Paged — "Load more" under a plain list (the journal)
+
+   build.py marks everything past the first page `data-later`; the
+   stylesheet hides those only under html.js. Here that becomes `hidden`,
+   and the button lets one more page in at a time. The Visuals grid has its
+   own version inside VisualsFilter, because there the page also has to
+   follow the filter and the grid has to re-pack.
+   --------------------------------------------------------- */
+class Paged {
+  constructor (list) {
+    this.items = [...list.children];
+    this.more = list.parentElement.querySelector(':scope > .more');
+    if (!this.more) return;
+    this.page = parseInt(this.more.dataset.page, 10) || 6;
+    this.limit = this.page;
+    this.paint();
+    this.items.forEach((el) => el.removeAttribute('data-later'));
+    this.more.querySelector('button').addEventListener('click', () => {
+      const first = this.items[this.limit];
+      this.limit += this.page;
+      this.paint();
+      if (first && document.activeElement === this.more.querySelector('button')) {
+        first.focus({ preventScroll: true });
+      }
+    });
+  }
+
+  paint () {
+    this.items.forEach((el, i) => { el.hidden = i >= this.limit; });
+    this.more.hidden = this.items.length <= this.limit;
+  }
+}
+
+
+/* ---------------------------------------------------------
    boot
    --------------------------------------------------------- */
 document.addEventListener('DOMContentLoaded', () => {
@@ -2212,6 +2247,7 @@ document.addEventListener('DOMContentLoaded', () => {
   new Lens();
   new ScrollSpy();
   new VisualsFilter(new VideoFacade());
+  document.querySelectorAll('[data-paged]').forEach((el) => new Paged(el));
   document.querySelectorAll('.inks').forEach((el) => new InkLoop(el));
 
   const year = document.getElementById('year');

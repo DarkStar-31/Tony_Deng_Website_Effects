@@ -542,5 +542,81 @@
       "id": "comment-4",
       "url": "https://weibo.com/1876131803/5222411744314014"
     }
+  ],
+  "journal": [
+    {
+      "id": "entry-3",
+      "date": "2026-10-04",
+      "kind": "recording",
+      "cover": "img/placeholder/photo-04.webp",
+      "blocks": [
+        {
+          "id": "b1",
+          "type": "text"
+        },
+        {
+          "id": "b2",
+          "type": "image",
+          "src": "img/placeholder/photo-06.webp"
+        },
+        {
+          "id": "b3",
+          "type": "text"
+        },
+        {
+          "id": "b4",
+          "type": "gallery",
+          "images": [
+            {
+              "src": "img/placeholder/photo-08.webp"
+            },
+            {
+              "src": "img/placeholder/photo-10.webp"
+            },
+            {
+              "src": "img/placeholder/photo-12.webp"
+            }
+          ]
+        },
+        {
+          "id": "b5",
+          "type": "video",
+          "video": "overthinking"
+        }
+      ]
+    },
+    {
+      "id": "entry-2",
+      "date": "2026-09-21",
+      "kind": "arranging",
+      "cover": "img/placeholder/photo-09.webp",
+      "blocks": [
+        {
+          "id": "b1",
+          "type": "text"
+        },
+        {
+          "id": "b2",
+          "type": "image",
+          "src": "img/placeholder/photo-14.webp"
+        }
+      ]
+    },
+    {
+      "id": "entry-1",
+      "date": "2026-09-02",
+      "kind": "inspiration",
+      "blocks": [
+        {
+          "id": "b1",
+          "type": "text"
+        },
+        {
+          "id": "b2",
+          "type": "image",
+          "src": "img/placeholder/photo-15.webp"
+        }
+      ]
+    }
   ]
 }
