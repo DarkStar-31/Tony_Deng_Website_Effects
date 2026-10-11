@@ -502,7 +502,13 @@
       "tags": [
         "press"
       ],
-      "opens": true
+      "opens": true,
+      "album": [
+        {
+          "id": "a2",
+          "src": "img/photos/12_726e607f-7bd5-43f0-aedb-3c4b4c883315_--2.webp"
+        }
+      ]
     }
   ],
   "milestones": [
