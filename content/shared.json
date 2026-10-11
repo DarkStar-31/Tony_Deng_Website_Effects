@@ -493,11 +493,18 @@
     },
     {
       "id": "photo-14",
-      "src": "img/placeholder/photo-14.webp",
+      "src": "img/photos/img_0553.webp",
       "shape": "wide",
       "size": "s",
       "tags": [
+        "studio",
         "live"
+      ],
+      "album": [
+        {
+          "id": "a1",
+          "src": "img/photos/img_0602.webp"
+        }
       ]
     },
     {
