@@ -577,6 +577,13 @@
         },
         "orbit-11": {
           "caption": ""
+        },
+        "orbit-centre": {
+          "caption": "Lorem ipsum: new song",
+          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+          "media": {
+            "m1": {}
+          }
         }
       },
       "title": "Coming Soon"

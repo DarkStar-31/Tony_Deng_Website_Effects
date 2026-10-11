@@ -2853,6 +2853,25 @@ function ringCentreCard(ring) {
           + 'written here. Nothing leaves the middle of the ring empty.', null, ring.pv),
   ];
 
+  // a picture in the middle (a release cover or its own) can be a diary
+  // entry, the same as any ring picture: it opens, and counts for Latest
+  const centreEntry = () => {
+    if (kind !== 'release' && kind !== 'image') return [];
+    if (!centre.id) centre.id = `${ring.id}-centre`;
+    const words = (l) => {
+      const w = ring.words(l).photos;
+      return w[centre.id] || (w[centre.id] = { caption: '' });
+    };
+    return [
+      diaryCheck(centre, rerender),
+      ...(hasEntry(centre)
+        ? [bi('Title', 'caption', words, { hint: 'The heading of the card the middle picture opens into.' }),
+           bi('Description', 'desc', words, { multiline: true, rows: 3, dropWhenEmpty: true }),
+           ringEntryFields(ring, centre, rerender)]
+        : []),
+    ];
+  };
+
   if (kind === 'release') {
     const pick = el('select', {});
     if (!centre.release) pick.append(el('option', { value: '' }, T('— choose one —')));
@@ -2880,6 +2899,7 @@ function ringCentreCard(ring) {
   } else if (kind === 'countdown') {
     body.push(countdownFields(ring, centre, rerender));
   }
+  body.push(...centreEntry());
 
   return cardFold(`ringcentre:${ring.id}`, 'Center', null, el('div', {}, ...body), ring.pv,
                   null, T({ release: 'A release cover', image: 'A picture of its own',

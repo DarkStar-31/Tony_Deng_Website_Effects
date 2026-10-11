@@ -2068,7 +2068,8 @@ html[lang^="zh"] .more__btn{ font-size:.85rem; letter-spacing:.06em; text-transf
 /* A ring photo with a description is a button: it answers the pointer.
    Only the outline and brightness change - the transform belongs to the
    orbit and cannot take a hover scale on top without fighting it. */
-.orbit__card[data-lens]{ cursor:zoom-in; }
+.orbit__card[data-lens],
+.orbit__centre[data-lens]{ cursor:zoom-in; }
 .orbit__card[data-lens]:hover,
 .orbit__card[data-lens]:focus-visible{
   outline:2px solid var(--magenta); outline-offset:4px;
@@ -2146,6 +2147,22 @@ html[lang^="zh"] .lens__kicker{ font-size:.8rem; letter-spacing:.06em; }
    because a gallery and a row of audio players need the room - the
    client's mock-ups run to about 36rem. */
 .lens__card--entry{ grid-template-columns:auto minmax(18rem, 34rem); }
+/* Only pictures - an album, with no title or words: no column beside it
+   to sit empty. The thumbnails go under the picture, and the picture takes
+   each photo's own shape as it steps (Lens.show), not the first one's. */
+.lens__title:empty{ display:none; }
+.lens__card--photos,
+.lens__card--photos.is-large{ grid-template-columns:minmax(0,auto); justify-items:center; }
+.lens__card--photos .lens__media{ width:min(84vw, 64rem, calc(68vh * var(--ar)), calc(68svh * var(--ar))); }
+.lens__card--photos.is-large .lens__media{ width:min(90vw, 80rem, calc(76vh * var(--ar)), calc(76svh * var(--ar))); }
+/* width:0 + min-width:100%: the strip fits the picture's width rather than
+   widening the card to its own; its thumbnails are a small row, centred */
+.lens__card--photos .lens__body{ align-self:start; width:0; min-width:100%; max-height:none; overflow:visible; padding:0; }
+.lens__card--photos .entry__gallery{ grid-auto-columns:4.6rem; justify-content:center; }
+.lens__card--photos.is-large .entry__gallery{ grid-auto-columns:5.4rem; }
+.lens__card--photos .lens__body > :first-child{ padding-right:0; }
+.lens__card--photos .entry__meta{ display:none; }
+.lens__card--photos .entry__strip{ margin:0; }
 .lens__card--entry .lens__media{ width:min(40vw, 36rem, calc(72vh * var(--ar)), calc(72svh * var(--ar))); }
 .lens__card--entry .lens__title{ font-size:clamp(1.4rem,2.4vw,1.9rem); margin-bottom:.9rem; }
 .lens__media{ position:relative; }

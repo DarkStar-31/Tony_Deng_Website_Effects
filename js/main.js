@@ -1893,6 +1893,11 @@ class Lens {
     }
 
     this.tiles = gallery ? [...gallery.querySelectorAll('.entry__tile')] : [];
+    // nothing but pictures: no words, no players, no links (see the CSS)
+    const title = this.body.querySelector('.lens__title');
+    this.photosOnly = !!gallery && !(title && title.textContent.trim())
+      && !this.body.querySelector('.lens__text, .entry__audio, .entry__links, .entry__date, .entry__play');
+    this.card.classList.toggle('lens__card--photos', this.photosOnly);
     const many = this.tiles.length > 1;
     [this.prev, this.next, this.count].forEach((n) => { if (n) n.hidden = !many; });
     this.paintCount();
@@ -1961,6 +1966,17 @@ class Lens {
 
     if (d.kind === 'image') {
       this.img.src = d.src;
+      // pictures only: the frame takes this photo's shape, so nothing is
+      // letterboxed in black
+      if (this.photosOnly) {
+        const probe = new Image();
+        probe.onload = () => {
+          if (probe.naturalHeight) this.card.style.setProperty('--ar', (probe.naturalWidth / probe.naturalHeight).toFixed(4));
+        };
+        probe.src = d.src;
+        media.classList.remove('is-other');
+        return;
+      }
       // the slot keeps the ring picture's shape; anything else fits inside it
       media.classList.toggle('is-other', d.src !== this.home && !this.home.endsWith(d.src));
       return;

@@ -1986,14 +1986,26 @@ def render_ring(loc: dict, shared: dict, ring: dict) -> list[str]:
         '    <div class="orbit__stage">',
         f'      <div class="orbit__scene" style="--n:{len(photos)}">',
     ]
+    templates = []
     if reveal_time(ring):
         out += render_countdown(loc, ring, words)
     else:
         src, alt = ring_centre(loc, shared, ring, words)
-        if src:
+        centre = centre_entry(loc, shared, ring)
+        if src and centre:
+            # the middle is a diary entry too: it opens like any ring picture
+            photo, c = centre
+            tid = f'lens-{photo["id"]}'
+            out.append(
+                f'        <img class="orbit__centre" src="{p}{src}" alt="{attr(loc["lens"]["open"] + ": " + plain(c.get("caption", "")))}"'
+                f' role="button" tabindex="0" aria-haspopup="dialog" data-lens="{attr(tid)}">'
+            )
+            templates += lens_template(tid, "", c.get("caption", ""), c.get("desc", "").strip(),
+                                       entry_parts(loc, shared, photo, c),
+                                       title_play(loc, entry_audio(photo), c.get("caption", "")))
+        elif src:
             out.append(f'        <img class="orbit__centre" src="{p}{src}" alt="{attr(alt)}">')
 
-    templates = []
     for i, photo in enumerate(photos):
         c = captions.get(photo["id"], {})
         desc = c.get("desc", "").strip()
@@ -2121,12 +2133,34 @@ def render_making_filter(loc: dict, shared: dict) -> list[str]:
     return out + ["</div>"]
 
 
+def centre_entry(loc: dict, shared: dict, ring: dict) -> tuple[dict, dict] | None:
+    """A ring's middle picture as a diary entry, when the admin's box says
+    it is one: (the entry, shaped like a ring picture, and its words). The
+    entry's own keys - date, kind, media - live on `centre` beside its
+    picture, and its words under rings.<id>.photos.<ring id>-centre."""
+    centre = ring.get("centre") or {}
+    if not centre.get("entry") or reveal_time(ring):
+        return None
+    words = loc.get("rings", {}).get(ring["id"], {})
+    src, _ = ring_centre(loc, shared, ring, words)
+    if not src:
+        return None
+    cid = f'{ring["id"]}-centre'
+    photo = {k: v for k, v in centre.items() if k not in ("src", "release")}
+    photo.update(id=cid, src=src)
+    return photo, words.get("photos", {}).get(cid, {})
+
+
 def ring_entries(loc: dict, shared: dict) -> list[tuple[dict, dict, dict]]:
     """Every diary entry on the page as (ring, picture, its words), in page
-    order - the ones with a title in this language."""
+    order - the ones with a title in this language. A ring's middle comes
+    first among its own."""
     out = []
     for ring in shared.get("rings", []):
         words = loc.get("rings", {}).get(ring["id"], {}).get("photos", {})
+        centre = centre_entry(loc, shared, ring)
+        if centre and plain(centre[1].get("caption", "")).strip():
+            out.append((ring, centre[0], centre[1]))
         for photo in ring.get("photos", []):
             w = words.get(photo["id"], {})
             if has_entry(photo) and plain(w.get("caption", "")).strip():

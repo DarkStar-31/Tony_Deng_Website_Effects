@@ -15,7 +15,18 @@
     {
       "id": "orbit",
       "centre": {
-        "src": "img/rings/dscv1430.webp"
+        "src": "img/rings/dscv1430.webp",
+        "id": "orbit-centre",
+        "entry": true,
+        "date": "2026-10-08",
+        "kind": "song",
+        "media": [
+          {
+            "id": "m1",
+            "type": "audio",
+            "src": "audio/overthinking.mp3"
+          }
+        ]
       },
       "photos": [
         {
