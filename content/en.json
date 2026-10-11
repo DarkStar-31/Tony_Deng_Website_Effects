@@ -501,6 +501,9 @@
     },
     "photo-15": {
       "caption": ""
+    },
+    "photo": {
+      "caption": ""
     }
   },
   "photoTags": {
@@ -565,7 +568,10 @@
         },
         "recording-03": {
           "caption": "Lorem ipsum: new song",
-          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+          "media": {
+            "m1": {}
+          }
         },
         "recording-04": {
           "caption": "Magna aliqua",
@@ -580,7 +586,10 @@
         },
         "recording-05": {
           "caption": "Lorem ipsum dolor sit",
-          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.\n\nExcepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.\n\nExcepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
+          "media": {
+            "m5": {}
+          }
         },
         "recording-06": {
           "caption": "Ut labore et dolore",
@@ -634,7 +643,8 @@
         "orbit-10": {
           "caption": ""
         }
-      }
+      },
+      "title": "Now Recording"
     }
   },
   "footer": {
