@@ -312,15 +312,6 @@
   "$photos": "The Photos grid on the Visuals page, in order. `shape` (square, portrait, tall, landscape, wide, panorama) and `size` (s, m, l) pick the slot in build.py's PHOTO_SPANS; the picture is cropped to fill it. `tag` is one of the keys in each locale's photoTags. A photo whose locale entry has a `desc` opens into the detail view when clicked; one without stays a still picture.",
   "photos": [
     {
-      "id": "photo-03",
-      "src": "img/placeholder/photo-03.webp",
-      "tags": [
-        "portrait"
-      ],
-      "ar": 0.75,
-      "ratio": "orig"
-    },
-    {
       "id": "photo-04",
       "src": "img/photos/b008.webp",
       "tags": [
@@ -653,9 +644,6 @@
     }
   ],
   "visualsRows": [
-    [
-      "photo:photo-03"
-    ],
     [
       "video:look-in-the-mirror"
     ],

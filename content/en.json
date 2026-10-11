@@ -477,9 +477,6 @@
   },
   "$photos": "Captions for shared.photos, by id. `desc` is optional: with one, the photo opens into the detail view; blank lines split it into paragraphs.",
   "photos": {
-    "photo-03": {
-      "caption": "Adipiscing elit"
-    },
     "photo-04": {
       "caption": "Sed do eiusmod"
     },
