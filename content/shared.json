@@ -312,46 +312,6 @@
   "$photos": "The Photos grid on the Visuals page, in order. `shape` (square, portrait, tall, landscape, wide, panorama) and `size` (s, m, l) pick the slot in build.py's PHOTO_SPANS; the picture is cropped to fill it. `tag` is one of the keys in each locale's photoTags. A photo whose locale entry has a `desc` opens into the detail view when clicked; one without stays a still picture.",
   "photos": [
     {
-      "id": "photo-01",
-      "src": "img/placeholder/photo-01.webp",
-      "album": [
-        {
-          "id": "a1",
-          "src": "img/placeholder/photo-05.webp"
-        },
-        {
-          "id": "a2",
-          "src": "img/placeholder/photo-07.webp"
-        },
-        {
-          "id": "a3",
-          "src": "img/placeholder/photo-09.webp"
-        },
-        {
-          "id": "a4",
-          "src": "img/placeholder/photo-11.webp"
-        },
-        {
-          "id": "a5",
-          "src": "img/placeholder/photo-13.webp"
-        }
-      ],
-      "tags": [
-        "portrait"
-      ],
-      "ar": 0.75,
-      "ratio": "orig"
-    },
-    {
-      "id": "photo-02",
-      "src": "img/placeholder/photo-02.webp",
-      "tags": [
-        "studio"
-      ],
-      "ar": 1.4993,
-      "ratio": "orig"
-    },
-    {
       "id": "photo-03",
       "src": "img/placeholder/photo-03.webp",
       "tags": [
@@ -362,63 +322,53 @@
     },
     {
       "id": "photo-04",
-      "src": "img/placeholder/photo-04.webp",
+      "src": "img/photos/b008.webp",
       "tags": [
-        "live"
+        "portrait"
       ],
       "ar": 0.75,
       "ratio": "orig"
     },
     {
       "id": "photo-05",
-      "src": "img/placeholder/photo-05.webp",
+      "src": "img/photos/b007-2.webp",
       "tags": [
-        "studio"
+        "portrait"
       ],
-      "ar": 2.0,
+      "ar": 0.7496,
       "ratio": "orig"
     },
     {
       "id": "photo-06",
-      "src": "img/placeholder/photo-06.webp",
+      "src": "img/photos/b007.webp",
       "tags": [
-        "press"
+        "portrait"
       ],
-      "ar": 1.0,
+      "ar": 0.7496,
       "ratio": "orig"
     },
     {
       "id": "photo-07",
-      "src": "img/placeholder/photo-07.webp",
+      "src": "img/photos/a002-8-.webp",
       "tags": [
         "portrait"
       ],
-      "ar": 0.667,
-      "ratio": "orig"
-    },
-    {
-      "id": "photo-08",
-      "src": "img/placeholder/photo-08.webp",
-      "tags": [
-        "live"
-      ],
-      "ar": 1.0,
+      "ar": 0.7496,
       "ratio": "orig"
     },
     {
       "id": "photo-09",
-      "src": "img/placeholder/photo-09.webp",
+      "src": "img/photos/-6_-.jpg",
       "tags": [
-        "studio"
+        "portrait"
       ],
-      "ar": 0.667,
+      "ar": 1,
       "ratio": "orig"
     },
     {
       "id": "photo-10",
       "src": "img/photos/a009.webp",
       "tags": [
-        "press",
         "portrait"
       ],
       "ar": 0.7496,
@@ -442,11 +392,11 @@
     },
     {
       "id": "photo-14",
-      "src": "img/photos/b002.webp",
+      "src": "img/photos/-_-.webp",
       "tags": [
         "portrait"
       ],
-      "ar": 0.7496,
+      "ar": 0.7071,
       "ratio": "orig"
     },
     {
@@ -704,12 +654,9 @@
   ],
   "visualsRows": [
     [
-      "photo:photo-01",
-      "photo:photo-02",
       "photo:photo-03"
     ],
     [
-      "photo:photo-04",
       "video:look-in-the-mirror"
     ],
     [
@@ -718,6 +665,7 @@
     ],
     [
       "photo:photo-05",
+      "photo:photo-04",
       "photo:photo-06"
     ],
     [
@@ -726,7 +674,6 @@
     ],
     [
       "photo:photo-07",
-      "photo:photo-08",
       "photo:photo-09",
       "photo:photo-10"
     ],
@@ -739,12 +686,12 @@
       "video:how-it-feels-like"
     ],
     [
-      "video:oh-mother",
       "photo:photo-13",
-      "photo:photo-14"
+      "photo:photo-14",
+      "photo:photo-15"
     ],
     [
-      "photo:photo-15",
+      "video:oh-mother",
       "video:one-day",
       "video:be-mine"
     ]
