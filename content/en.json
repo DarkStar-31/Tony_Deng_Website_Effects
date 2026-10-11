@@ -557,7 +557,9 @@
     "open": "Open",
     "close": "Close",
     "prev": "Previous picture",
-    "next": "Next picture"
+    "next": "Next picture",
+    "grow": "Larger view",
+    "shrink": "Smaller view"
   },
   "orbitNav": {
     "prev": "Previous ring",
@@ -754,7 +756,41 @@
             "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
           }
         }
+      },
+      "entry-6": {
+        "title": "Lorem ipsum: new song",
+        "blocks": {
+          "b1": {
+            "caption": "Placeholder caption"
+          },
+          "b2": {
+            "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+          }
+        }
+      },
+      "entry-5": {
+        "title": "Ut labore et dolore",
+        "blocks": {
+          "b1": {
+            "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+          },
+          "b2": {
+            "caption": "Placeholder caption"
+          }
+        }
+      },
+      "entry-4": {
+        "title": "Magna aliqua",
+        "blocks": {
+          "b1": {
+            "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+          },
+          "b2": {
+            "text": "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.\n\nExcepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+          }
+        }
       }
-    }
+    },
+    "newSong": "New song"
   }
 }

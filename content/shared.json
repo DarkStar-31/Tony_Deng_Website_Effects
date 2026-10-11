@@ -575,6 +575,23 @@
   ],
   "journal": [
     {
+      "id": "entry-6",
+      "date": "2026-10-08",
+      "kind": "song",
+      "blocks": [
+        {
+          "id": "b1",
+          "type": "song",
+          "release": "overthinking",
+          "audio": "audio/overthinking.mp3"
+        },
+        {
+          "id": "b2",
+          "type": "text"
+        }
+      ]
+    },
+    {
       "id": "entry-3",
       "date": "2026-10-04",
       "kind": "recording",
@@ -616,6 +633,41 @@
       ]
     },
     {
+      "id": "entry-5",
+      "date": "2026-09-28",
+      "kind": "behind",
+      "blocks": [
+        {
+          "id": "b1",
+          "type": "text"
+        },
+        {
+          "id": "b2",
+          "type": "gallery",
+          "images": [
+            {
+              "src": "img/placeholder/photo-01.webp"
+            },
+            {
+              "src": "img/placeholder/photo-02.webp"
+            },
+            {
+              "src": "img/placeholder/photo-03.webp"
+            },
+            {
+              "src": "img/placeholder/photo-05.webp"
+            },
+            {
+              "src": "img/placeholder/photo-07.webp"
+            },
+            {
+              "src": "img/placeholder/photo-11.webp"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "entry-2",
       "date": "2026-09-21",
       "kind": "arranging",
@@ -629,6 +681,21 @@
           "id": "b2",
           "type": "image",
           "src": "img/placeholder/photo-14.webp"
+        }
+      ]
+    },
+    {
+      "id": "entry-4",
+      "date": "2026-09-12",
+      "kind": "inspiration",
+      "blocks": [
+        {
+          "id": "b1",
+          "type": "text"
+        },
+        {
+          "id": "b2",
+          "type": "text"
         }
       ]
     },

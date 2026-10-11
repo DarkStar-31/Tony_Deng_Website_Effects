@@ -1219,3 +1219,18 @@ html[lang^="zh"] .pv__colhead { letter-spacing: .04em; text-transform: none; fon
 .entryed__add { flex-wrap: wrap; }
 .entryed__add > * { flex: 0 0 auto; }
 input[type="date"] { color-scheme: dark; }
+
+/* A title that can be edited where it is listed (titleInPlace in admin.js):
+   the text cursor and a dotted underline say so, as on a renameable section. */
+.inplace { cursor: text; }
+.inplace:hover { text-decoration: underline dotted var(--dim); text-underline-offset: 3px; }
+.inplace.is-editing {
+  background: var(--ink-3); outline: 1px solid var(--magenta); outline-offset: 2px;
+  border-radius: 3px; text-decoration: none; white-space: normal; text-overflow: clip;
+}
+
+/* the four kinds of new journal post, side by side */
+.postnew { margin: 0 0 18px; }
+.postnew__head { margin: 0 0 8px; font-weight: 600; font-size: 13px; letter-spacing: .04em; }
+.postnew__row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.postnew__row .additem { margin: 0; }

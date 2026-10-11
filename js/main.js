@@ -1551,6 +1551,25 @@ class Lens {
     this.prev = this.dlg.querySelector('.lens__step--prev');
     this.next = this.dlg.querySelector('.lens__step--next');
     this.count = this.dlg.querySelector('.lens__count');
+
+    // a diary entry opened out to most of the screen; remembered for the
+    // next entry opened on this visit (and the next visit, where allowed)
+    this.grow = this.dlg.querySelector('.lens__grow');
+    try { this.large = localStorage.getItem('lens-large') === '1'; } catch (e) { this.large = false; }
+    if (this.grow) {
+      this.grow.addEventListener('click', () => {
+        if (this.state !== 'open') return;
+        this.large = !this.large;
+        try { localStorage.setItem('lens-large', this.large ? '1' : '0'); } catch (e) { /* private window */ }
+        this.paintGrow();
+        if (!REDUCED) {
+          this.card.animate({ opacity: [0.35, 1], transform: ['scale(.985)', 'none'] },
+                            { duration: 280, easing: 'cubic-bezier(.22,.61,.36,1)' });
+        }
+        const cur = this.body.querySelector('.entry__tile.is-current');
+        if (cur) this.reveal(cur);
+      });
+    }
     if (this.prev) this.prev.addEventListener('click', () => this.step(-1));
     if (this.next) this.next.addEventListener('click', () => this.step(1));
     this.dlg.addEventListener('keydown', (e) => {
@@ -1671,7 +1690,7 @@ class Lens {
       { clipPath: [shutClip, 'inset(0 0 0 0 round 18px)'] },
       { duration: D * 0.5, delay: D * 0.5, easing: 'cubic-bezier(.65,0,.35,1)', fill: 'backwards' },
     );
-    [...this.body.children, this.shut].forEach((node, i) => {
+    [...this.body.children, this.shut, this.grow].filter((n) => n && !n.hidden).forEach((node, i) => {
       node.animate(
         { opacity: [0, 1], transform: ['translateY(10px)', 'none'] },
         { duration: 420, delay: D * 0.78 + i * 70, easing: 'cubic-bezier(.22,.61,.36,1)', fill: 'backwards' },
@@ -1706,7 +1725,7 @@ class Lens {
     this.img.style.visibility = 'hidden';
 
     const out = { duration: 180, easing: 'ease-in', fill: 'forwards' };
-    const runs = [...this.body.children, this.shut]
+    const runs = [...this.body.children, this.shut, this.grow].filter((n) => n && !n.hidden)
       .map((node) => node.animate({ opacity: [1, 0] }, out));
     const shutClip = stacked ? 'inset(50% 0 50% 0 round 18px)' : 'inset(0 50% 0 50% round 18px)';
     runs.push(this.card.animate(
@@ -1735,28 +1754,18 @@ class Lens {
   entry () {
     this.home = this.img.src;
     this.audios = [];
-    this.card.classList.toggle('lens__card--entry',
-      !!this.body.querySelector('.entry__date, .entry__meta, .entry__gallery, .entry__audio, .entry__links'));
+    this.isEntry = !!this.body.querySelector('.entry__date, .entry__meta, .entry__gallery, .entry__audio, .entry__links');
+    this.card.classList.toggle('lens__card--entry', this.isEntry);
+    this.paintGrow();
 
     const gallery = this.body.querySelector('.entry__gallery');
-    const all = this.body.querySelector('.entry__all');
-    const expand = () => {
-      if (!gallery) return;
-      gallery.classList.add('is-all');
-      gallery.querySelectorAll('.entry__more').forEach((n) => n.remove());
-      if (all) all.remove();
-    };
     if (gallery) {
       gallery.addEventListener('click', (e) => {
         const tile = e.target.closest('.entry__tile');
-        if (!tile) return;
-        // the "+N" tile opens the rest out as well as showing itself
-        if (tile.querySelector('.entry__more')) expand();
-        this.show(tile);
+        if (tile) this.show(tile);
       });
+      this.strip(gallery);
     }
-    if (all) all.addEventListener('click', expand);
-    this.expand = expand;
     this.body.querySelectorAll('.entry__audio').forEach((node) => this.clip(node));
 
     this.tiles = gallery ? [...gallery.querySelectorAll('.entry__tile')] : [];
@@ -1765,14 +1774,51 @@ class Lens {
     this.paintCount();
   }
 
+  paintGrow () {
+    const on = !!(this.isEntry && this.large);
+    this.card.classList.toggle('is-large', on);
+    if (!this.grow) return;
+    this.grow.hidden = !this.isEntry;
+    this.grow.setAttribute('aria-pressed', String(on));
+    this.grow.setAttribute('aria-label', on ? this.grow.dataset.shrink : this.grow.dataset.grow);
+    this.grow.title = this.grow.getAttribute('aria-label');
+  }
+
   // one picture along the gallery, wrapping at either end
   step (dir) {
     if (!this.tiles || this.tiles.length < 2) return;
     const at = Math.max(0, this.tiles.findIndex((t) => t.classList.contains('is-current')));
     const tile = this.tiles[(at + dir + this.tiles.length) % this.tiles.length];
-    if (tile.classList.contains('is-extra') && this.expand) this.expand();
     this.show(tile);
-    tile.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    this.reveal(tile);
+  }
+
+  /* More pictures than the strip holds: it scrolls sideways, a page of
+     tiles per press of its arrows, and each arrow greys out at its end. */
+  strip (gallery) {
+    const prev = gallery.parentElement.querySelector('.entry__nav--prev');
+    const next = gallery.parentElement.querySelector('.entry__nav--next');
+    if (!prev || !next) return;
+    const ends = () => {
+      const max = gallery.scrollWidth - gallery.clientWidth - 1;
+      prev.disabled = gallery.scrollLeft <= 0;
+      next.disabled = gallery.scrollLeft >= max;
+    };
+    const page = (dir) => gallery.scrollBy({ left: dir * gallery.clientWidth, behavior: REDUCED ? 'auto' : 'smooth' });
+    prev.addEventListener('click', () => page(-1));
+    next.addEventListener('click', () => page(1));
+    gallery.addEventListener('scroll', ends, { passive: true });
+    requestAnimationFrame(ends);
+  }
+
+  // bring a tile into the strip's view without scrolling anything else
+  reveal (tile) {
+    const g = tile.parentElement;
+    const left = tile.offsetLeft - g.offsetLeft;
+    if (left < g.scrollLeft) g.scrollTo({ left, behavior: REDUCED ? 'auto' : 'smooth' });
+    else if (left + tile.offsetWidth > g.scrollLeft + g.clientWidth) {
+      g.scrollTo({ left: left + tile.offsetWidth - g.clientWidth, behavior: REDUCED ? 'auto' : 'smooth' });
+    }
   }
 
   paintCount () {

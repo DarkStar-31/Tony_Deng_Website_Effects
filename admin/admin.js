@@ -2029,15 +2029,24 @@ function visualsOrderCard() {
   const rows = order.map((ref, i) => {
     const isPhoto = photos.has(ref);
     const item = isPhoto ? photos.get(ref) : videos.get(ref);
-    const label = isPhoto
-      ? (LOC('en').photos?.[item.id]?.caption || item.id)
-      : (LOC('en').videos[item.id]?.title || item.id);
+    // a photo's title is its caption, a video's its title
+    const words = (l) => (isPhoto
+      ? (LOC(l).photos || (LOC(l).photos = {}))
+      : LOC(l).videos);
+    const key = isPhoto ? 'caption' : 'title';
+    const read = (l) => words(l)[item.id]?.[key] || '';
+    const [a, b] = UI.lang === 'zh' ? ['zh', 'en'] : ['en', 'zh'];
+    const label = plainWords(read(a)) || plainWords(read(b)) || item.id;
     const shape = isPhoto ? `${item.shape} · ${photoSize(shared, item)}` : `video · ${item.size || 's'}`;
     return el('div', { style: 'display:flex;align-items:center;gap:10px;padding:5px 0;border-top:1px solid var(--line)' },
       el('span', { className: 'mono', style: 'width:2.2em;opacity:.6' }, String(i + 1)),
       el('img', { src: '/' + (isPhoto ? item.src : item.poster), alt: '', loading: 'lazy',
                   style: 'width:56px;height:36px;object-fit:cover;border-radius:4px' }),
-      el('span', { style: 'flex:1;min-width:0' }, el('span', { html: label }), ' ',
+      el('span', { style: 'flex:1;min-width:0' },
+         titleInPlace(el('span', {}, label), read, (l, text) => {
+           const w = words(l);
+           (w[item.id] || (w[item.id] = {}))[key] = text;
+         }), ' ',
          el('small', { className: 'hint' }, shape)),
       el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Earlier'), onclick: () => move(i, i - 1) }, '↑'),
       el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Later'), onclick: () => move(i, i + 1) }, '↓'));
@@ -2411,6 +2420,59 @@ function plainWords(html) {
   return (box.textContent || '').trim();
 }
 
+/* A picture's title, edited where it is listed: double-click and type.
+ * Enter or clicking away keeps it, Escape does not - the same bargain as
+ * renaming a tab. It edits the title in the language the admin is showing,
+ * and stores the words escaped, because titles are printed into the page as
+ * written. A title left word-for-word as it was keeps any markup it had. */
+function titleInPlace(node, read, write) {
+  const lang = UI.lang === 'zh' ? 'zh' : 'en';
+  node.classList.add('inplace');
+  node.title = T('Double-click to edit the title ({lang})', { lang: LANG[lang].label });
+  node.addEventListener('dblclick', () => {
+    if (node.isContentEditable) return;
+    const before = plainWords(read(lang));
+    node.textContent = before;
+    node.contentEditable = 'plaintext-only';
+    if (node.contentEditable !== 'plaintext-only') node.contentEditable = 'true';
+    node.classList.add('is-editing');
+    node.focus();
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+    let done = false;
+    const finish = (keep) => {
+      if (done) return;
+      done = true;
+      node.removeEventListener('keydown', onKey);
+      node.removeEventListener('blur', onBlur);
+      node.contentEditable = 'false';
+      node.classList.remove('is-editing');
+      window.getSelection().removeAllRanges();
+      const next = node.textContent.replace(/\s+/g, ' ').trim();
+      if (keep && next && next !== before) {
+        write(lang, next.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+        markDirty();
+        // the picture's own card further down shows the same words
+        rerenderSoon();
+      }
+      node.innerHTML = '';
+      node.textContent = plainWords(read(lang)) || plainWords(read(lang === 'en' ? 'zh' : 'en'));
+    };
+    const onKey = (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false); }
+    };
+    const onBlur = () => finish(true);
+    node.addEventListener('keydown', onKey);
+    node.addEventListener('blur', onBlur);
+  });
+  return node;
+}
+
 /* The rings on In the Making, in the order the page shows them.
  *
  * They used to be two keys in shared.json with a renderer each, `recording`
@@ -2448,7 +2510,11 @@ function ringList() {
       centre: ringCentreSrc(shared, ring),
       src: (ph) => ph.src,
       key: (ph) => `making.ring.${ring.id}:${ph.id}`,
-      label: (ph) => plainWords(words('en').photos[ph.id]?.caption) || ph.id,
+      // the title in the language the admin is showing, else the other one
+      label: (ph) => {
+        const [a, b] = UI.lang === 'zh' ? ['zh', 'en'] : ['en', 'zh'];
+        return plainWords(words(a).photos[ph.id]?.caption) || plainWords(words(b).photos[ph.id]?.caption) || ph.id;
+      },
       pv: `making.ring:${ring.id}`,
       dir: 'img/rings',
       add: (path) => {
@@ -2516,7 +2582,7 @@ function ringGeometryBody(ring) {
   };
 
   const direction = el('div', { className: 'seg' },
-    ...[[1, 'Clockwise'], [-1, 'Anticlockwise']].map(([dir, label]) => {
+    ...[[1, 'Clockwise'], [-1, 'Counterclockwise']].map(([dir, label]) => {
       const btn = el('button', { className: 'seg__btn', type: 'button',
                                  'aria-pressed': String(g.dir === dir) }, T(label));
       btn.addEventListener('click', () => {
@@ -2575,7 +2641,12 @@ function ringOrderCard(ring) {
     { className: 'ringrow', 'data-pv-target': ring.key(it, i) },
     el('span', { className: 'mono ringrow__n' }, String(i + 1)),
     el('img', { className: 'ringrow__thumb', src: '/' + ring.src(it, i), alt: '', loading: 'lazy' }),
-    el('span', { className: 'ringrow__name' }, ring.label(it, i)),
+    titleInPlace(el('span', { className: 'ringrow__name' }, ring.label(it, i)),
+      (l) => ring.words(l).photos[it.id]?.caption || '',
+      (l, text) => {
+        const ph = ring.words(l).photos;
+        (ph[it.id] || (ph[it.id] = { caption: '' })).caption = text;
+      }),
     el('button', { className: 'btn btn--small btn--ghost', type: 'button',
                    title: T('Earlier'), onclick: () => move(i, i - 1) }, '↑'),
     el('button', { className: 'btn btn--small btn--ghost', type: 'button',
@@ -2900,9 +2971,9 @@ function ringEntryFields(ring, ph, rerender) {
  * language's page only once it has a title in that language. */
 const JOURNAL_DEFAULTS = {
   en: { read: 'Read', back: 'All journal entries', newer: 'Newer', older: 'Older',
-        pager: 'More journal entries', siteName: 'Tony D', posts: {} },
+        pager: 'More journal entries', siteName: 'Tony D', newSong: 'New song', posts: {} },
   zh: { read: '阅读', back: '全部日志', newer: '较新', older: '较早',
-        pager: '更多日志', siteName: 'Tony D', posts: {} },
+        pager: '更多日志', siteName: 'Tony D', newSong: '新歌速递', posts: {} },
 };
 
 function journalWords(l) {
@@ -2953,6 +3024,7 @@ function journalBlockEditor(post, block, rerender) {
         (path) => imgs.push({ src: path })),
       caption());
   }
+  if (block.type === 'song') return songBlockEditor(block, words, caption, rerender);
   if (block.type === 'video' && 'video' in block) {
     const pick = el('select', {});
     pick.append(el('option', { value: '' }, T('Choose a video…')));
@@ -2983,7 +3055,84 @@ function journalBlockEditor(post, block, rerender) {
     caption());
 }
 
-const BLOCK_NAMES = { text: 'Text', image: 'Photo', gallery: 'Gallery', video: 'Video' };
+/* 新歌速递 - a new song inside a post (render_song_block in build.py).
+ * Pointed at a release, it borrows that record's cover, name, billing and
+ * each language's listening links for whatever is left empty here; pointed
+ * at nothing, it stands alone, for a song that is not on the Music page yet. */
+function songBlockEditor(block, words, caption, rerender) {
+  const shared = SHARED();
+  const rel = shared.releases.find((r) => r.id === block.release);
+
+  const pick = el('select', {});
+  pick.append(el('option', { value: '' }, T('None — a song not on the Music page yet')));
+  shared.releases.forEach((r) => {
+    const opt = el('option', { value: r.id }, plainWords(LOC('en').releases[r.id]?.title) || r.id);
+    if (block.release === r.id) opt.selected = true;
+    pick.append(opt);
+  });
+  pick.addEventListener('change', () => {
+    if (pick.value) block.release = pick.value; else delete block.release;
+    markDirty();
+    rerender();
+  });
+
+  const tracks = el('select', {});
+  tracks.append(el('option', { value: '' }, T('Choose one of the site’s songs…')));
+  (shared.tracks || []).forEach((t) => {
+    const opt = el('option', { value: t.file }, t.id);
+    if (block.audio === t.file) opt.selected = true;
+    tracks.append(opt);
+  });
+  tracks.addEventListener('change', () => {
+    if (tracks.value) block.audio = tracks.value; else delete block.audio;
+    markDirty();
+    rerender();
+  });
+
+  return el('div', {},
+    field('From a release', pick,
+          'Optional. Anything left empty below is taken from that record.'),
+    field('Cover', singleImage(block.cover, 'img/journal', (path) => { block.cover = path; },
+                               { missingNote: rel ? 'No cover — the release’s cover is used' : 'Nothing uploaded yet' })),
+    block.cover
+      ? el('button', { className: 'btn btn--small btn--ghost', type: 'button',
+                       onclick: () => { delete block.cover; markDirty(); rerender(); } }, T('Remove cover'))
+      : null,
+    field('Listen', el('div', {},
+      block.audio
+        ? el('div', { className: 'row' },
+            el('audio', { src: '/' + block.audio, controls: '', preload: 'none' }),
+            el('button', { className: 'btn btn--small btn--ghost', type: 'button',
+                           onclick: () => { delete block.audio; markDirty(); rerender(); } }, T('Remove')))
+        : null,
+      el('div', { className: 'row' },
+        tracks,
+        uploadButton('audio', block.audio ? 'Replace clip' : 'Upload a clip (mp3)',
+                     (path) => { block.audio = path; markDirty(); rerender(); }, '.mp3,.m4a,.ogg'))),
+      'Optional. A player on the card. Pick a song the site already has, or upload a clip.'),
+    bi('Song name', 'title', words, { dropWhenEmpty: true,
+       hint: rel ? 'Left empty, the release’s name is used.'
+                 : 'Needed: a song with no name in a language is left out of that page.' }),
+    bi('Line under the name', 'meta', words, { dropWhenEmpty: true,
+       hint: rel ? 'Left empty, the release’s line is used.' : 'Optional. For example: Single · 2026' }),
+    el('p', { className: 'hint' },
+      T(rel ? 'Where to listen. Leave a language’s list empty to use the release’s links.'
+            : 'Where to listen, for each page.')),
+    row(...langOrder().map((lang) => linksEditor(lang.code, words(lang.code)))),
+    caption());
+}
+
+const BLOCK_NAMES = { text: 'Text', image: 'Photo', gallery: 'Gallery', video: 'Video', song: 'New song' };
+
+/* The client's four kinds of post. They are not four kinds of thing to the
+ * site - each is a post made of blocks - so these only decide which blocks a
+ * new post starts with; any post can have any block added later. */
+const POST_FORMATS = [
+  { label: 'Text only', blocks: () => [{ type: 'text' }] },
+  { label: 'Text + photos', blocks: () => [{ type: 'text' }, { type: 'image', src: '' }] },
+  { label: 'Photo set', blocks: () => [{ type: 'text' }, { type: 'gallery', images: [] }] },
+  { label: 'New song', kind: 'song', blocks: () => [{ type: 'song' }, { type: 'text' }] },
+];
 
 function journalPostBody(post, rerender) {
   const blocks = post.blocks || (post.blocks = []);
@@ -3054,6 +3203,7 @@ function journalPostBody(post, rerender) {
       el('button', { className: 'btn btn--small', type: 'button', onclick: () => add({ type: 'text' }) }, T('+ Text')),
       uploadButton('img/journal', '+ Photo', (path) => add({ type: 'image', src: path })),
       el('button', { className: 'btn btn--small', type: 'button', onclick: () => add({ type: 'gallery', images: [] }) }, T('+ Gallery')),
+      el('button', { className: 'btn btn--small', type: 'button', onclick: () => add({ type: 'song' }) }, T('+ New song')),
       el('button', { className: 'btn btn--small', type: 'button', onclick: () => add({ type: 'video', video: '' }) }, T('+ Site video')),
       el('button', { className: 'btn btn--small', type: 'button', onclick: () => add({ type: 'video', src: '' }) }, T('+ Video clip'))),
     el('p', { className: 'hint' },
@@ -3077,20 +3227,29 @@ function journalCards() {
       bi('Newer post', 'newer', (l) => journalWords(l), { rich: false }),
       bi('Older post', 'older', (l) => journalWords(l), { rich: false }),
       bi('Site name in the browser tab', 'siteName', (l) => journalWords(l), { rich: false }),
+      bi('Label on a new-song card', 'newSong', (l) => journalWords(l), { rich: false }),
     )),
-    addButton('+ New journal post', () => {
-      // local date, not UTC: in the evening in the Americas UTC is already tomorrow
-      const now = new Date();
-      const today = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'),
-                     String(now.getDate()).padStart(2, '0')].join('-');
-      const id = newId(today, posts.map((x) => x.id));
-      // newest first, and unpublished until someone says otherwise
-      posts.unshift({ id, date: today, hidden: true, blocks: [{ id: 'b1', type: 'text' }] });
-      postWords('en', id); postWords('zh', id);
-      cardOpen.add('post:' + id);
-      markDirty();
-      rerender();
-    }),
+    el('div', { className: 'postnew' },
+      el('p', { className: 'postnew__head' }, T('+ New journal post')),
+      el('div', { className: 'postnew__row' }, ...POST_FORMATS.map((f) => el('button', {
+        className: 'additem', type: 'button',
+        onclick: () => {
+          // local date, not UTC: in the evening in the Americas UTC is already tomorrow
+          const now = new Date();
+          const today = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'),
+                         String(now.getDate()).padStart(2, '0')].join('-');
+          const id = newId(today, posts.map((x) => x.id));
+          const blocks = f.blocks().map((b, n) => ({ id: 'b' + (n + 1), ...b }));
+          // newest first, and unpublished until someone says otherwise
+          posts.unshift({ id, date: today, ...(f.kind ? { kind: f.kind } : {}), hidden: true, blocks });
+          postWords('en', id); postWords('zh', id);
+          cardOpen.add('post:' + id);
+          markDirty();
+          rerender();
+        },
+      }, T(f.label)))),
+      el('p', { className: 'hint' },
+        T('Each starts with the blocks that kind of post needs. Any post can have more added later.'))),
   ];
 
   posts.forEach((post, i) => {

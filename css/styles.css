@@ -1650,12 +1650,10 @@ html[lang^="zh"] .vfilter__btn{ font-size:.8rem; letter-spacing:.04em; text-tran
 .jcard__pic{ display:block; aspect-ratio:4/3; border-radius:9px; overflow:hidden; background:var(--ink-3, #1C1A20); }
 .jcard__pic img{ display:block; width:100%; height:100%; object-fit:cover; transition:transform .6s var(--ease); }
 .jcard:hover .jcard__pic img{ transform:scale(1.04); }
-.jcard__blank{
-  display:block; width:100%; height:100%;
-  background:radial-gradient(120% 90% at 20% 10%, rgba(250,39,159,.35), transparent 60%),
-             linear-gradient(135deg, #1d1a22, #0f0e11);
-}
 .jcard__body{ display:block; min-width:0; }
+/* a text-only post has no picture to show, so its card is all words */
+.jcard--text{ grid-template-columns:minmax(0,1fr); padding:1.3rem 1.5rem; }
+.jcard--text .jcard__excerpt{ -webkit-line-clamp:4; max-width:44rem; }
 .jcard__body .entry__date,
 .jcard__body .entry__meta{ display:block; margin-bottom:.45rem; }
 .jcard__title{
@@ -1708,6 +1706,31 @@ html[lang^="zh"] .jcard__read{ font-size:.82rem; letter-spacing:.06em; }
 }
 .post__gallery img{ display:block; width:100%; aspect-ratio:1; object-fit:cover; border-radius:10px; border:1px solid var(--line); }
 .post__gallery figcaption{ grid-column:1 / -1; margin-top:0; }
+/* 新歌速递: a new song inside a post - cover, name, a player, where to listen */
+.post__song{
+  display:grid; grid-template-columns:minmax(0,11rem) minmax(0,1fr); gap:1.4rem; align-items:center;
+  margin:2rem 0; padding:1.1rem; border-radius:14px;
+  border:1px solid var(--line); background:var(--ink-2);
+}
+.post__song-art{ display:block; width:100%; aspect-ratio:1; object-fit:cover; border-radius:9px; }
+.post__song-body{ min-width:0; }
+.post__song-body > p{ margin:0; }
+.post__song-kicker{ font-size:.7rem; font-weight:600; letter-spacing:.18em; text-transform:uppercase; color:var(--magenta); }
+html[lang^="zh"] .post__song-kicker{ font-size:.82rem; letter-spacing:.06em; }
+.post__song-body .post__song-title{ margin:.35rem 0 .25rem; font-family:var(--f-serif); font-size:clamp(1.5rem,3vw,2rem); line-height:1.1; color:var(--bone); }
+.post__song-meta{ font-size:.85rem; color:var(--bone-dim); }
+.post__song-audio{ display:block; width:100%; margin-top:.9rem; height:2.4rem; }
+.post__song-links{ display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.9rem !important; }
+.post__song-links a{
+  padding:.35rem .8rem; border:1px solid var(--line); border-radius:999px;
+  color:var(--bone); font-size:.85rem; text-decoration:none; transition:border-color .25s var(--ease);
+}
+.post__song-links a:hover{ border-color:var(--magenta); }
+.post__song figcaption{ grid-column:1 / -1; font-size:.82rem; color:var(--bone-dim); }
+@media (max-width:560px){
+  .post__song{ grid-template-columns:minmax(0,1fr); }
+  .post__song-art{ max-width:16rem; }
+}
 .post__pager{
   display:grid; grid-template-columns:1fr 1fr; gap:1rem;
   margin-top:3.2rem; padding-top:1.6rem; border-top:1px solid var(--line);
@@ -2035,33 +2058,50 @@ html[lang^="zh"] .lens__kicker{ font-size:.8rem; letter-spacing:.06em; }
 }
 .entry__kind{ color:var(--magenta); }
 
+/* the gallery is a strip: four tiles across, and past four it scrolls
+   sideways under two arrows rather than unfolding into more rows */
+.entry__strip{ position:relative; margin:0 0 1rem; }
+.entry__strip.is-scrolling{ padding:0 2.1rem; }
 .entry__gallery{
-  display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:.45rem;
-  margin:0 0 1rem;
+  --gap:.45rem;
+  position:relative;
+  display:grid; grid-auto-flow:column; gap:var(--gap);
+  grid-auto-columns:calc((100% - 3 * var(--gap)) / 4);
+  overflow-x:auto; overscroll-behavior-x:contain;
+  scroll-snap-type:x mandatory; scrollbar-width:none;
+  /* room for the current tile's focus ring inside the scroller */
+  padding:3px 0;
 }
+.entry__gallery::-webkit-scrollbar{ display:none; }
 .entry__tile{
   position:relative; aspect-ratio:1; padding:0; overflow:hidden;
   border:1px solid var(--line); border-radius:8px; background:#141215;
-  cursor:pointer; opacity:.62;
+  cursor:pointer; opacity:.62; scroll-snap-align:start;
   transition:opacity .25s var(--ease), border-color .25s var(--ease);
 }
 .entry__tile:hover, .entry__tile:focus-visible{ opacity:1; }
-.entry__tile:focus-visible{ outline:2px solid var(--magenta); outline-offset:2px; }
+.entry__tile:focus-visible{ outline:2px solid var(--magenta); outline-offset:-2px; }
 .entry__tile.is-current{ opacity:1; border-color:var(--bone); }
 .entry__tile img{ display:block; width:100%; height:100%; object-fit:cover; }
-.entry__tile.is-extra{ display:none; }
-.entry__gallery.is-all .entry__tile.is-extra{ display:block; }
+.entry__nav{
+  position:absolute; top:50%; translate:0 -50%;
+  width:1.8rem; height:1.8rem; border-radius:50%;
+  display:grid; place-items:center; padding:0; cursor:pointer;
+  border:1px solid rgba(237,230,220,.3); background:transparent; color:var(--bone);
+  transition:background .25s var(--ease), border-color .25s var(--ease), opacity .25s var(--ease);
+}
+.entry__nav svg{ width:.9rem; height:.9rem; fill:none; stroke:currentColor; stroke-width:2; }
+.entry__nav--prev{ left:0; }
+.entry__nav--next{ right:0; }
+.entry__nav:hover:not(:disabled),
+.entry__nav:focus-visible{ background:var(--magenta); border-color:var(--magenta); }
+.entry__nav:disabled{ opacity:.25; cursor:default; }
 .entry__play{
   position:absolute; inset:50% auto auto 50%; transform:translate(-50%,-50%);
   width:2rem; height:2rem; display:grid; place-items:center;
   border-radius:50%; border:1px solid rgba(237,230,220,.5); background:rgba(11,10,12,.45);
 }
 .entry__play svg{ width:.9rem; height:.9rem; fill:var(--bone); margin-left:2px; }
-.entry__more{
-  position:absolute; inset:0; display:grid; place-items:center;
-  background:rgba(11,10,12,.55);
-  font-family:var(--f-serif); font-size:1.6rem; color:var(--bone);
-}
 
 .entry__audio{
   display:flex; align-items:center; gap:.9rem;
@@ -2094,12 +2134,34 @@ html[lang^="zh"] .lens__kicker{ font-size:.8rem; letter-spacing:.06em; }
 }
 .entry__links a:hover, .entry__links a:focus-visible{ border-color:var(--magenta); }
 
-.entry__all{
-  margin:.2rem 0 0; padding:0 0 .3rem; border:0; border-bottom:1px solid var(--line);
-  background:none; color:var(--bone); font:inherit; font-size:.9rem; cursor:pointer;
+/* The larger view (the corner button on a diary entry): the card takes
+   most of the screen, the picture grows with it, and the words get a wider
+   column and a little more size. The picture keeps its own shape, so the
+   flight in and out still lands on it exactly. */
+.lens__grow{
+  position:absolute; top:.7rem; right:3.3rem; z-index:2;
+  width:2.2rem; height:2.2rem; border-radius:50%; padding:0;
+  display:grid; place-items:center; cursor:pointer;
+  border:1px solid var(--line); background:rgba(11,10,12,.6); color:var(--bone-dim);
+  transition:color .25s var(--ease), border-color .25s var(--ease);
 }
-.entry__all span{ color:var(--magenta); }
-.entry__all:hover{ border-color:var(--bone); }
+.lens__grow[hidden]{ display:none; }
+.lens__grow svg{ width:1rem; height:1rem; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.lens__grow .grow__in{ display:none; }
+.lens__card.is-large .lens__grow .grow__out{ display:none; }
+.lens__card.is-large .lens__grow .grow__in{ display:inline; }
+.lens__grow:hover,
+.lens__grow:focus-visible{ color:var(--bone); border-color:var(--bone); }
+.lens__card--entry .lens__body > :first-child{ padding-right:4.6rem; }
+
+.lens__card.is-large{ grid-template-columns:auto minmax(20rem, 40rem); }
+.lens__card.is-large .lens__media{
+  width:min(62vw, 64rem, calc(86vh * var(--ar)), calc(86svh * var(--ar)));
+}
+.lens__card.is-large .lens__body{ max-height:86vh; max-height:86svh; }
+.lens__card.is-large .lens__title{ font-size:clamp(1.6rem,2.8vw,2.4rem); }
+.lens__card.is-large .lens__text{ font-size:1.02rem; }
+.lens__card.is-large .entry__gallery{ grid-auto-columns:calc((100% - 4 * var(--gap)) / 5); }
 
 /* narrow: picture above, words below, and the card opens top-and-bottom */
 @media (max-width:760px){
@@ -2112,6 +2174,13 @@ html[lang^="zh"] .lens__kicker{ font-size:.8rem; letter-spacing:.06em; }
   }
   .lens__body{ max-height:38vh; max-height:38svh; }
   .lens__title{ padding-right:2rem; }
+  .lens__card--entry .lens__body > :first-child{ padding-right:0; }
+  /* on a phone "larger" means the picture takes the full width and the
+     card the full height, with the words scrolling under it */
+  .lens__card.is-large{ grid-template-columns:minmax(0,1fr); height:100%; grid-template-rows:auto minmax(0,1fr); }
+  .lens__card.is-large .lens__media{ width:min(100%, calc(56vh * var(--ar)), calc(56svh * var(--ar))); }
+  .lens__card.is-large .lens__body{ max-height:none; min-height:0; overflow:auto; }
+  .lens__card.is-large .entry__gallery{ grid-auto-columns:calc((100% - 3 * var(--gap)) / 4); }
 }
 
 /* ================= MESSAGE WINDOW ================= */

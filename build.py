@@ -93,6 +93,10 @@ RENAMED_PAGES = {
 ARROW_PREV = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4l-8 8 8 8"/></svg>'
 ARROW_NEXT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4l8 8-8 8"/></svg>'
 
+# four corners pointing out; .is-large turns them to point in
+GROW_SVG = ('<svg viewBox="0 0 24 24" aria-hidden="true">'
+            '<path class="grow__out" d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>'
+            '<path class="grow__in" d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg>')
 PLAY_SVG = '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>'
 # two stacked frames: "there is more than one picture in here"
 ALBUM_SVG = ('<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="3" width="14" height="14" rx="2"/>'
@@ -803,7 +807,7 @@ def lens_template(tid: str, kicker: str, title: str, desc: str,
 ENTRY_MEDIA = ("image", "video", "audio", "link")
 EN_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
              "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-GALLERY_SHOWN = 4      # tiles before the last one shown turns into "+N"
+GALLERY_SHOWN = 4      # tiles the strip shows before its arrows appear
 
 
 def has_entry(photo: dict) -> bool:
@@ -895,9 +899,17 @@ def entry_parts(loc: dict, shared: dict, photo: dict, words: dict) -> tuple:
         top.append(f'<p class="entry__meta">{"".join(meta)}</p>')
 
     after = []
+    tail = []
     if len(tiles) > 1:
-        extra = len(tiles) - GALLERY_SHOWN
-        after.append(f'<div class="entry__gallery" data-count="{len(tiles)}">')
+        # A strip, not a "+N" tile that unfolds the rest: unfolding grew the
+        # card under the reader and pushed everything below it down. Past
+        # GALLERY_SHOWN the strip scrolls sideways and two arrows step it.
+        many = len(tiles) > GALLERY_SHOWN
+        after.append(f'<div class="entry__strip{" is-scrolling" if many else ""}" data-count="{len(tiles)}">')
+        if many:
+            after.append(f'  <button class="entry__nav entry__nav--prev" type="button" '
+                         f'aria-label="{attr(loc["lens"].get("prev", "Previous"))}" disabled>{ARROW_PREV}</button>')
+        after.append('  <div class="entry__gallery">')
         for i, (kind, src, label) in enumerate(tiles):
             data = f' data-kind="{kind}"'
             if kind == "image":
@@ -911,20 +923,15 @@ def entry_parts(loc: dict, shared: dict, photo: dict, words: dict) -> tuple:
                 thumb = p + src["poster"] if src.get("poster") else ""
             name = plain(label) or (mk["playVideo"] if kind == "video" else mk["showPhoto"])
             cls = "entry__tile" + (" is-current" if i == 0 else "")
-            if extra > 0 and i >= GALLERY_SHOWN:
-                cls += " is-extra"
-            more = (f'<span class="entry__more" aria-hidden="true">+{extra + 1}</span>'
-                    if extra > 0 and i == GALLERY_SHOWN - 1 else "")
             img = f'<img src="{attr(thumb)}" alt="" loading="lazy">' if thumb else ""
             play = f'<span class="entry__play" aria-hidden="true">{PLAY_SVG}</span>' if kind == "video" else ""
-            after.append(f'  <button class="{cls}" type="button"{data} aria-label="{attr(name)}">'
-                         f'{img}{play}{more}</button>')
+            after.append(f'    <button class="{cls}" type="button"{data} aria-label="{attr(name)}">'
+                         f'{img}{play}</button>')
+        after.append("  </div>")
+        if many:
+            after.append(f'  <button class="entry__nav entry__nav--next" type="button" '
+                         f'aria-label="{attr(loc["lens"].get("next", "Next"))}">{ARROW_NEXT}</button>')
         after.append("</div>")
-    tail = []
-    if len(tiles) > GALLERY_SHOWN:
-        tail.append(f'<button class="entry__all" type="button">'
-                     f'{mk["viewAll"].replace("{n}", str(len(tiles)))}'
-                     f'<span aria-hidden="true"> &rarr;</span></button>')
     for src, label in audios:
         name = f'{mk["playAudio"]}: {plain(label)}' if label else mk["playAudio"]
         after += [
@@ -966,6 +973,12 @@ def render_lens(loc: dict) -> list[str]:
         '      <span class="lens__count" hidden></span>',
         "    </div>",
         '    <div class="lens__body"></div>',
+        # a diary entry can be opened out to most of the screen; main.js
+        # shows this only on an entry, and swaps the label as it toggles
+        f'    <button class="lens__grow" type="button" hidden aria-pressed="false"'
+        f' aria-label="{attr(loc["lens"].get("grow", "Larger view"))}"'
+        f' data-grow="{attr(loc["lens"].get("grow", "Larger view"))}"'
+        f' data-shrink="{attr(loc["lens"].get("shrink", "Smaller view"))}">{GROW_SVG}</button>',
         f'    <button class="lens__close" type="button" aria-label="{attr(loc["lens"]["close"])}">&times;</button>',
         "  </div>",
         "</dialog>",
@@ -1780,7 +1793,20 @@ def render_making(loc: dict, shared: dict) -> list[str]:
 #                             {"id": "b2", "type": "image", "src": "img/..."},
 #                             {"id": "b3", "type": "gallery", "images": [{"src": "..."}]},
 #                             {"id": "b4", "type": "video", "video": "<shared.videos id>"},
-#                             {"id": "b5", "type": "video", "src": "video/x.mp4", "poster": "img/..."} ]} ]
+#                             {"id": "b5", "type": "video", "src": "video/x.mp4", "poster": "img/..."},
+#                             {"id": "b6", "type": "song", "release": "<shared.releases id, optional>",
+#                              "cover": "img/...", "audio": "audio/x.mp3"} ]} ]
+#
+# A song block is the 新歌速递 card: cover, name, a line of billing, a player
+# and where to listen. With `release` set, anything not filled in comes from
+# that release (its cover, title, meta and each language's own links); with
+# none, it stands alone, for a song that is not in the catalogue yet. Its
+# words are blocks.<id>.title / .meta / .caption / .links ([{label, url}]).
+#
+# The client's four kinds of post are four mixes of these blocks, not four
+# schemas: text only (text), text and pictures (text + image), a photo set
+# (gallery, usually with a line of text) and a new song (song + text). The
+# admin's "New post" buttons start each one with its blocks in place.
 #
 # The words (en/zh.json, journal.posts.<id>): title, excerpt (optional - the
 # first text block stands in), and blocks.<block id>.text / .caption.
@@ -1829,7 +1855,7 @@ def journal_excerpt(loc: dict, post: dict, words: dict) -> str:
     return ""
 
 
-def journal_cover(post: dict) -> str:
+def journal_cover(shared: dict, post: dict) -> str:
     """The post's cover, or else its first picture, or nothing."""
     if post.get("cover"):
         return post["cover"]
@@ -1838,7 +1864,19 @@ def journal_cover(post: dict) -> str:
             return b["src"]
         if b.get("type") == "gallery" and b.get("images"):
             return b["images"][0]["src"]
+        if b.get("type") == "song":
+            art = song_cover(shared, b)
+            if art:
+                return art
     return ""
+
+
+
+def song_cover(shared: dict, block: dict) -> str:
+    if block.get("cover"):
+        return block["cover"]
+    rel = next((r for r in shared.get("releases", []) if r["id"] == block.get("release")), None)
+    return rel["art"] if rel else ""
 
 
 def journal_meta(loc: dict, post: dict) -> list[str]:
@@ -1870,15 +1908,13 @@ def render_journal_list(loc: dict, shared: dict) -> list[str]:
     for n, post in enumerate(posts):
         words = journal_words(loc, post)
         later = " data-later" if n >= JOURNAL_PAGE else ""
-        cover = journal_cover(post)
-        pic = (f'<img src="{p}{attr(cover)}" alt="" loading="lazy" decoding="async">' if cover
-               else '<span class="jcard__blank" aria-hidden="true"></span>')
+        cover = journal_cover(shared, post)
         excerpt = journal_excerpt(loc, post, words)
-        out += [
-            f'    <a class="jcard reveal" href="{journal_file(post)}"{later}>',
-            f'      <span class="jcard__pic">{pic}</span>',
-            '      <span class="jcard__body">',
-        ]
+        # a text-only post gets a card of words rather than an empty frame
+        out.append(f'    <a class="jcard{"" if cover else " jcard--text"} reveal" href="{journal_file(post)}"{later}>')
+        if cover:
+            out.append(f'      <span class="jcard__pic"><img src="{p}{attr(cover)}" alt="" loading="lazy" decoding="async"></span>')
+        out.append('      <span class="jcard__body">')
         out += ["        " + l.replace("<p ", "<span ").replace("</p>", "</span>") for l in journal_meta(loc, post)]
         out.append(f'        <span class="jcard__title">{words["title"]}</span>')
         if excerpt:
@@ -1921,6 +1957,8 @@ def render_journal_block(loc: dict, shared: dict, block: dict, words: dict) -> l
             out.append(cap)
         out.append("  </figure>")
         return out
+    if kind == "song":
+        return render_song_block(loc, shared, block, w)
     if kind == "video":
         if block.get("src"):
             poster = f' poster="{p}{attr(block["poster"])}"' if block.get("poster") else ""
@@ -1940,13 +1978,52 @@ def render_journal_block(loc: dict, shared: dict, block: dict, words: dict) -> l
     return []
 
 
+def render_song_block(loc: dict, shared: dict, block: dict, w: dict) -> list[str]:
+    p = loc["assetPrefix"]
+    rid = block.get("release")
+    rel = next((r for r in shared["releases"] if r["id"] == rid), None) if rid else None
+    if rid and rel is None:
+        raise SystemExit(f'journal song block {block.get("id")}: no release {rid!r} in shared.releases')
+    rw = loc["releases"].get(rid, {}) if rel else {}
+    title = w.get("title") or rw.get("title", "")
+    if not title:
+        return []           # a song with no name in this language is not shown in it
+    meta = w.get("meta") or rw.get("meta", "")
+    links = [l for l in (w.get("links") or rw.get("links") or []) if l.get("url") and not l.get("missing")]
+    for l in links:
+        if re.match(r"\s*(javascript|data|vbscript):", l["url"], re.I):
+            raise SystemExit(f'journal song block {block.get("id")}: refusing link {l["url"]!r}')
+    art = song_cover(shared, block)
+    kicker = loc.get("journal", {}).get("newSong") or loc["making"]["kinds"].get("song", "")
+    out = ['  <figure class="post__song">']
+    if art:
+        out.append(f'    <img class="post__song-art" src="{p}{attr(art)}" alt="" loading="lazy" decoding="async">')
+    out.append('    <div class="post__song-body">')
+    if kicker:
+        out.append(f'      <p class="post__song-kicker">{kicker}</p>')
+    out.append(f'      <p class="post__song-title">{title}</p>')
+    if meta:
+        out.append(f'      <p class="post__song-meta">{meta}</p>')
+    if block.get("audio"):
+        out.append(f'      <audio class="post__song-audio" src="{p}{attr(block["audio"])}" controls preload="none"></audio>')
+    if links:
+        out.append('      <p class="post__song-links">')
+        out += render_links(links, 8)
+        out.append("      </p>")
+    out.append("    </div>")
+    if w.get("caption"):
+        out.append(f'    <figcaption>{w["caption"]}</figcaption>')
+    out.append("  </figure>")
+    return out
+
+
 def render_post(loc: dict, shared: dict, post: dict) -> list[str]:
     p = loc["assetPrefix"]
     j = loc["journal"]
     posts = [x for x in journal_posts(shared) if journal_words(loc, x).get("title")]
     words = journal_words(loc, post)
     i = next(n for n, x in enumerate(posts) if x["id"] == post["id"])
-    cover = journal_cover(post)
+    cover = journal_cover(shared, post)
     out = [
         "<!-- ================= JOURNAL POST ================= -->",
         '<article class="section section--lead post" id="post">',
