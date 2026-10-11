@@ -1097,6 +1097,53 @@ def plays_here(loc: dict | None, v: dict) -> bool:
     return bool(v.get("bv"))
 
 
+def featured_refs(shared: dict) -> set[str]:
+    """Everything in the Featured rows, as "photo:<id>" / "video:<id>"."""
+    out = set()
+    for row in shared.get("featuredRows", []):
+        for unit in row if isinstance(row, list) else []:
+            out.update(r for r in (unit if isinstance(unit, list) else [unit]) if isinstance(r, str))
+    return out
+
+
+def featured_layout(shared: dict) -> list[list[list[tuple[str, dict]]]]:
+    """The Featured rows at the top of Visuals, in the same shape as the
+    grid's. Nothing is added to them automatically - an item is featured
+    because somebody put it there - and a featured video stays on the
+    Chinese page even with no BV id, as the old single feature tile did,
+    flagged as playing on YouTube."""
+    photos = {ph["id"]: ph for ph in shared.get("photos", [])}
+    videos = {v["id"]: v for v in shared["videos"]}
+    seen, rows = set(), []
+    for row in shared.get("featuredRows", []):
+        units = []
+        for unit in row if isinstance(row, list) else []:
+            parts = []
+            for ref in unit if isinstance(unit, list) else [unit]:
+                if not isinstance(ref, str) or ref in seen:
+                    continue
+                kind, _, key = ref.partition(":")
+                pool = photos if kind == "photo" else videos if kind == "video" else {}
+                if key in pool:
+                    seen.add(ref)
+                    parts.append((kind, pool[key]))
+            if parts:
+                units.append(parts)
+        if units:
+            rows.append(units)
+    return rows
+
+
+def home_feature(shared: dict) -> dict | None:
+    """The video the homepage leads with: the first featured one."""
+    for row in featured_layout(shared):
+        for unit in row:
+            for kind, item in unit:
+                if kind == "video":
+                    return item
+    return None
+
+
 def visuals_layout(shared: dict, loc: dict | None = None) -> list[list[list[tuple[str, dict]]]]:
     """The grid as rows of units, a unit being one picture or a stack of
     them: shared["visualsRows"], then everything it does not mention laid
@@ -1105,9 +1152,10 @@ def visuals_layout(shared: dict, loc: dict | None = None) -> list[list[list[tupl
     one picture is just that picture, and a row left empty goes. Given a
     locale, videos that cannot play on that page are dropped first - the
     row they were in closes up, since every row is justified anyway."""
-    photos = {ph["id"]: ph for ph in shared.get("photos", [])}
-    videos = {v["id"]: v for v in shared["videos"] if not v.get("feature")}
-    seen: set[str] = set()
+    # what is featured is not in the grid too
+    seen: set[str] = featured_refs(shared)
+    photos = {ph["id"]: ph for ph in shared.get("photos", []) if f'photo:{ph["id"]}' not in seen}
+    videos = {v["id"]: v for v in shared["videos"] if f'video:{v["id"]}' not in seen}
 
     def take(ref):
         if not isinstance(ref, str) or ref in seen:
@@ -1158,8 +1206,9 @@ def visuals_layout(shared: dict, loc: dict | None = None) -> list[list[list[tupl
 
 
 def visuals_pieces(shared: dict, loc: dict | None = None) -> list[tuple[str, dict]]:
-    """Every photo and grid video on the page, in reading order."""
-    return [x for row in visuals_layout(shared, loc) for unit in row for x in unit]
+    """Every photo and video on the page, featured ones first, in reading order."""
+    rows = featured_layout(shared) + visuals_layout(shared, loc)
+    return [x for row in rows for unit in row for x in unit]
 
 
 def item_tags(item: dict) -> list[str]:
@@ -1279,6 +1328,24 @@ def render_visuals_grid(loc: dict, shared: dict) -> list[str]:
         '  <div class="gallery-wrap">',
         '    <div class="gallery">',
     ]
+    # Featured first: rows like the grid's, bigger for being fewer to a row.
+    # They are the top of the same grid, so the filter can treat a featured
+    # photo like any other; with no filter on they are never paged away.
+    for row in featured_layout(shared):
+        out.append(f'      <div class="vrow vrow--featured" style="--sum:{sum(map(unit_ar, row)):.4f}">')
+        for unit in row:
+            out += render_visuals_unit(loc, shared, unit)
+        out.append("      </div>")
+    # The picture that used to sit under the title video, now under the
+    # featured rows; it steps aside while a filter is on.
+    banner = shared.get("images", {}).get("visualsBanner")
+    if banner:
+        out += [
+            '      <figure class="banner vrow--banner">',
+            f'        <img src="{asset(banner, loc["assetPrefix"])}"'
+            f' alt="{attr(loc.get("visualsBannerAlt", ""))}" loading="lazy" decoding="async">',
+            "      </figure>",
+        ]
     page = visuals_page(shared)
     rows = visuals_layout(shared, loc)
     n = 0
@@ -1288,15 +1355,9 @@ def render_visuals_grid(loc: dict, shared: dict) -> list[str]:
         # stylesheet only once JS is running, so with JS off the whole
         # grid is simply there
         later = " data-later" if n >= page else ""
-        out.append(f'      <div class="vrow"{later}>')
+        out.append(f'      <div class="vrow"{later} style="--sum:{sum(map(unit_ar, row)):.4f}">')
         for unit in row:
-            if len(unit) > 1:
-                out.append(f'        <div class="vstack" style="--ar:{unit_ar(unit):.4f}">')
-                for kind, item in unit:
-                    out += ["  " + l for l in render_visuals_cell(loc, shared, kind, item)]
-                out.append("        </div>")
-            else:
-                out += render_visuals_cell(loc, shared, *unit[0])
+            out += render_visuals_unit(loc, shared, unit)
             n += len(unit)
         out.append("      </div>")
     out += ["    </div>"]
@@ -1308,6 +1369,16 @@ def render_visuals_grid(loc: dict, shared: dict) -> list[str]:
         ]
     out += ["  </div>"]
     return out
+
+
+def render_visuals_unit(loc: dict, shared: dict, unit: list) -> list[str]:
+    """One unit of a row: a picture, or a stack of them."""
+    if len(unit) == 1:
+        return render_visuals_cell(loc, shared, *unit[0])
+    out = [f'        <div class="vstack" style="--ar:{unit_ar(unit):.4f}">']
+    for kind, item in unit:
+        out += ["  " + l for l in render_visuals_cell(loc, shared, kind, item)]
+    return out + ["        </div>"]
 
 
 def render_visuals_cell(loc: dict, shared: dict, kind: str, ph: dict) -> list[str]:
@@ -1575,11 +1646,13 @@ def render_videos(loc: dict, shared: dict, full: bool = False) -> list[str]:
         "       which is blocked in mainland China. -->",
     ]
 
-    feature = [v for v in shared["videos"] if v.get("feature")]
-    grid = [v for v in shared["videos"] if not v.get("feature") and plays_here(loc, v)]
+    lead = home_feature(shared)
+    shown = featured_refs(shared)
+    grid = [v for v in shared["videos"] if f'video:{v["id"]}' not in shown and plays_here(loc, v)]
 
-    # The homepage leads with one thing under this heading: the title video,
-    # or a picture instead when there is no new video worth leading with.
+    # The homepage leads with one thing under this heading: the first
+    # featured video, or a picture instead when there is no new video worth
+    # leading with.
     # Same box either way - 16:9, full width of the section - so choosing one
     # over the other never changes the shape of the page.
     home_pic = None if full else shared.get("images", {}).get("homeVisual")
@@ -1591,23 +1664,8 @@ def render_videos(loc: dict, shared: dict, full: bool = False) -> list[str]:
             f' alt="{attr(loc.get("homeVisualAlt", ""))}" loading="lazy" decoding="async">',
             "  </figure>",
         ]
-    else:
-        for v in feature:
-            out += render_video_tile(loc, v, 2, True)
-
-    # An optional picture under the title video, the same width as it. It is
-    # a sibling of the tile rather than anything cleverer, so it picks up the
-    # section's own padding and lines up with the video and the grid without
-    # having to be told the measurements.
-    banner = shared.get("images", {}).get("visualsBanner")
-    if full and banner:
-        out += [
-            "",
-            '  <figure class="banner reveal">',
-            f'    <img src="{asset(banner, loc["assetPrefix"])}"'
-            f' alt="{attr(loc.get("visualsBannerAlt", ""))}" loading="lazy" decoding="async">',
-            "  </figure>",
-        ]
+    elif lead and not full:
+        out += render_video_tile(loc, lead, 2, True)
 
     # The homepage shows the title track and nothing else; the rest of the
     # catalogue lives on the Visuals page.
@@ -1616,7 +1674,7 @@ def render_videos(loc: dict, shared: dict, full: bool = False) -> list[str]:
         out.append("</section>")
         return out
 
-    # Photos and the rest of the videos share one grid under the title video.
+    # Featured items, the banner, then photos and videos in one grid.
     # Without any photos it is the plain video grid it used to be.
     if shared.get("photos"):
         out += render_visuals_grid(loc, shared)

@@ -600,7 +600,7 @@ function visualProblems(shared) {
     const list = [];
     if (!v.yt) list.push({ text: 'No YouTube link, so the English page cannot play it' });
     if (!v.bv) {
-      list.push({ pending: true, text: v.feature
+      list.push({ pending: true, text: arrFeatured(shared).has(`video:${v.id}`)
         ? 'No Bilibili link yet: the Chinese page shows it as “coming soon”'
         : 'No Bilibili link yet: left off the Chinese page until there is one' });
     }
@@ -661,7 +661,7 @@ function renderVideos() {
   const rerender = () => renderPanel();
   const out = [addButton('+ Add a video', () => {
     const id = newId('video', shared.videos.map((v) => v.id));
-    shared.videos.push({ id, yt: '', bv: '', poster: PLACEHOLDER_POSTER, feature: false, tags: [] });
+    shared.videos.push({ id, yt: '', bv: '', poster: PLACEHOLDER_POSTER, tags: [] });
     LOC('en').videos[id] = { title: '', sub: '' };
     LOC('zh').videos[id] = { title: '', sub: '' };
     cardOpen.add('video:' + id);
@@ -669,10 +669,11 @@ function renderVideos() {
     rerender();
   })];
 
-  // the feature first, then the grid in the order the page shows it
+  // in the order the page shows them, featured ones first
   const inGrid = arrRefs(shared).filter((r) => r.startsWith('video:')).map((r) => r.slice(6));
-  [...shared.videos].sort((a, b) => (a.feature ? -1 : inGrid.indexOf(a.id)) - (b.feature ? -1 : inGrid.indexOf(b.id))).forEach((v) => {
-    const i = shared.videos.indexOf(v);
+  const featured = arrFeatured(shared);
+  [...shared.videos].sort((a, b) => inGrid.indexOf(a.id) - inGrid.indexOf(b.id)).forEach((v) => {
+    const isFeature = featured.has(`video:${v.id}`);
     const enV = LOC('en').videos[v.id] || (LOC('en').videos[v.id] = { title: '', sub: '' });
     const zhV = LOC('zh').videos[v.id] || (LOC('zh').videos[v.id] = { title: '', sub: '' });
 
@@ -686,7 +687,7 @@ function renderVideos() {
       enV.title || T('(untitled)'),
       ' ',
       badge,
-      v.feature ? el('span', { className: 'live' }, T('feature')) : null,
+      isFeature ? el('span', { className: 'live' }, T('featured')) : null,
       problemBadge(problems, 'video:' + v.id),
       el('small', {}, v.id),
     );
@@ -759,16 +760,16 @@ function renderVideos() {
         ),
         bi('Title', 'title', (l) => (l === 'en' ? enV : zhV)),
         bi('Subtitle', 'sub', (l) => (l === 'en' ? enV : zhV)),
-        v.feature ? bi('Kicker', 'kicker', (l) => (l === 'en' ? enV : zhV),
-                       { hint: 'Small label above the title on the feature tile.' }) : null,
+        isFeature ? bi('Kicker', 'kicker', (l) => (l === 'en' ? enV : zhV),
+                       { hint: 'Small label above the title, on a featured video.' }) : null,
         row(
-          check('Feature tile (large, above the grid)', v, 'feature', rerender),
+          featureCheck(`video:${v.id}`, rerender),
           field('Poster path', input(v, 'poster', { mono: true }),
                 'Posters are kept in this repository on purpose. They used to be hot-linked '
                 + 'from i.ytimg.com, which is blocked in mainland China — the Chinese page '
                 + 'showed thirteen broken images. Do not paste a YouTube thumbnail URL here.'),
         ),
-        v.feature ? null : field('Tags', tagPicker(v, rerender), 'What the Filter panel finds it by.'),
+        field('Tags', tagPicker(v, rerender), 'What the Filter panel finds it by.'),
         el('details', {}, el('summary', { className: 'hint' }, T('Language attributes')),
            row(
              field('EN title lang attr', input(enV, 'titleLang', { mono: true, dropWhenEmpty: true }),
@@ -795,7 +796,7 @@ function renderVideos() {
           rerender();
         } }, T('Remove')),
       body,
-      v.feature ? 'visuals.feature' : 'visuals.cell.video:' + v.id,
+      'visuals.cell.video:' + v.id,
       v.poster,
     ));
   });
@@ -2035,6 +2036,28 @@ function visualsArrangeCard() {
       : null), 'visuals.grid');
 }
 
+/* On the Featured rows at the top of Visuals, or not. Ticking it puts the
+ * picture on a featured row of its own at their end; arrange it from there
+ * in the preview. */
+function featureCheck(ref, rerender) {
+  const shared = SHARED();
+  const box = el('input', { type: 'checkbox' });
+  box.checked = arrFeatured(shared).has(ref);
+  box.addEventListener('change', () => {
+    arrSetFeatured(shared, ref, box.checked);
+    rerender();
+  });
+  return el('label', { className: 'check' }, box,
+    el('span', {}, T('Featured (big, at the top of Visuals)')));
+}
+
+/* The first featured video: what the homepage leads with. */
+function homeFeature(shared) {
+  const videos = new Map((shared.videos || []).map((v) => [`video:${v.id}`, v]));
+  for (const ref of (shared.featuredRows || []).flat(2)) if (videos.has(ref)) return videos.get(ref);
+  return null;
+}
+
 /* A photo's crop, from the photo card: the same choices as the crop
  * dialog, which also places it and zooms it. */
 function cropChoice(ph, rerender) {
@@ -2277,6 +2300,7 @@ function renderPhotos() {
           el('div', { className: 'f' }, el('span', {}, ' '),
             el('button', { className: 'btn btn--small', type: 'button', onclick: () => arrCrop(ph) }, T('Edit crop…'))),
         ),
+        featureCheck(`photo:${ph.id}`, rerender),
         field('Tags', tagPicker(ph, rerender), 'What the Filter panel finds it by. The first one is the small label on the tile.'),
         // The caption stays either way: it is the tile's own words and its
         // alt text, not only the heading of the card. The description is
@@ -3811,7 +3835,7 @@ function homeVisualCard() {
   const shared = SHARED();
   const images = shared.images;
   const rerender = () => renderPanel();
-  const feature = (shared.videos || []).find((v) => v.feature);
+  const feature = homeFeature(shared);
   const usingPicture = !!images.homeVisual;
 
   const choose = (picture) => {

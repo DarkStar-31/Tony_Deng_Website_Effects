@@ -43,7 +43,7 @@ function arrPhotoAr(ph) {
 function arrItems(shared) {
   const items = new Map();
   (shared.photos || []).forEach((p) => items.set(`photo:${p.id}`, { kind: 'photo', item: p, ar: arrPhotoAr(p), src: p.src }));
-  (shared.videos || []).filter((v) => !v.feature)
+  (shared.videos || [])
     .forEach((v) => items.set(`video:${v.id}`, { kind: 'video', item: v, ar: ARR_VIDEO_AR, src: v.poster }));
   return items;
 }
@@ -70,47 +70,75 @@ function autoRows(units, items) {
   return rows;
 }
 
-/* The grid as the page will show it (the English page - every video
- * included): rows of units, a unit always an array of refs here. */
+/* The whole of Visuals as the page will show it (the English page - every
+ * video included): the Featured rows, then DIVIDER, then the grid's rows.
+ * A row is a list of units, a unit always an array of refs here. Keeping
+ * both in one list is what lets a drag carry a picture from one to the
+ * other; arrStore splits it at the divider again. */
+const DIVIDER = '|';
+
 function arrLayout(shared) {
   const items = arrItems(shared);
   const seen = new Set();
   const take = (r) => (typeof r === 'string' && items.has(r) && !seen.has(r) ? (seen.add(r), r) : null);
-  const rows = [];
-  for (const row of shared.visualsRows || []) {
-    if (!Array.isArray(row)) continue;
-    const units = row.map((u) => (Array.isArray(u) ? u : [u]).map(take).filter(Boolean)).filter((u) => u.length);
-    if (units.length) rows.push(units);
-  }
+  const rowsOf = (list) => {
+    const rows = [];
+    for (const row of list || []) {
+      if (!Array.isArray(row)) continue;
+      const units = row.map((u) => (Array.isArray(u) ? u : [u]).map(take).filter(Boolean)).filter((u) => u.length);
+      if (units.length) rows.push(units);
+    }
+    return rows;
+  };
+  const featured = rowsOf(shared.featuredRows);
+  const grid = rowsOf(shared.visualsRows);
   const rest = [...items.keys()];
   const order = [...(shared.visualsOrder || []).filter((r) => items.has(r)), ...rest];
   const left = order.map(take).filter(Boolean).map((r) => [r]);
-  return rows.concat(autoRows(left, items));
+  return [...featured, DIVIDER, ...grid, ...autoRows(left, items)];
 }
+
+const isRow = (row) => Array.isArray(row);
 
 // reading order, for the photo and video lists on the tab
 function arrRefs(shared) {
-  return arrLayout(shared).flat(2);
+  return arrLayout(shared).filter(isRow).flat(2);
+}
+
+function arrFeatured(shared) {
+  return new Set((shared.featuredRows || []).flat(2));
 }
 
 // write a layout back: stacks of one become plain refs again
 function arrStore(shared, rows) {
-  shared.visualsRows = rows
+  const clean = (list) => list
     .map((row) => row.map((u) => u.filter(Boolean)).filter((u) => u.length))
     .filter((row) => row.length)
     .map((row) => row.map((u) => (u.length === 1 ? u[0] : u)));
+  const at = rows.indexOf(DIVIDER);
+  shared.featuredRows = clean(rows.slice(0, at).filter(isRow));
+  shared.visualsRows = clean(rows.slice(at + 1).filter(isRow));
   delete shared.visualsOrder;
   markDirty();
 }
 
+// a picture on or off the Featured rows, from its card on the tab
+function arrSetFeatured(shared, ref, on) {
+  const rows = arrLayout(shared);
+  const at = rows.indexOf(DIVIDER);
+  const moved = arrMove(rows, [ref], { type: 'row', index: on ? at : at + 1 });
+  arrStore(shared, moved);
+}
+
 function arrRemove(shared, ref) {
-  const rows = arrLayout(shared).map((row) => row.map((u) => u.filter((r) => r !== ref)));
+  const rows = arrLayout(shared).map((row) => (isRow(row) ? row.map((u) => u.filter((r) => r !== ref)) : row));
   arrStore(shared, rows);
 }
 
 // where a ref sits: [row, unit, index in unit]
 function arrFind(rows, ref) {
   for (let i = 0; i < rows.length; i++) {
+    if (!isRow(rows[i])) continue;
     for (let j = 0; j < rows[i].length; j++) {
       const k = rows[i][j].indexOf(ref);
       if (k !== -1) return [i, j, k];
@@ -127,7 +155,7 @@ function arrFind(rows, ref) {
  * every index the target was worked out against still holds. */
 function arrMove(rows, refs, target) {
   const moving = new Set(refs);
-  const out = rows.map((row) => row.map((u) => u.map((r) => (moving.has(r) ? null : r))));
+  const out = rows.map((row) => (isRow(row) ? row.map((u) => u.map((r) => (moving.has(r) ? null : r))) : row));
   if (target.type === 'row') {
     out.splice(target.index, 0, refs.map((r) => [r]));
   } else {
@@ -145,16 +173,58 @@ function arrMove(rows, refs, target) {
 const arr = {
   selected: new Set(),   // refs
   anchor: null,          // where a Shift-click run starts
+  undo: [],              // earlier arrangements, newest last
+  redo: [],
 };
 
 function arrSelectedInOrder(rows) {
-  return rows.flat(2).filter((r) => arr.selected.has(r));
+  return rows.filter(isRow).flat(2).filter((r) => arr.selected.has(r));
+}
+
+const arrSnapshot = (shared) => JSON.stringify({
+  featuredRows: shared.featuredRows, visualsRows: shared.visualsRows, visualsOrder: shared.visualsOrder,
+});
+
+function arrRestore(shared, snap) {
+  const s = JSON.parse(snap);
+  for (const k of ['featuredRows', 'visualsRows', 'visualsOrder']) {
+    if (s[k] === undefined) delete shared[k]; else shared[k] = s[k];
+  }
+  markDirty();
+  renderPanel();
 }
 
 function arrCommit(rows) {
-  arrStore(SHARED(), rows);
+  const shared = SHARED();
+  arr.undo.push(arrSnapshot(shared));
+  if (arr.undo.length > 100) arr.undo.shift();
+  arr.redo = [];
+  arrStore(shared, rows);
   renderPanel();
 }
+
+/* Ctrl+Z / Cmd+Z undoes the last change to the arrangement, and
+ * Ctrl+Shift+Z (or Ctrl+Y) does it again. Only on the Visuals tab, and
+ * never while typing - there the keys belong to the text box. */
+function arrUndo(back) {
+  const from = back ? arr.undo : arr.redo;
+  const to = back ? arr.redo : arr.undo;
+  if (!from.length) { toast(T(back ? 'Nothing to undo.' : 'Nothing to redo.')); return; }
+  const shared = SHARED();
+  to.push(arrSnapshot(shared));
+  arrRestore(shared, from.pop());
+}
+
+document.addEventListener('keydown', (e) => {
+  if (!(e.ctrlKey || e.metaKey) || typeof state === 'undefined' || !state.files) return;
+  if (typeof previewKey === 'function' && previewKey() !== 'visuals') return;
+  const t = e.target;
+  if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  if (document.querySelector('dialog[open]')) return;
+  const k = e.key.toLowerCase();
+  if (k === 'z') { e.preventDefault(); arrUndo(!e.shiftKey); }
+  else if (k === 'y') { e.preventDefault(); arrUndo(false); }
+});
 
 /* Smaller and bigger. A picture's size is how many share its row - every
  * picture in a row is the same height - so these change its row:
@@ -185,21 +255,21 @@ function arrResize(dir) {
     const hi = Math.max(...js), lo = Math.min(...js);
     if (lo === 0 && hi === row.length - 1) { toast(T('That already has the row to itself.')); return; }
     if (hi < row.length - 1) {
-      // the last picture moves down to start the next row
+      // the last picture moves down to start the next row (of the same zone)
       const gone = row.pop();
-      if (!rows[i + 1]) rows.push([]);
+      if (!isRow(rows[i + 1])) rows.splice(i + 1, 0, []);
       rows[i + 1].unshift(gone);
     } else {
       // the selection is at the end, so the first picture moves up instead
       const gone = row.shift();
-      if (i > 0) rows[i - 1].push(gone); else rows.unshift([gone]);
+      if (isRow(rows[i - 1])) rows[i - 1].push(gone); else rows.splice(i, 0, [gone]);
     }
     return arrCommit(rows);
   }
 
-  if (rows[i + 1] && rows[i + 1].length) {
+  if (isRow(rows[i + 1]) && rows[i + 1].length) {
     row.push(rows[i + 1].shift());
-  } else if (rows[i - 1] && rows[i - 1].length) {
+  } else if (isRow(rows[i - 1]) && rows[i - 1].length) {
     row.unshift(rows[i - 1].pop());
   } else {
     toast(T('There is nothing else to share the row with.'));
@@ -231,12 +301,25 @@ function arrBar(rows, items) {
   const btn = (label, title, onclick, disabled) => el('button', {
     className: 'arr__btn', type: 'button', title: T(title), disabled: disabled || null, onclick,
   }, T(label));
+  const history = [
+    el('button', { className: 'arr__btn', type: 'button', title: T('Undo (Ctrl+Z)'),
+                   disabled: arr.undo.length ? null : true, onclick: () => arrUndo(true) }, '↶'),
+    el('button', { className: 'arr__btn', type: 'button', title: T('Redo (Ctrl+Shift+Z)'),
+                   disabled: arr.redo.length ? null : true, onclick: () => arrUndo(false) }, '↷'),
+  ];
   if (!sel.length) {
     return el('div', { className: 'arr__bar arr__bar--idle' },
-      el('span', {}, T('Click to select · Shift/Ctrl-click for more · drag to move · double-click to crop')));
+      el('span', {}, T('Click to select · Shift/Ctrl-click for more · drag to move · double-click to crop')),
+      el('span', { className: 'arr__hist' }, ...history));
   }
+  const at = rows.indexOf(DIVIDER);
+  const inFeatured = (() => { const f = arrFind(rows, sel[0]); return f && f[0] < at; })();
   return el('div', { className: 'arr__bar' },
+    ...history,
     el('span', { className: 'arr__count' }, T('{n} selected', { n: sel.length })),
+    btn(inFeatured ? '☆ Unfeature' : '★ Feature',
+        inFeatured ? 'Back into the grid, at its top' : 'Up into the Featured rows, at their end',
+        () => arrCommit(arrMove(rows, sel, { type: 'row', index: inFeatured ? at + 1 : at }))),
     btn('− Smaller', 'Fit one more picture into its row', () => arrResize(-1)),
     btn('+ Bigger', 'Take a picture out of its row (or out of its stack)', () => arrResize(1)),
     btn('Stack', 'Put the selected pictures one above the other in one column', arrStack, sel.length < 2),
@@ -275,10 +358,14 @@ function arrEditor() {
   };
 
   const grid = el('div', { className: 'arr__rows' },
-    ...rows.map((row, i) => el('div', { className: 'arr__row', 'data-row': i },
+    ...rows.map((row, i) => (!isRow(row)
+      ? el('div', { className: 'arr__row arr__divider', 'data-row': i },
+          el('span', {}, T('↑ Featured — drop pictures above this line to feature them')),
+          el('span', {}, T('Grid ↓')))
+      : el('div', { className: 'arr__row' + (i < rows.indexOf(DIVIDER) ? ' arr__row--featured' : ''), 'data-row': i },
       ...row.map((unit) => (unit.length > 1
         ? el('div', { className: 'arr__unit arr__stack', style: `--ar:${arrUnitAr(unit, items).toFixed(4)}` }, ...unit.map(tile))
-        : el('div', { className: 'arr__unit', style: `--ar:${items.get(unit[0]).ar.toFixed(4)}` }, tile(unit[0])))))));
+        : el('div', { className: 'arr__unit', style: `--ar:${items.get(unit[0]).ar.toFixed(4)}` }, tile(unit[0]))))))));
   const line = el('div', { className: 'arr__line', hidden: true });
   const root = el('div', { className: 'arr', 'data-pv': 'visuals.grid' }, arrBar(rows, items), grid, line);
   arrWire(root, grid, line, rows, items);
@@ -288,7 +375,7 @@ function arrEditor() {
 // ---------------------------------------------------------------- pointer
 
 function arrWire(root, grid, line, rows, items) {
-  const order = rows.flat(2);
+  const order = rows.filter(isRow).flat(2);
   let down = null;     // { ref, x, y, ev }
   let drag = null;     // { refs, ghost, target }
 
@@ -316,15 +403,26 @@ function arrWire(root, grid, line, rows, items) {
   };
 
   /* Where a drop at (x, y) would land, and the line that says so.
-   * Over a picture: its top or bottom quarter stacks above or below it,
+   * Along the top or bottom edge of a row - the outer sixth of it - is a
+   * row of its own, above or below: a long line right across. Inside that,
+   * a picture's top or bottom quarter stacks above or below it, and
    * otherwise its left or right half goes beside it. Anywhere else, the
-   * nearest gap between rows - a row of its own. */
+   * nearest gap between rows. */
   const aim = (x, y) => {
     const box = root.getBoundingClientRect();
     const show = (l, t, w, h) => {
       line.hidden = false;
       Object.assign(line.style, { left: `${l - box.left}px`, top: `${t - box.top}px`, width: `${w}px`, height: `${h}px` });
     };
+    const g = grid.getBoundingClientRect();
+    for (const rowEl of grid.querySelectorAll('.arr__row')) {
+      const r = rowEl.getBoundingClientRect();
+      if (y < r.top - 2 || y > r.bottom + 2) continue;
+      const band = rowEl.classList.contains('arr__divider') ? r.height / 2 : Math.max(8, r.height / 6);
+      const i = Number(rowEl.dataset.row);
+      if (y <= r.top + band) { show(g.left, r.top - 3, g.width, 3); return { type: 'row', index: i }; }
+      if (y >= r.bottom - band) { show(g.left, r.bottom, g.width, 3); return { type: 'row', index: i + 1 }; }
+    }
     const over = document.elementFromPoint(x, y);
     const t = over && over.closest && over.closest('.arr__tile');
     if (t && grid.contains(t) && !drag.refs.includes(t.dataset.ref)) {
@@ -368,7 +466,6 @@ function arrWire(root, grid, line, rows, items) {
       const r = rowEls[i].getBoundingClientRect();
       if (y < r.top + r.height / 2) { index = i; edge = r.top - 3; break; }
     }
-    const g = grid.getBoundingClientRect();
     show(g.left, edge, g.width, 3);
     return { type: 'row', index: Number(rowEls[Math.min(index, rowEls.length - 1)].dataset.row) + (index >= rowEls.length ? 1 : 0) };
   };

@@ -135,7 +135,7 @@ function pvHomeReleases(loc, shared) {
  * picture standing in for it. Not the grid; that is the Visuals page. */
 function pvHomeVisuals(loc, shared) {
   const images = shared.images || {};
-  const feature = (shared.videos || []).find((v) => v.feature);
+  const feature = homeFeature(shared);
   const fv = feature ? (loc.videos || {})[feature.id] || {} : {};
   const sec = (loc.sections || {}).videos || {};
   const pic = images.homeVisual;
@@ -357,11 +357,7 @@ function previewMusic() {
 function previewVisuals() {
   const loc = LOC(UI.lang);
   const shared = SHARED();
-  const feature = (shared.videos || []).find((v) => v.feature);
-  const fv = feature ? (loc.videos || {})[feature.id] || {} : {};
-  const banner = (shared.images || {}).visualsBanner;
   const vf = loc.visualsFilter;
-
 
   return el('div', { className: 'pv' },
     pvChrome(loc, shared, 'videos'),
@@ -370,33 +366,16 @@ function previewVisuals() {
       el('div', { className: 'pv__body' },
         pvSection(loc, 'videos', 'visuals.heading'),
         // Only when the grid actually holds both kinds, which is the same
-        // condition build.py prints it under - a preview that showed the
-        // switch on a photos-only grid would be promising a control the
-        // page does not render.
+        // condition build.py prints it under.
         (vf && (shared.photos || []).length && (shared.videos || []).length)
           ? el('div', { className: 'pv__filter', 'data-pv': 'visuals.filter' },
               ...['all', 'photos', 'videos'].map((k, i) =>
                 el('span', { className: 'pv__fbtn' + (i === 0 ? ' is-on' : '') }, vf[k] || '')))
           : null,
-        feature
-          ? el('div', { className: 'pv__feature', 'data-pv': 'visuals.feature' },
-              el('img', { src: '/' + feature.poster, alt: '', loading: 'lazy' }),
-              el('span', { className: 'pv__playdot' }, '▶'),
-              (fv.kicker || fv.title || fv.sub)
-                ? el('span', { className: 'pv__featmeta' },
-                    fv.kicker ? el('span', { className: 'pv__featkicker', html: fv.kicker }) : null,
-                    fv.title ? el('span', { html: fv.title }) : null,
-                    fv.sub ? el('span', { className: 'pv__featsub', html: fv.sub }) : null)
-                : null)
-          : null,
-        el('div', { className: 'pv__banner', 'data-pv': 'visuals.banner' },
-          banner
-            ? el('img', { src: '/' + banner, alt: '', loading: 'lazy' })
-            : el('span', { className: 'pv__bannernone' }, T('no picture'))),
-        // the whole grid, and the place to arrange it (admin/arrange.js);
-        // each tile is hoverable from its own card, as the cells were
-        arrEditor()),
-    ),
+        // Featured rows, then the grid, arranged here (admin/arrange.js);
+        // each tile is hoverable from its own card. The banner sits between
+        // them on the page.
+        arrEditor())),
   );
 }
 

@@ -2143,6 +2143,9 @@ class InkLoop {
 }
 
 
+// rows of about this much width-over-height; ROW_TARGET in build.py
+const ROW_TARGET = 3.2;
+
 /* ---------------------------------------------------------
    FindPanel — the Filter button and its panel
 
@@ -2362,6 +2365,56 @@ class VisualsFilter {
     this.refilter();
   }
 
+  /* While a filter is on, every row whose pictures all still show stays
+     exactly as it was arranged. The pictures left over from rows that lost
+     some (a row of a video and a photo, under Photos) are pooled and laid
+     out afresh in rows of their own, in place of the rows they came from -
+     a lone portrait is not stretched across the page. Each moved picture
+     remembers where it lived, and `regroup([])` puts everything back. */
+  regroup (live) {
+    for (const m of (this.moved || []).reverse()) m.parent.insertBefore(m.el, m.next);
+    this.moved = [];
+    this.grid.querySelectorAll('.vrow--pool').forEach((r) => r.remove());
+    if (!live.length) return;
+
+    const shown = new Set(live.map((c) => c.el));
+    const ar = (el) => parseFloat(el.style.getPropertyValue('--ar')) || 1;
+    let pool = [];
+    const flush = (before) => {
+      if (!pool.length) return;
+      // the same greedy rule as auto_rows in build.py
+      const rows = [];
+      let row = [], total = 0;
+      for (const el of pool) {
+        if (row.length && Math.abs(total + ar(el) - ROW_TARGET) > Math.abs(total - ROW_TARGET)) {
+          rows.push([row, total]); row = []; total = 0;
+        }
+        row.push(el); total += ar(el);
+      }
+      rows.push([row, total]);
+      for (const [els, sum] of rows) {
+        const r = document.createElement('div');
+        r.className = 'vrow vrow--pool';
+        r.style.setProperty('--sum', sum.toFixed(4));
+        // short of a full row: the height a full one would have, not stretched
+        if (sum < ROW_TARGET) r.style.maxWidth = `${(sum / ROW_TARGET) * 100}%`;
+        for (const el of els) {
+          this.moved.push({ el, parent: el.parentNode, next: el.nextSibling });
+          r.append(el);
+        }
+        this.grid.insertBefore(r, before);
+      }
+      pool = [];
+    };
+    for (const r of this.rows) {
+      const mine = [...r.querySelectorAll('.photo')];
+      const keep = mine.filter((el) => shown.has(el));
+      if (keep.length === mine.length) { flush(r); continue; }
+      pool.push(...keep);
+    }
+    flush(null);
+  }
+
   settle (instant = false) {
     const grid = this.grid;
     const on = this.showing();
@@ -2380,9 +2433,10 @@ class VisualsFilter {
       if (shown) live.push(c);
     }
     const flat = this.filtered();
-    grid.classList.toggle('is-flat', flat);
+    this.regroup(flat ? live : []);
+    grid.classList.toggle('is-filtered', flat);
     // a row with nothing showing would still take a gap's worth of height
-    for (const r of this.rows) r.hidden = !live.some((c) => c.row === r);
+    for (const r of this.rows) r.hidden = !r.querySelector('.photo:not([hidden])');
     if (this.more) {
       this.more.hidden = flat
         ? this.cells.filter((c) => this.matches(c)).length <= this.limit

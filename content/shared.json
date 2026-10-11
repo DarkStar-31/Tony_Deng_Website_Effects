@@ -304,7 +304,6 @@
       "yt": "WemMShRTg6E",
       "bv": "",
       "poster": "img/video/WemMShRTg6E.webp",
-      "feature": true,
       "tags": []
     },
     {
@@ -312,7 +311,6 @@
       "yt": "Z-EP0Qwl2xw",
       "bv": "",
       "poster": "img/video/Z-EP0Qwl2xw.webp",
-      "feature": false,
       "tags": []
     },
     {
@@ -320,7 +318,6 @@
       "yt": "NwpjbcHqua4",
       "bv": "",
       "poster": "img/video/NwpjbcHqua4.webp",
-      "feature": false,
       "tags": []
     },
     {
@@ -328,7 +325,6 @@
       "yt": "4BrMzNiupXQ",
       "bv": "",
       "poster": "img/video/4BrMzNiupXQ.webp",
-      "feature": false,
       "tags": []
     },
     {
@@ -336,7 +332,6 @@
       "yt": "R5OQh-loln4",
       "bv": "",
       "poster": "img/video/R5OQh-loln4.webp",
-      "feature": false,
       "tags": []
     },
     {
@@ -344,7 +339,6 @@
       "yt": "_KBXlZYRx8E",
       "bv": "",
       "poster": "img/video/_KBXlZYRx8E.webp",
-      "feature": false,
       "tags": []
     },
     {
@@ -352,7 +346,6 @@
       "yt": "VeyHXexUB8Y",
       "bv": "",
       "poster": "img/video/VeyHXexUB8Y.webp",
-      "feature": false,
       "tags": []
     },
     {
@@ -360,7 +353,6 @@
       "yt": "xOxKN4OKFsw",
       "bv": "",
       "poster": "img/video/xOxKN4OKFsw.webp",
-      "feature": false,
       "tags": []
     },
     {
@@ -368,7 +360,6 @@
       "yt": "VSP5IlXHq8E",
       "bv": "",
       "poster": "img/video/VSP5IlXHq8E.webp",
-      "feature": false,
       "tags": []
     },
     {
@@ -376,7 +367,6 @@
       "yt": "foud-nkltS8",
       "bv": "",
       "poster": "img/video/foud-nkltS8.webp",
-      "feature": false,
       "tags": []
     },
     {
@@ -384,7 +374,6 @@
       "yt": "f55cIm9AYd4",
       "bv": "",
       "poster": "img/video/f55cIm9AYd4.webp",
-      "feature": false,
       "tags": []
     },
     {
@@ -392,7 +381,6 @@
       "yt": "CiVWFo4Mlbg",
       "bv": "",
       "poster": "img/video/CiVWFo4Mlbg.webp",
-      "feature": false,
       "tags": []
     },
     {
@@ -400,7 +388,6 @@
       "yt": "5qcaCLkbfys",
       "bv": "",
       "poster": "img/video/5qcaCLkbfys.webp",
-      "feature": false,
       "tags": []
     }
   ],
@@ -635,6 +622,11 @@
       "video:oh-mother",
       "video:one-day",
       "video:be-mine"
+    ]
+  ],
+  "featuredRows": [
+    [
+      "video:overthinking"
     ]
   ]
 }

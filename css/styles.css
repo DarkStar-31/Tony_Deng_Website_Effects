@@ -1878,7 +1878,10 @@ html[lang^="zh"] .post__pager small{ font-size:.8rem; letter-spacing:.06em; }
   --flat-h:clamp(9rem,22cqw,15rem);
   display:flex; flex-direction:column; gap:var(--gap);
 }
-.vrow{ display:flex; gap:var(--gap); }
+/* --sum is the row's proportions added up. A row of one tall picture
+   would be a screen and a half high at the full width, so a row is never
+   taller than most of a screen: it narrows and centres instead. */
+.vrow{ display:flex; gap:var(--gap); width:100%; max-width:calc(var(--sum, 99) * 82vh); margin-inline:auto; }
 .vrow > .photo,
 .vstack{ flex:var(--ar) 1 0; aspect-ratio:var(--ar); min-width:0; }
 .vstack{ display:flex; flex-direction:column; gap:var(--gap); }
@@ -1887,6 +1890,13 @@ html[lang^="zh"] .post__pager small{ font-size:.8rem; letter-spacing:.06em; }
   position:relative; margin:0; overflow:hidden;
   border-radius:12px; border:1px solid var(--line); background:var(--ink-2);
 }
+/* Featured rows sit at the top of the same grid, a little apart from it;
+   the banner comes after them. While a filter is on, the banner steps
+   aside, and VisualsFilter.regroup gathers any leftover pictures into
+   .vrow--pool rows - which stop short rather than stretch a lone picture. */
+.gallery .banner{ margin:0; }
+.vrow--featured:not(:has(+ .vrow--featured)){ margin-bottom:calc(var(--gap) * 1.5); }
+.gallery.is-filtered .vrow--banner{ display:none; }
 .gallery.is-flat{ flex-direction:row; flex-wrap:wrap; }
 .gallery.is-flat .vrow,
 .gallery.is-flat .vstack{ display:contents; }

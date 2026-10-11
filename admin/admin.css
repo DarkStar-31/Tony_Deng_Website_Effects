@@ -1316,3 +1316,14 @@ input[type="date"] { color-scheme: dark; }
 .ringrow.is-drop-before::before { top: -2px; }
 .ringrow.is-drop-after::after { bottom: -2px; }
 .ringrow__thumb { cursor: zoom-in; }
+
+/* ---- the Featured rows in the arranging rail, and the line under them ---- */
+.arr__row--featured { outline: 1px dashed rgba(250,39,159,.45); outline-offset: 2px; border-radius: 3px; }
+.arr__divider {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  min-height: 26px; padding: 4px 8px; margin: 4px 0;
+  border-top: 1px dashed var(--magenta); border-bottom: 1px dashed var(--line);
+  color: var(--dim); font-size: 10px; letter-spacing: .04em;
+}
+.arr__divider span:first-child { color: var(--magenta); }
+.arr__hist { margin-left: auto; display: flex; gap: 4px; }
