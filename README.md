@@ -267,27 +267,34 @@ answer a click otherwise. `build.py` counts the two kinds to make that
 first decision, but does not print the counts — three bare words read as
 part of the page, three words and a tally read as a database.
 
-Filtering hides cells with the `hidden` attribute — nothing is fetched or
-re-rendered — and then **re-cuts the spans** so whatever is left still
-tiles the twelve columns exactly. That second part is `packVisuals` in
-`js/main.js`, and it is there because the spans in `content/` were tuned
-by hand against the whole grid: they tile it perfectly, and they stop
-tiling the moment a third of the cells go away. `dense` backfills what it
-can, but a run of free columns too narrow for anything left in the queue
-stays a hole in the middle of the page.
+Filtering hides pictures with the `hidden` attribute — nothing is fetched
+or re-rendered — and while anything is picked the grid goes **flat**
+(`.gallery.is-flat`): the arranged rows let go and what is left flows into
+fresh rows of about the same height, so a row that lost three of its four
+pictures does not leave the fourth stretched across the page.
 
-So the packer walks the same first-fit order the browser's dense flow
-uses, and at each step gives the cell its authored width or the free run
-it is placing into, whichever is smaller — swallowing a remainder too
-narrow for anything else to enter. Height then follows from `data-ar`,
-the shape's own proportions, so a portrait stays a portrait. Nothing is
-distorted: every tile is `object-fit:cover`, so a re-cut span moves the
-crop and leaves the picture inside it alone.
+### The Visuals grid: justified rows
 
-On the unfiltered grid it is a no-op — a layout that already tiles never
-hits a remainder rule — which is what keeps the hand-tuned arrangement
-exactly as authored while still covering whatever gets added later
-through the admin.
+The grid is rows, each exactly the width of the page
+(`shared.visualsRows`; a string is one picture, a list is a stack of
+pictures one above the other). Every picture carries `--ar`, its width over
+height, and takes `flex-grow: var(--ar)` of its row from a basis of 0 with
+`aspect-ratio` turning the width back into a height — so every picture in a
+row is the same height, and no row can leave a gap or run past the margin,
+whatever proportions the photos are. A picture's size is how many share its
+row.
+
+A photo's proportions are its crop: `ratio` is `"orig"` (the file's own,
+stored as `ar` at upload) or one of `RATIOS` in `build.py`; `focus` and
+`zoom` place and scale it. Anything `visualsRows` does not mention is laid
+out after it automatically (`auto_rows`, mirrored as `autoRows` in
+`admin/arrange.js`). The admin's preview rail on the Visuals tab is the
+editor: select, drag, smaller/bigger, stack, crop.
+
+On the Chinese page, videos with no BV id are dropped; rows that lose
+something that way are pooled and laid out afresh rather than left with a
+lone picture blown up to the full width. Under 720px the rows always go
+flat.
 
 ### Which back end a page uses
 

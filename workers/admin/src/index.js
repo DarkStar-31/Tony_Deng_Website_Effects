@@ -272,7 +272,12 @@ async function commitFiles(env, { branch, files, message, author, expectedHead }
     body: JSON.stringify({ sha: commit.sha, force: false }),
   });
 
-  return commit.sha;
+  // `parent` is what this went on top of. An upload does not check that the
+  // admin's copy is current, and if the admin then took the new commit as
+  // its own it would think it was up to date - and its next Save would write
+  // an old copy of the content over whatever someone else had saved in
+  // between. The admin moves forward only when `parent` is what it had.
+  return { sha: commit.sha, parent: head };
 }
 
 // ------------------------------------------------------------ handlers
@@ -314,7 +319,7 @@ async function handleSave(request, env, user) {
     });
   }
 
-  const sha = await commitFiles(env, {
+  const { sha, parent } = await commitFiles(env, {
     branch: env.DRAFT_BRANCH,
     files: payload,
     message: (message || 'Update content').slice(0, 200) + `\n\nEdited by ${user.email} via /admin`,
@@ -350,14 +355,14 @@ async function handleUpload(request, env, user) {
   // admin shows pictures from the live site, nobody could see it had.
   const free = await freePath(env, path);
 
-  const sha = await commitFiles(env, {
+  const { sha, parent } = await commitFiles(env, {
     branch: env.DRAFT_BRANCH,
     files: [{ path: free, content: contentBase64, encoding: 'base64' }],
     message: `Upload ${free}\n\nUploaded by ${user.email} via /admin`,
     author: user.email,
   });
 
-  return json({ ok: true, commit: sha, path: free, renamed: free !== path });
+  return json({ ok: true, commit: sha, parent, path: free, renamed: free !== path });
 }
 
 async function exists(env, path) {
@@ -409,14 +414,14 @@ async function handleDelete(request, env, user) {
       throw new HttpError(400, `Refusing to delete ${p}`);
     }
   }
-  const sha = await commitFiles(env, {
+  const { sha, parent } = await commitFiles(env, {
     branch: env.DRAFT_BRANCH,
     files: paths.map((path) => ({ path, remove: true })),
     message: `Delete ${paths.length} unused file${paths.length === 1 ? '' : 's'}\n\n`
       + paths.join('\n') + `\n\nDeleted by ${user.email} via /admin`,
     author: user.email,
   });
-  return json({ ok: true, commit: sha, deleted: paths.length });
+  return json({ ok: true, commit: sha, parent, deleted: paths.length });
 }
 
 /* A video's poster, fetched from YouTube and committed next to the others.
@@ -447,7 +452,7 @@ async function handlePoster(request, env, user) {
       bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
     }
     const path = `img/video/${yt}.${ext}`;
-    const sha = await commitFiles(env, {
+    const { sha, parent } = await commitFiles(env, {
       branch: env.DRAFT_BRANCH,
       files: [{ path, content: btoa(bin), encoding: 'base64' }],
       message: `Poster for ${yt} from YouTube
@@ -455,9 +460,51 @@ async function handlePoster(request, env, user) {
 Fetched by ${user.email} via /admin`,
       author: user.email,
     });
-    return json({ ok: true, commit: sha, path });
+    return json({ ok: true, commit: sha, parent, path });
   }
   throw new HttpError(404, 'YouTube has no thumbnail for that ID', 'Check the ID, or upload a poster by hand.');
+}
+
+/* One media file straight from the draft branch.
+
+   The admin shows pictures by their site path, and the site only has a file
+   once a Publish has been built and deployed - so a picture uploaded a
+   minute ago was a broken image in every card and in the preview until
+   then. When a picture fails to load, the admin asks here instead, and gets
+   the bytes the upload committed. Media folders only; nothing else in the
+   repository is readable through this. */
+const RAW_TYPES = {
+  webp: 'image/webp', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+  gif: 'image/gif', avif: 'image/avif', svg: 'image/svg+xml',
+  mp3: 'audio/mpeg', m4a: 'audio/mp4', mp4: 'video/mp4', webm: 'video/webm',
+};
+
+async function handleRaw(url, env) {
+  const path = url.searchParams.get('path') || '';
+  const ext = (path.split('.').pop() || '').toLowerCase();
+  if (!/^(img|audio|video)\/[^?#]+$/.test(path) || path.split('/').includes('..') || !RAW_TYPES[ext]) {
+    throw new HttpError(400, 'Not a media path');
+  }
+  const res = await fetch(
+    `https://api.github.com${repo(env)}/contents/${path.split('/').map(encodeURIComponent).join('/')}?ref=${env.DRAFT_BRANCH}`,
+    { headers: {
+      Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+      Accept: 'application/vnd.github.raw',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'User-Agent': 'tony-site-admin',
+    } },
+  );
+  if (res.status === 404) throw new HttpError(404, `${path} is not on the draft branch`);
+  if (!res.ok) throw new HttpError(502, `GitHub ${res.status} reading ${path}`);
+  return new Response(res.body, {
+    headers: {
+      'Content-Type': RAW_TYPES[ext],
+      // an svg is still markup; never let it run as a page of its own
+      'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'private, max-age=300',
+    },
+  });
 }
 
 async function handleStatus(env, user) {
@@ -559,6 +606,7 @@ export default {
       if (request.method === 'POST' && path === '/publish') return await handlePublish(env, user);
       if (request.method === 'POST' && path === '/poster') return await handlePoster(request, env, user);
       if (request.method === 'GET' && path === '/files') return await handleFiles(env);
+      if (request.method === 'GET' && path === '/raw') return await handleRaw(url, env);
       if (request.method === 'POST' && path === '/delete') return await handleDelete(request, env, user);
 
       throw new HttpError(404, `No admin route for ${request.method} ${path}`);

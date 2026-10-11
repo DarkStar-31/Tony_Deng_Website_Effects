@@ -66,7 +66,8 @@
         },
         {
           "id": "recording-03",
-          "src": "img/placeholder/ring-03.webp"
+          "src": "img/placeholder/ring-03.webp",
+          "post": "entry-6"
         },
         {
           "id": "recording-04",
@@ -88,23 +89,28 @@
         },
         {
           "id": "recording-05",
-          "src": "img/placeholder/ring-05.webp"
+          "src": "img/placeholder/ring-05.webp",
+          "post": "entry-3"
         },
         {
           "id": "recording-06",
-          "src": "img/placeholder/ring-06.webp"
+          "src": "img/placeholder/ring-06.webp",
+          "post": "entry-5"
         },
         {
           "id": "recording-07",
-          "src": "img/placeholder/ring-07.webp"
+          "src": "img/placeholder/ring-07.webp",
+          "post": "entry-2"
         },
         {
           "id": "recording-08",
-          "src": "img/placeholder/ring-08.webp"
+          "src": "img/placeholder/ring-08.webp",
+          "post": "entry-4"
         },
         {
           "id": "recording-09",
-          "src": "img/placeholder/ring-09.webp"
+          "src": "img/placeholder/ring-09.webp",
+          "post": "entry-1"
         }
       ]
     },
@@ -211,7 +217,6 @@
       "bv": "",
       "poster": "img/video/Z-EP0Qwl2xw.webp",
       "feature": false,
-      "size": "s",
       "tags": []
     },
     {
@@ -220,7 +225,6 @@
       "bv": "",
       "poster": "img/video/NwpjbcHqua4.webp",
       "feature": false,
-      "size": "s",
       "tags": []
     },
     {
@@ -229,7 +233,6 @@
       "bv": "",
       "poster": "img/video/4BrMzNiupXQ.webp",
       "feature": false,
-      "size": "s",
       "tags": []
     },
     {
@@ -238,7 +241,6 @@
       "bv": "",
       "poster": "img/video/R5OQh-loln4.webp",
       "feature": false,
-      "size": "m",
       "tags": []
     },
     {
@@ -247,7 +249,6 @@
       "bv": "",
       "poster": "img/video/_KBXlZYRx8E.webp",
       "feature": false,
-      "size": "m",
       "tags": []
     },
     {
@@ -256,7 +257,6 @@
       "bv": "",
       "poster": "img/video/VeyHXexUB8Y.webp",
       "feature": false,
-      "size": "s",
       "tags": []
     },
     {
@@ -265,7 +265,6 @@
       "bv": "",
       "poster": "img/video/xOxKN4OKFsw.webp",
       "feature": false,
-      "size": "s",
       "tags": []
     },
     {
@@ -274,7 +273,6 @@
       "bv": "",
       "poster": "img/video/VSP5IlXHq8E.webp",
       "feature": false,
-      "size": "s",
       "tags": []
     },
     {
@@ -283,7 +281,6 @@
       "bv": "",
       "poster": "img/video/foud-nkltS8.webp",
       "feature": false,
-      "size": "m",
       "tags": []
     },
     {
@@ -292,7 +289,6 @@
       "bv": "",
       "poster": "img/video/f55cIm9AYd4.webp",
       "feature": false,
-      "size": "m",
       "tags": []
     },
     {
@@ -301,7 +297,6 @@
       "bv": "",
       "poster": "img/video/CiVWFo4Mlbg.webp",
       "feature": false,
-      "size": "m",
       "tags": []
     },
     {
@@ -310,45 +305,15 @@
       "bv": "",
       "poster": "img/video/5qcaCLkbfys.webp",
       "feature": false,
-      "size": "m",
       "tags": []
     }
   ],
   "$visualsOrder": "The one grid under the title video on Visuals, photos and videos together, in this order. Entries are photo:<id> or video:<id>. Anything left out is added at the end; a video with `feature` is the big one above the grid and is not listed here. Videos take `size` s, m or l (VIDEO_SPANS in build.py).",
-  "visualsOrder": [
-    "photo:photo-01",
-    "photo:photo-02",
-    "photo:photo-03",
-    "photo:photo-04",
-    "video:look-in-the-mirror",
-    "video:her",
-    "video:i-do",
-    "photo:photo-05",
-    "photo:photo-06",
-    "video:its-raining",
-    "video:curiosity",
-    "photo:photo-07",
-    "photo:photo-08",
-    "photo:photo-09",
-    "photo:photo-10",
-    "video:if-its-true",
-    "video:time-will-speak",
-    "video:saturn-diary",
-    "video:how-it-feels-like",
-    "video:oh-mother",
-    "photo:photo-13",
-    "photo:photo-14",
-    "photo:photo-15",
-    "video:one-day",
-    "video:be-mine"
-  ],
   "$photos": "The Photos grid on the Visuals page, in order. `shape` (square, portrait, tall, landscape, wide, panorama) and `size` (s, m, l) pick the slot in build.py's PHOTO_SPANS; the picture is cropped to fill it. `tag` is one of the keys in each locale's photoTags. A photo whose locale entry has a `desc` opens into the detail view when clicked; one without stays a still picture.",
   "photos": [
     {
       "id": "photo-01",
       "src": "img/placeholder/photo-01.webp",
-      "shape": "portrait",
-      "size": "l",
       "album": [
         {
           "id": "a1",
@@ -373,95 +338,95 @@
       ],
       "tags": [
         "portrait"
-      ]
+      ],
+      "ar": 0.75,
+      "ratio": "orig"
     },
     {
       "id": "photo-02",
       "src": "img/placeholder/photo-02.webp",
-      "shape": "landscape",
-      "size": "m",
       "tags": [
         "studio"
-      ]
+      ],
+      "ar": 1.4993,
+      "ratio": "orig"
     },
     {
       "id": "photo-03",
       "src": "img/placeholder/photo-03.webp",
-      "shape": "portrait",
-      "size": "s",
       "tags": [
         "portrait"
-      ]
+      ],
+      "ar": 0.75,
+      "ratio": "orig"
     },
     {
       "id": "photo-04",
       "src": "img/placeholder/photo-04.webp",
-      "shape": "portrait",
-      "size": "s",
       "tags": [
         "live"
-      ]
+      ],
+      "ar": 0.75,
+      "ratio": "orig"
     },
     {
       "id": "photo-05",
       "src": "img/placeholder/photo-05.webp",
-      "shape": "wide",
-      "size": "m",
       "tags": [
         "studio"
-      ]
+      ],
+      "ar": 2.0,
+      "ratio": "orig"
     },
     {
       "id": "photo-06",
       "src": "img/placeholder/photo-06.webp",
-      "shape": "square",
-      "size": "m",
       "tags": [
         "press"
-      ]
+      ],
+      "ar": 1.0,
+      "ratio": "orig"
     },
     {
       "id": "photo-07",
       "src": "img/placeholder/photo-07.webp",
-      "shape": "tall",
-      "size": "m",
       "tags": [
         "portrait"
-      ]
+      ],
+      "ar": 0.667,
+      "ratio": "orig"
     },
     {
       "id": "photo-08",
       "src": "img/placeholder/photo-08.webp",
-      "shape": "square",
-      "size": "l",
       "tags": [
         "live"
-      ]
+      ],
+      "ar": 1.0,
+      "ratio": "orig"
     },
     {
       "id": "photo-09",
       "src": "img/placeholder/photo-09.webp",
-      "shape": "tall",
-      "size": "s",
       "tags": [
         "studio"
-      ]
+      ],
+      "ar": 0.667,
+      "ratio": "orig"
     },
     {
       "id": "photo-10",
       "src": "img/photos/a009.webp",
-      "shape": "portrait",
-      "size": "s",
       "tags": [
         "press",
         "portrait"
-      ]
+      ],
+      "ar": 0.7496,
+      "ratio": "orig"
     },
     {
       "id": "photo-13",
       "src": "img/photos/b004.webp",
-      "shape": "portrait",
-      "size": "s",
       "tags": [
         "studio"
       ],
@@ -471,22 +436,22 @@
           "id": "a1",
           "src": "img/photos/b003.webp"
         }
-      ]
+      ],
+      "ar": 0.75,
+      "ratio": "orig"
     },
     {
       "id": "photo-14",
       "src": "img/photos/b002.webp",
-      "shape": "portrait",
-      "size": "s",
       "tags": [
         "portrait"
-      ]
+      ],
+      "ar": 0.7496,
+      "ratio": "orig"
     },
     {
       "id": "photo-15",
       "src": "img/photos/9c6d1653-7bb0-4140-92a1-fe23cd7e16f1.webp",
-      "shape": "portrait",
-      "size": "s",
       "tags": [
         "press"
       ],
@@ -496,7 +461,9 @@
           "id": "a2",
           "src": "img/photos/12_726e607f-7bd5-43f0-aedb-3c4b4c883315_--2.webp"
         }
-      ]
+      ],
+      "ar": 0.75,
+      "ratio": "orig"
     }
   ],
   "milestones": [
@@ -734,5 +701,52 @@
         "press"
       ]
     }
+  ],
+  "visualsRows": [
+    [
+      "photo:photo-01",
+      "photo:photo-02",
+      "photo:photo-03"
+    ],
+    [
+      "photo:photo-04",
+      "video:look-in-the-mirror"
+    ],
+    [
+      "video:her",
+      "video:i-do"
+    ],
+    [
+      "photo:photo-05",
+      "photo:photo-06"
+    ],
+    [
+      "video:its-raining",
+      "video:curiosity"
+    ],
+    [
+      "photo:photo-07",
+      "photo:photo-08",
+      "photo:photo-09",
+      "photo:photo-10"
+    ],
+    [
+      "video:if-its-true",
+      "video:time-will-speak"
+    ],
+    [
+      "video:saturn-diary",
+      "video:how-it-feels-like"
+    ],
+    [
+      "video:oh-mother",
+      "photo:photo-13",
+      "photo:photo-14"
+    ],
+    [
+      "photo:photo-15",
+      "video:one-day",
+      "video:be-mine"
+    ]
   ]
 }

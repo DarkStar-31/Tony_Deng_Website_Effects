@@ -575,7 +575,7 @@ const UI_STRINGS = {
   // ----------------------------------------------------------- image cards
 
   // ----------------------------------------------------------- long notes
-  'Uploads commit to the draft branch straight away, so a new picture is on the preview URL immediately — but it will 404 in this admin until you publish, because this page loads previews from the live site.':
+  'Uploads commit to the draft branch straight away. The live site shows a new picture once you publish; until then this admin fetches it from the draft.':
     '上传会立即提交到草稿分支，所以新图片马上就能在预览地址上看到 — 但在发布之前，它在后台里会显示 404，因为本页的预览图是从线上站点加载的。',
   'Optional. Write something and the picture opens into a card with this text when it is clicked; leave it empty and it stays a still picture. A blank line starts a new paragraph.':
     '可不填。填写后，点击图片会展开成带这段文字的卡片；留空则保持为静止图片。空一行即另起一段。',
@@ -646,6 +646,44 @@ const UI_STRINGS = {
   'None — the picture keeps its own words': '不连接——图片使用自己的文字',
   'unpublished': '未发布',
   'Opens a journal post': '打开一篇日志',
+  'Show the date on the site (it still sets the order either way)': '在网站上显示日期（无论是否显示，排序仍按日期）',
+  // ------------------------------------------- arranging Visuals (10-11)
+  'Click to select · Shift/Ctrl-click for more · drag to move · double-click to crop':
+    '点击选择 · Shift/Ctrl 点击多选 · 拖动移动 · 双击裁剪',
+  '{n} selected': '已选 {n} 张',
+  '− Smaller': '− 变小',
+  '+ Bigger': '+ 变大',
+  'Stack': '叠放',
+  'Own row': '单独一行',
+  'Crop…': '裁剪…',
+  'Fit one more picture into its row': '让这一行多放一张图片',
+  'Take a picture out of its row (or out of its stack)': '从这一行（或叠放里）移出一张图片',
+  'Put the selected pictures one above the other in one column': '把选中的图片上下叠成一列',
+  'Give the selection a row to itself': '让选中的图片单独占一行',
+  'Change the shape of this photo': '更改这张照片的比例',
+  'Clear the selection': '取消选择',
+  'That already has the row to itself.': '它已经单独占一行了。',
+  'There is nothing else to share the row with.': '没有别的图片可以放进这一行。',
+  'Select two or more pictures to stack them.': '选择两张或更多图片才能叠放。',
+  'Videos are always 16:9.': '视频总是 16:9。',
+  'Crop': '裁剪',
+  'Original': '原始比例',
+  'Zoom': '缩放',
+  'Drag the picture to choose what stays in view. Original keeps the whole photo.':
+    '拖动图片选择显示的部分。原始比例会显示整张照片。',
+  'Reset': '重置',
+  'Cancel': '取消',
+  'Done': '完成',
+  'Arrangement': '排列',
+  'Arrange the grid in the preview on the left. Every row fills the page from margin to margin, and a picture is bigger the fewer pictures share its row. Click to select, Shift/Ctrl-click for more, drag to move (the pink line shows where it lands), double-click a photo to crop it. New uploads go at the end.':
+    '在左边的预览里排列网格。每一行都从左边距铺到右边距，一行里的图片越少，图片就越大。点击选择，Shift/Ctrl 点击多选，拖动移动（粉色线显示会放到哪里），双击照片裁剪。新上传的图片会放在最后。',
+  'Forget the arrangement and lay everything out automatically, in the current order?':
+    '放弃现在的排列，按当前顺序自动排版？',
+  'Reset to the automatic layout': '恢复自动排版',
+  'Original shows the whole photo. Its size on the page comes from its row - arrange it in the preview.':
+    '原始比例显示整张照片。它在页面上的大小取决于所在的那一行——在预览里排列。',
+  'Edit crop…': '编辑裁剪…',
+  'Remove this video? It disappears from both languages.': '删除这个视频？中英文页面都会删除。',
   'The card shows the post’s date, title, opening words and pictures, with a button to read the rest. An unpublished post, or one with no title in a language yet, is skipped there.':
     '卡片显示这篇日志的日期、标题、开头和图片，并有一个按钮阅读全文。未发布的日志，或某个语言还没有标题的日志，在那个语言里不会显示。',
   'Pick a post and this picture opens into it.': '选一篇日志，点这张图片就会打开它。',

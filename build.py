@@ -644,37 +644,101 @@ def render_press(loc: dict, shared: dict) -> list[str]:
     return out
 
 
-# The Photos grid is twelve columns whose rows are as tall as a column is
-# wide, so a span of (columns, rows) is also the picture's shape. Each shape
-# comes in three sizes; the placeholders in img/placeholder/ are cut to these.
-PHOTO_SPANS = {
-    "square":    {"s": (3, 3), "m": (4, 4), "l": (6, 6)},
-    "portrait":  {"s": (3, 4), "m": (4, 5), "l": (6, 8)},
-    "tall":      {"s": (2, 3), "m": (4, 6), "l": (6, 9)},
-    "landscape": {"s": (3, 2), "m": (6, 4), "l": (9, 6)},
-    "wide":      {"s": (4, 2), "m": (8, 4), "l": (12, 6)},
-    "panorama":  {"s": (6, 2), "m": (9, 3), "l": (12, 4)},
-}
-# A photo with no size of its own (the admin's "Auto", which is what a new
-# upload gets) takes one from this rhythm by its place in shared["photos"]:
-# mostly small, a medium now and then, one large in every eight - the mix
-# the grid packs best with, so nobody has to hand-tune it. A size set by
-# hand always wins. AUTO_SIZES in admin/admin.js must match.
-AUTO_SIZES = ("m", "s", "s", "l", "s", "m", "s", "s")
+# The Visuals grid is rows of pictures, each row stretched to exactly the
+# width of the page. Every picture keeps its own proportions and every
+# picture in a row is the same height, so a row can neither leave a gap nor
+# run past the margin - which a twelve-column grid with a handful of fixed
+# shapes could not promise once real photos, in real proportions, arrived.
+#
+# How big a picture is follows from how many share its row: four in a row
+# are small, two are large. A row can also hold a stack - two or more
+# pictures one above the other in a single column - which is how one picture
+# gets to be bigger than its neighbours without leaving a hole.
+#
+# The shape (shared.json):
+#
+#   "visualsRows": [ ["photo:a", "video:b", ["photo:c", "photo:d"]], ... ]
+#
+# A string is one picture; a list is a stack. Anything the rows do not
+# mention (a fresh upload, a new video) is laid out after them
+# automatically, so adding something never needs a layout decision.
+#
+# A photo's proportions are its crop: `ratio` is "orig" (the file's own,
+# which is `ar`, width / height, measured at upload) or one of RATIOS.
+# `focus` is where the crop centres, [x%, y%], and `zoom` how far it is
+# pulled in (1-3). The admin's preview rail is the editor for all of it.
+
+RATIOS = ("1:1", "4:5", "3:4", "2:3", "9:16", "5:4", "4:3", "3:2", "16:9", "2:1", "3:1")
+# what a photo from before crops existed looks like: its old shape
+SHAPE_RATIO = {"square": "1:1", "portrait": "4:5", "tall": "2:3",
+               "landscape": "3:2", "wide": "2:1", "panorama": "3:1"}
+VIDEO_AR = 16 / 9
+# The automatic layout aims for rows whose proportions add up to this: three
+# landscapes, four portraits. ROW_TARGET in admin/arrange.js must match.
+ROW_TARGET = 3.2
 
 
-def photo_size(shared: dict, ph: dict) -> str:
-    size = ph.get("size")
-    if size in ("s", "m", "l"):
-        return size
-    k = next((i for i, other in enumerate(shared.get("photos", [])) if other is ph), 0)
-    return AUTO_SIZES[k % len(AUTO_SIZES)]
+def photo_ar(ph: dict) -> float:
+    """Width over height of a photo as the grid shows it."""
+    ratio = ph.get("ratio") or SHAPE_RATIO.get(ph.get("shape", ""), "orig")
+    if ratio != "orig":
+        if ratio not in RATIOS:
+            raise SystemExit(f'photo {ph.get("id")}: ratio {ratio!r} is not "orig" or one of {", ".join(RATIOS)}')
+        w, h = ratio.split(":")
+        return int(w) / int(h)
+    try:
+        ar = float(ph.get("ar", 1))
+    except (TypeError, ValueError):
+        ar = 1.0
+    # a sliver of a panorama, or a broken number, should not flatten a row
+    return min(4.0, max(0.25, ar)) if ar > 0 else 1.0
 
 
-# Video tiles in the same grid. 2:1 is the nearest whole-number fit to 16:9;
-# the poster is cropped by a sliver top and bottom. When one is played it
-# takes the whole row (see .photo.is-playing in the stylesheet).
-VIDEO_SPANS = {"s": (4, 2), "m": (6, 3), "l": (8, 4)}
+def crop_style(ph: dict) -> str:
+    """--fx/--fy (where the crop centres) and --z (zoom), only when set."""
+    out = []
+    focus = ph.get("focus")
+    if isinstance(focus, list) and len(focus) == 2:
+        fx, fy = (min(100.0, max(0.0, float(v))) for v in focus)
+        if (fx, fy) != (50.0, 50.0):
+            out.append(f"--fx:{fx:g}%;--fy:{fy:g}%")
+    zoom = ph.get("zoom")
+    if isinstance(zoom, (int, float)) and not isinstance(zoom, bool) and zoom != 1:
+        out.append(f"--z:{min(3.0, max(1.0, float(zoom))):g}")
+    return ";".join(out)
+
+
+def auto_rows(units: list) -> list[list]:
+    """Units (each a list of (kind, item) one above the other) into rows,
+    greedily: keep adding to a row while that brings its proportions closer
+    to ROW_TARGET. Mirrors autoRows in admin/arrange.js."""
+    rows, row, total = [], [], 0.0
+    for u in units:
+        ar = unit_ar(u)
+        if row and abs(total + ar - ROW_TARGET) > abs(total - ROW_TARGET):
+            rows.append(row)
+            row, total = [], 0.0
+        row.append(u)
+        total += ar
+    if row:
+        # a short last row would be a few pictures blown up to the full
+        # width; it joins the row before instead
+        if rows and total < ROW_TARGET * 0.6:
+            rows[-1] += row
+        else:
+            rows.append(row)
+    return rows
+
+
+def item_ar(kind: str, item: dict) -> float:
+    return VIDEO_AR if kind == "video" else photo_ar(item)
+
+
+def unit_ar(unit: list) -> float:
+    """A stack of pictures one above the other, as wide as it is, is as
+    tall as all of them together: its proportions are 1 / sum(1 / ar)."""
+    return 1 / sum(1 / item_ar(k, it) for k, it in unit)
+
 
 # How many pieces of the Visuals grid show before "Load more". The rest are
 # on the page from the start - images are lazy, so they cost nothing until
@@ -1000,23 +1064,69 @@ def plays_here(loc: dict | None, v: dict) -> bool:
     return bool(v.get("bv"))
 
 
-def visuals_order(shared: dict, loc: dict | None = None) -> list[tuple[str, dict]]:
-    """Every photo and grid video, in shared["visualsOrder"] order. Anything
-    the order does not mention is added at the end, so a newly added photo
-    or video still shows up; a reference to something deleted is skipped.
-    Given a locale, videos that cannot play on that page are dropped."""
+def visuals_layout(shared: dict, loc: dict | None = None) -> list[list[list[tuple[str, dict]]]]:
+    """The grid as rows of units, a unit being one picture or a stack of
+    them: shared["visualsRows"], then everything it does not mention laid
+    out automatically after it (in the old visualsOrder order, then the
+    rest). A reference to something deleted is skipped, a stack left with
+    one picture is just that picture, and a row left empty goes. Given a
+    locale, videos that cannot play on that page are dropped first - the
+    row they were in closes up, since every row is justified anyway."""
     photos = {ph["id"]: ph for ph in shared.get("photos", [])}
-    videos = {v["id"]: v for v in shared["videos"] if not v.get("feature") and plays_here(loc, v)}
-    seen, out = set(), []
-    for ref in shared.get("visualsOrder", []):
+    videos = {v["id"]: v for v in shared["videos"] if not v.get("feature")}
+    seen: set[str] = set()
+
+    def take(ref):
+        if not isinstance(ref, str) or ref in seen:
+            return None
         kind, _, key = ref.partition(":")
         pool = photos if kind == "photo" else videos if kind == "video" else {}
-        if key in pool and ref not in seen:
-            seen.add(ref)
-            out.append((kind, pool[key]))
-    out += [("photo", ph) for k, ph in photos.items() if f"photo:{k}" not in seen]
-    out += [("video", v) for k, v in videos.items() if f"video:{k}" not in seen]
-    return out
+        if key not in pool:
+            return None
+        seen.add(ref)
+        if kind == "video" and not plays_here(loc, pool[key]):
+            return None
+        return (kind, pool[key])
+
+    # A row that lost a picture here (a video with no Bilibili id, on the
+    # Chinese page) is no longer the row anyone arranged - one portrait left
+    # alone would fill the width of the page. Runs of those are pooled and
+    # laid out afresh; rows that lost nothing stay exactly as arranged.
+    rows, pool = [], []
+    for row in shared.get("visualsRows", []):
+        units, lost = [], False
+        for unit in row if isinstance(row, list) else []:
+            refs = unit if isinstance(unit, list) else [unit]
+            parts = [x for x in map(take, refs) if x]
+            lost = lost or len(parts) < len(refs)
+            if parts:
+                units.append(parts)
+        if lost:
+            pool += units
+            continue
+        if pool:
+            # too little to make a row of its own: it joins this one
+            if sum(map(unit_ar, pool)) < ROW_TARGET * 0.6 and units:
+                units = pool + units
+            else:
+                rows += auto_rows(pool)
+            pool = []
+        if units:
+            rows.append(units)
+    if pool:
+        if rows and sum(map(unit_ar, pool)) < ROW_TARGET * 0.6:
+            rows[-1] += pool
+        else:
+            rows += auto_rows(pool)
+    rest = [f"photo:{k}" for k in photos] + [f"video:{k}" for k in videos]
+    order = [r for r in shared.get("visualsOrder", []) if r in rest] + rest
+    left = [x for x in map(take, order) if x]
+    return rows + auto_rows([[x] for x in left])
+
+
+def visuals_pieces(shared: dict, loc: dict | None = None) -> list[tuple[str, dict]]:
+    """Every photo and grid video on the page, in reading order."""
+    return [x for row in visuals_layout(shared, loc) for unit in row for x in unit]
 
 
 def item_tags(item: dict) -> list[str]:
@@ -1057,7 +1167,7 @@ def render_visuals_filter(loc: dict, shared: dict) -> list[str]:
     f = loc.get("visualsFilter")
     if not f:
         return []
-    pieces = visuals_order(shared, loc)
+    pieces = visuals_pieces(shared, loc)
     counts = {"photo": 0, "video": 0}
     used: set[str] = set()
     for kind, item in pieces:
@@ -1122,93 +1232,109 @@ def search_text(*parts: str) -> str:
 
 
 def render_visuals_grid(loc: dict, shared: dict) -> list[str]:
-    """Visuals: photos and videos together in one packed grid, under the
-    title video. Photos can open into the detail view; videos play in place.
+    """Visuals: photos and videos together, in rows that each fill the
+    width of the page (see visuals_layout). Photos can open into the detail
+    view; videos play in place.
 
-    Each cell carries `data-kind` so the filter can pick it out, and
-    `data-ar` - the shape's own width-over-height - so the packer in
-    main.js can re-cut the spans for whatever subset is showing without
-    having to know anything about PHOTO_SPANS. Every tile is
-    `object-fit:cover`, so a re-cut span changes the crop and never the
-    proportions of what is in the picture."""
-    p = loc["assetPrefix"]
-    tags = loc["photoTags"]
+    Every picture carries `--ar`, its width over height, and the stylesheet
+    does the rest: in a row each takes a share of the width in proportion
+    to it, which makes them all the same height. When the filter is on, or
+    the screen is narrow, the rows let go and the pictures flow into fresh
+    ones of their own (VisualsFilter, and .gallery.is-flat)."""
     out = [
         "",
         '  <div class="gallery-wrap">',
         '    <div class="gallery">',
     ]
     page = visuals_page(shared)
-    pieces = visuals_order(shared, loc)
-    for n, (kind, ph) in enumerate(pieces):
-        # past the first page: hidden by the stylesheet only once JS is
-        # running, so with JS off the whole grid is simply there
+    rows = visuals_layout(shared, loc)
+    n = 0
+    total = sum(len(u) for row in rows for u in row)
+    for row in rows:
+        # past the first page, whole rows at a time: hidden by the
+        # stylesheet only once JS is running, so with JS off the whole
+        # grid is simply there
         later = " data-later" if n >= page else ""
-        mine = item_tags(ph)
-        later += f' data-tags="{attr(" ".join(mine))}"' if mine else ""
-        names = [tags.get(t, "") for t in mine]
-        if kind == "video":
-            vw = loc["videos"].get(ph["id"], {})
-            later += f' data-text="{attr(search_text(vw.get("title", ""), vw.get("sub", ""), *names))}"'
-            cols, rows = VIDEO_SPANS[ph.get("size", "s")]
-            out.append(
-                f'      <div class="photo photo--video reveal" data-kind="video"{later}'
-                f' data-ar="{cols / rows:.4f}" style="--c:{cols};--r:{rows}">'
-            )
-            # the tile's own reveal would double up with its cell's
-            out += [l.replace('class="vid reveal"', 'class="vid"') for l in render_video_tile(loc, ph, 8, False)]
-            out.append("      </div>")
-            continue
-        c = loc["photos"].get(ph["id"], {})
-        cols, rows = PHOTO_SPANS.get(ph.get("shape"), PHOTO_SPANS["square"])[photo_size(shared, ph)]
-        caption = c.get("caption", "")
-        # the tile's small label is its first tag
-        tag = names[0] if names else ""
-        desc = c.get("desc", "").strip()
-        later += f' data-text="{attr(search_text(caption, *names))}"'
-        # An album: one tile, several pictures. It opens into the same
-        # gallery a diary entry uses - the tile's own picture first - so
-        # stepping, swiping and "+N" all come from one place (entry_parts).
-        album = [a for a in ph.get("album", []) if a.get("src")]
-        later += f' data-album="{len(album) + 1}"' if album else ""
-        out += [
-            f'      <figure class="photo reveal" data-kind="photo"{later}'
-            f' data-ar="{cols / rows:.4f}" style="--c:{cols};--r:{rows}">',
-            f'        <img src="{p}{ph["src"]}" alt="{attr(plain(caption))}" loading="lazy" decoding="async">',
-            '        <figcaption class="photo__cap">',
-        ]
-        if tag:
-            out.append(f'          <span class="photo__tag">{tag}</span>')
-        out += [f'          <span class="photo__title">{caption}</span>', "        </figcaption>"]
-        if album or opens_into_lens(ph, desc):
-            tid = f'lens-{ph["id"]}'
-            label = f'{loc["lens"]["open"]}: {plain(caption)}'
-            if album:
-                label += f' ({count_word(loc, "photo", len(album) + 1)})'
-            badge = (f'<span class="photo__badge photo__badge--album" aria-hidden="true">'
-                     f'{ALBUM_SVG}{len(album) + 1}</span>' if album
-                     else '<span class="photo__badge" aria-hidden="true">+</span>')
-            out += [
-                f'        <button class="photo__open" type="button" data-lens="{attr(tid)}"'
-                f' aria-haspopup="dialog" aria-label="{attr(label)}">',
-                f'          {badge}',
-                "        </button>",
-            ]
-            entry = None
-            if album:
-                media = [{"id": a.get("id", f"a{i}"), "type": "image", "src": a["src"]}
-                         for i, a in enumerate(album, 1)]
-                entry = entry_parts(loc, shared, {"id": ph["id"], "src": ph["src"], "media": media}, {})
-            out += ["        " + l for l in lens_template(tid, tag, caption, desc, entry)]
-        out.append("      </figure>")
+        out.append(f'      <div class="vrow"{later}>')
+        for unit in row:
+            if len(unit) > 1:
+                out.append(f'        <div class="vstack" style="--ar:{unit_ar(unit):.4f}">')
+                for kind, item in unit:
+                    out += ["  " + l for l in render_visuals_cell(loc, shared, kind, item)]
+                out.append("        </div>")
+            else:
+                out += render_visuals_cell(loc, shared, *unit[0])
+            n += len(unit)
+        out.append("      </div>")
     out += ["    </div>"]
-    if len(pieces) > page:
+    if total > page:
         out += [
             f'    <p class="more" data-page="{page}">',
             f'      <button class="more__btn" type="button">{loc.get("loadMore", "Load more")}</button>',
             "    </p>",
         ]
     out += ["  </div>"]
+    return out
+
+
+def render_visuals_cell(loc: dict, shared: dict, kind: str, ph: dict) -> list[str]:
+    """One picture in the grid, eight spaces in."""
+    p = loc["assetPrefix"]
+    tags = loc["photoTags"]
+    mine = item_tags(ph)
+    data = f' data-tags="{attr(" ".join(mine))}"' if mine else ""
+    names = [tags.get(t, "") for t in mine]
+    ar = item_ar(kind, ph)
+    out = []
+    if kind == "video":
+        vw = loc["videos"].get(ph["id"], {})
+        data += f' data-text="{attr(search_text(vw.get("title", ""), vw.get("sub", ""), *names))}"'
+        out.append(f'        <div class="photo photo--video reveal" data-kind="video"{data} style="--ar:{ar:.4f}">')
+        # the tile's own reveal would double up with its cell's
+        out += [l.replace('class="vid reveal"', 'class="vid"') for l in render_video_tile(loc, ph, 10, False)]
+        out.append("        </div>")
+        return out
+    c = loc["photos"].get(ph["id"], {})
+    caption = c.get("caption", "")
+    # the tile's small label is its first tag
+    tag = names[0] if names else ""
+    desc = c.get("desc", "").strip()
+    data += f' data-text="{attr(search_text(caption, *names))}"'
+    # An album: one tile, several pictures. It opens into the same
+    # gallery a diary entry uses - the tile's own picture first - so
+    # stepping, swiping and "+N" all come from one place (entry_parts).
+    album = [a for a in ph.get("album", []) if a.get("src")]
+    data += f' data-album="{len(album) + 1}"' if album else ""
+    crop = crop_style(ph)
+    out += [
+        f'        <figure class="photo reveal" data-kind="photo"{data} style="--ar:{ar:.4f}{";" + crop if crop else ""}">',
+        f'          <img src="{p}{ph["src"]}" alt="{attr(plain(caption))}" loading="lazy" decoding="async">',
+        '          <figcaption class="photo__cap">',
+    ]
+    if tag:
+        out.append(f'            <span class="photo__tag">{tag}</span>')
+    out += [f'            <span class="photo__title">{caption}</span>', "          </figcaption>"]
+    if album or opens_into_lens(ph, desc):
+        tid = f'lens-{ph["id"]}'
+        label = f'{loc["lens"]["open"]}: {plain(caption)}'
+        if album:
+            label += f' ({count_word(loc, "photo", len(album) + 1)})'
+        badge = (f'<span class="photo__badge photo__badge--album" aria-hidden="true">'
+                 f'{ALBUM_SVG}{len(album) + 1}</span>' if album
+                 else '<span class="photo__badge" aria-hidden="true">+</span>')
+        out += [
+            f'          <button class="photo__open" type="button" data-lens="{attr(tid)}"'
+            f' aria-haspopup="dialog" aria-label="{attr(label)}">',
+            f'            {badge}',
+            "          </button>",
+        ]
+        entry = None
+        if album:
+            media = [{"id": a.get("id", f"a{i}"), "type": "image", "src": a["src"]}
+                     for i, a in enumerate(album, 1)]
+            entry = entry_parts(loc, shared, {"id": ph["id"], "src": ph["src"], "media": media}, {})
+        out += ["          " + l for l in lens_template(tid, tag, caption, desc, entry)]
+    out.append("        </figure>")
     return out
 
 
@@ -1724,7 +1850,8 @@ def post_lens(loc: dict, shared: dict, tid: str, photo: dict, post: dict) -> lis
     post: the post's date, kind, title and opening words, its pictures and
     clips in the strip, and a way through to the whole post."""
     words = journal_words(loc, post)
-    stand_in = {"id": photo["id"], "src": photo["src"], "date": post.get("date", ""),
+    stand_in = {"id": photo["id"], "src": photo["src"],
+                "date": post.get("date", "") if post.get("showDate") is not False else "",
                 "kind": post.get("kind", ""), "media": post_media(post)}
     top, after, tail = entry_parts(loc, shared, {k: v for k, v in stand_in.items() if v}, {})
     read = loc["journal"].get("readFull") or loc["journal"]["read"]
@@ -2017,21 +2144,27 @@ def song_cover(shared: dict, block: dict) -> str:
     return rel["art"] if rel else ""
 
 
-def journal_meta(loc: dict, post: dict) -> list[str]:
-    """Date and kind, the same as a diary entry's top line."""
-    out = []
-    if post.get("date"):
-        out.append(entry_date(loc, post["date"]))
-    if post.get("kind"):
-        kind = loc["making"]["kinds"].get(post["kind"])
-        if kind:
-            out.append(f'<p class="entry__meta"><span class="entry__kind">{kind}</span></p>')
-    return out
+def journal_kind(loc: dict, post: dict) -> str:
+    """The kind of post ("New song"), the small coloured word over its title."""
+    return loc["making"]["kinds"].get(post.get("kind", ""), "")
+
+
+def journal_date(loc: dict, post: dict) -> str:
+    """The post's date as one small line under its title - or nothing, when
+    the post has none or the admin's "Show the date" is off (`showDate`).
+    The title is what the card leads with; the date is a footnote to it."""
+    iso = post.get("date", "")
+    if not iso or post.get("showDate") is False:
+        return ""
+    entry_date(loc, iso)    # the same check a malformed date gets anywhere else
+    y, mo, d = (int(x) for x in iso.split("-"))
+    day = f"{y}年{mo}月{d}日" if loc["lang"].startswith("zh") else f"{EN_MONTHS[mo - 1]} {d}, {y}"
+    return f'<time class="jdate" datetime="{iso}">{day}</time>'
 
 
 def journal_card(loc: dict, shared: dict, post: dict, extra: str = "") -> list[str]:
-    """One post as a card that links to its page: cover, date and kind,
-    title, opening words. A text-only post gets a card of words rather than
+    """One post as a card that links to its page: cover, kind, title, a
+    small date, opening words. A text-only post gets a card of words rather than
     an empty frame."""
     p = loc["assetPrefix"]
     words = journal_words(loc, post)
@@ -2042,8 +2175,12 @@ def journal_card(loc: dict, shared: dict, post: dict, extra: str = "") -> list[s
     if cover:
         out.append(f'  <span class="jcard__pic"><img src="{p}{attr(cover)}" alt="" loading="lazy" decoding="async"></span>')
     out.append('  <span class="jcard__body">')
-    out += ["    " + l.replace("<p ", "<span ").replace("</p>", "</span>") for l in journal_meta(loc, post)]
+    kind, date = journal_kind(loc, post), journal_date(loc, post)
+    if kind:
+        out.append(f'    <span class="jcard__kind">{kind}</span>')
     out.append(f'    <span class="jcard__title">{words["title"]}</span>')
+    if date:
+        out.append(f"    {date}")
     if excerpt:
         out.append(f'    <span class="jcard__excerpt">{excerpt}</span>')
     out += [
@@ -2149,8 +2286,13 @@ def render_post(loc: dict, shared: dict, post: dict) -> list[str]:
         f'  <p class="post__back"><a href="{PAGE_FILE["press"]}#journal"><span aria-hidden="true">&larr; </span>{j["back"]}</a></p>',
         '  <header class="post__head">',
     ]
-    out += ["    " + l for l in journal_meta(loc, post)]
-    out += [f'    <h1 class="post__title">{words["title"]}</h1>', "  </header>"]
+    kind, date = journal_kind(loc, post), journal_date(loc, post)
+    if kind:
+        out.append(f'    <p class="post__kind">{kind}</p>')
+    out.append(f'    <h1 class="post__title">{words["title"]}</h1>')
+    if date:
+        out.append(f'    <p class="post__date">{date}</p>')
+    out.append("  </header>")
     if post.get("cover"):
         out += ['  <figure class="post__cover">',
                 f'    <img src="{p}{attr(cover)}" alt="" decoding="async">', "  </figure>"]

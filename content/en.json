@@ -510,17 +510,16 @@
       "caption": "Quis nostrud"
     },
     "photo-10": {
-      "caption": "<br>"
+      "caption": ""
     },
     "photo-13": {
-      "caption": "<br>",
-      "desc": "<br>"
+      "caption": ""
     },
     "photo-14": {
-      "caption": "<br>"
+      "caption": ""
     },
     "photo-15": {
-      "caption": "<br>"
+      "caption": ""
     }
   },
   "photoTags": {
@@ -712,8 +711,10 @@
     "playAudio": "Play"
   },
   "journal": {
+    "latest": "Latest",
     "read": "Read",
-    "back": "All journal entries",
+    "readFull": "Read the whole entry",
+    "back": "In the Making",
     "newer": "Newer",
     "older": "Older",
     "pager": "More journal entries",

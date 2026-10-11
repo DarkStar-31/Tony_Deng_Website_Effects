@@ -79,6 +79,22 @@ class Handler(SimpleHTTPRequestHandler):
             if route == "files":
                 return self.files_listing()
 
+            # the Worker reads these from the draft branch; here the working
+            # copy is the draft, so it is the file on disk
+            if route == "raw":
+                from urllib.parse import parse_qs, urlsplit
+                rel = (parse_qs(urlsplit(self.path).query).get("path") or [""])[0]
+                f = (ROOT / rel).resolve()
+                if rel.split("/")[0] not in ("img", "audio", "video") or ROOT.resolve() not in f.parents or not f.is_file():
+                    return self.send_json({"error": f"{rel} not found"}, 404)
+                data = f.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", self.guess_type(str(f)))
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+                return None
+
             if route == "status":
                 return self.send_json({
                     "email": FAKE_USER,

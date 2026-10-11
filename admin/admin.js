@@ -14,6 +14,21 @@
 
 const API = '/api/admin';
 
+/* A picture uploaded since the last Publish is not on the site yet - the
+ * upload is a commit on the draft branch, and the site only has the file
+ * once a Publish has been built and deployed. Shown by its site path, it
+ * was a broken image in its card and in the preview until then. So any
+ * picture that fails to load is asked for once more from the draft branch,
+ * through the Worker. Capture phase, because `error` does not bubble. */
+document.addEventListener('error', (e) => {
+  const img = e.target;
+  if (!(img instanceof HTMLImageElement) || img.dataset.raw) return;
+  const m = (img.getAttribute('src') || '').match(/^\/((?:img|audio|video)\/[^?#]+)$/);
+  if (!m) return;
+  img.dataset.raw = '1';
+  img.src = `${API}/raw?path=${encodeURIComponent(decodeURIComponent(m[1]))}`;
+}, true);
+
 const state = {
   headSha: null,
   files: null,
@@ -72,6 +87,16 @@ function el(tag, props, ...kids) {
     node.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
   }
   return node;
+}
+
+/* After an upload, a poster or a delete, which commit to the draft without
+ * the content: move this admin's idea of the draft forward only if the new
+ * commit went on top of the one it already had. If someone else saved in
+ * between, the old head is kept, so the next Save is refused with "reload
+ * to pick up their changes" instead of quietly writing this tab's older
+ * copy over theirs - which is how a save on 2026-10-11 undid a push. */
+function adoptCommit(res) {
+  if (!res.parent || res.parent === state.headSha) state.headSha = res.commit;
 }
 
 function markDirty() {
@@ -402,7 +427,7 @@ async function uploadInto(dir, original, onDone) {
       method: 'POST',
       body: JSON.stringify({ path: asked, contentBase64: b64 }),
     });
-    state.headSha = res.commit;
+    adoptCommit(res);
     // the server numbers a name that is already taken, so its answer is the path
     const path = res.path || asked;
     if (state.fileList) state.fileList = null;
@@ -644,8 +669,9 @@ function renderVideos() {
     rerender();
   })];
 
-  // newest first, like the photos; the arrows follow the screen (invert)
-  [...shared.videos].reverse().forEach((v) => {
+  // the feature first, then the grid in the order the page shows it
+  const inGrid = arrRefs(shared).filter((r) => r.startsWith('video:')).map((r) => r.slice(6));
+  [...shared.videos].sort((a, b) => (a.feature ? -1 : inGrid.indexOf(a.id)) - (b.feature ? -1 : inGrid.indexOf(b.id))).forEach((v) => {
     const i = shared.videos.indexOf(v);
     const enV = LOC('en').videos[v.id] || (LOC('en').videos[v.id] = { title: '', sub: '' });
     const zhV = LOC('zh').videos[v.id] || (LOC('zh').videos[v.id] = { title: '', sub: '' });
@@ -686,7 +712,7 @@ function renderVideos() {
         toast(T('Getting the poster from YouTube…'));
         try {
           const res = await api('/poster', { method: 'POST', body: JSON.stringify({ yt: v.yt }) });
-          state.headSha = res.commit;
+          adoptCommit(res);
           v.poster = res.path;
           markDirty();
           toast(T('Poster saved as {path}', { path: res.path }), 'good');
@@ -741,7 +767,6 @@ function renderVideos() {
                 'Posters are kept in this repository on purpose. They used to be hot-linked '
                 + 'from i.ytimg.com, which is blocked in mainland China — the Chinese page '
                 + 'showed thirteen broken images. Do not paste a YouTube thumbnail URL here.'),
-          v.feature ? null : field('Size in the grid', choice(v, 'size', PHOTO_SIZES)),
         ),
         v.feature ? null : field('Tags', tagPicker(v, rerender), 'What the Filter panel finds it by.'),
         el('details', {}, el('summary', { className: 'hint' }, T('Language attributes')),
@@ -759,17 +784,19 @@ function renderVideos() {
     out.push(cardFold(
       'video:' + v.id,
       title,
-      listControls(shared.videos, i, rerender, {
-        invert: true,
-        onDelete: (gone) => {
-          delete LOC('en').videos[gone.id];
-          delete LOC('zh').videos[gone.id];
-        },
-      }),
+      el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
+        onclick: () => {
+          if (!confirm(T('Remove this video? It disappears from both languages.'))) return;
+          arrRemove(shared, `video:${v.id}`);
+          shared.videos.splice(shared.videos.indexOf(v), 1);
+          delete LOC('en').videos[v.id];
+          delete LOC('zh').videos[v.id];
+          markDirty();
+          rerender();
+        } }, T('Remove')),
       body,
       v.feature ? 'visuals.feature' : 'visuals.cell.video:' + v.id,
       v.poster,
-      (v.size || 's').toUpperCase(),
     ));
   });
 
@@ -1413,7 +1440,10 @@ function richBox(obj, key, opts = {}) {
   box.innerHTML = obj[key] == null ? '' : String(obj[key]);
 
   box.addEventListener('input', () => {
-    const html = richSerialize(box);
+    // A browser leaves a <br> in a box that has been emptied, so the line
+    // keeps its height; it is not something anyone typed. Kept, it was
+    // saved as the caption and showed up as a literal "<br>" in the cards.
+    const html = richSerialize(box).replace(/(<br>|\s)+$/, '');
     if (!html && opts.dropWhenEmpty) delete obj[key];
     else obj[key] = html;
     if (opts.onChange) opts.onChange(html);
@@ -1868,31 +1898,11 @@ function bilibiliCards() {
  * where it is used, and only there. */
 
 const UPLOAD_NOTE =
-  'Uploads commit to the draft branch straight away, so a new picture is on the preview URL immediately — ' +
-  'but it will 404 in this admin until you publish, because this page loads previews from the live site.';
+  'Uploads commit to the draft branch straight away. The live site shows a new picture once you publish; '
+  + 'until then this admin fetches it from the draft.';
 
 // ---------------------------------------------------------------- photos
 
-/* The shapes build.py's PHOTO_SPANS knows, with the width:height each one is
- * cut to. An uploaded photo is given the nearest one automatically; the
- * picture is cropped to fill its slot, so a close match loses very little. */
-const PHOTO_SHAPES = [
-  ['square', 1, 'Square'], ['portrait', 4 / 5, 'Portrait (4:5)'], ['tall', 2 / 3, 'Tall (2:3)'],
-  ['landscape', 3 / 2, 'Landscape (3:2)'], ['wide', 2, 'Wide (2:1)'], ['panorama', 3, 'Panorama (3:1)'],
-];
-const PHOTO_SIZES = [['s', 'Small'], ['m', 'Medium'], ['l', 'Large']];
-
-/* A photo with no size of its own takes one from this rhythm, by its place
- * in the photo list. Mirrors AUTO_SIZES in build.py - keep them in step. */
-const AUTO_SIZES = ['m', 's', 's', 'l', 's', 'm', 's', 's'];
-function autoSize(shared, ph) {
-  const k = Math.max(0, (shared.photos || []).indexOf(ph));
-  return AUTO_SIZES[k % AUTO_SIZES.length];
-}
-function photoSize(shared, ph) {
-  return ['s', 'm', 'l'].includes(ph.size) ? ph.size : autoSize(shared, ph);
-}
-const SIZE_NAMES = { s: 'Small', m: 'Medium', l: 'Large' };
 
 function choice(obj, key, options, onChange) {
   const node = el('select', {});
@@ -1908,21 +1918,16 @@ function choice(obj, key, options, onChange) {
   return node;
 }
 
-/** The nearest shape to an image file's own proportions. */
-function shapeOf(file) {
+/** An image file's own width over height, which "Original" crops to. */
+function arOf(file) {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
-      const r = img.naturalWidth / img.naturalHeight;
       URL.revokeObjectURL(url);
-      let best = PHOTO_SHAPES[0];
-      for (const s of PHOTO_SHAPES) {
-        if (Math.abs(Math.log(r / s[1])) < Math.abs(Math.log(r / best[1]))) best = s;
-      }
-      resolve(best[0]);
+      resolve(Math.round((img.naturalWidth / img.naturalHeight) * 10000) / 10000 || 1);
     };
-    img.onerror = () => { URL.revokeObjectURL(url); resolve('square'); };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(1); };
     img.src = url;
   });
 }
@@ -2008,56 +2013,39 @@ const DESC_HINT =
   'Optional. Write something and the picture opens into a card with this text when it is clicked; ' +
   'leave it empty and it stays a still picture. A blank line starts a new paragraph.';
 
-/* The Visuals grid's order: photos and videos in one list. build.py adds
- * anything missing from it at the end, so this shows the same fill-in -
- * what you see here is exactly what the page shows. */
-function visualsOrderCard() {
+/* The grid is arranged in the preview rail (admin/arrange.js); this card
+ * says so, and can hand the whole thing back to the automatic layout. */
+function visualsArrangeCard() {
   const shared = SHARED();
-  const rerender = () => renderPanel();
-  const photos = new Map((shared.photos || []).map((p) => [`photo:${p.id}`, p]));
-  const videos = new Map(shared.videos.filter((v) => !v.feature).map((v) => [`video:${v.id}`, v]));
-  const order = (shared.visualsOrder || []).filter((r, i, a) => (photos.has(r) || videos.has(r)) && a.indexOf(r) === i);
-  for (const r of [...photos.keys(), ...videos.keys()]) if (!order.includes(r)) order.push(r);
-
-  const move = (i, to) => {
-    if (to < 0 || to >= order.length) return;
-    const [r] = order.splice(i, 1);
-    order.splice(to, 0, r);
-    shared.visualsOrder = order;
-    markDirty();
-    rerender();
-  };
-  const rows = order.map((ref, i) => {
-    const isPhoto = photos.has(ref);
-    const item = isPhoto ? photos.get(ref) : videos.get(ref);
-    // a photo's title is its caption, a video's its title
-    const words = (l) => (isPhoto
-      ? (LOC(l).photos || (LOC(l).photos = {}))
-      : LOC(l).videos);
-    const key = isPhoto ? 'caption' : 'title';
-    const read = (l) => words(l)[item.id]?.[key] || '';
-    const [a, b] = UI.lang === 'zh' ? ['zh', 'en'] : ['en', 'zh'];
-    const label = plainWords(read(a)) || plainWords(read(b)) || item.id;
-    const shape = isPhoto ? `${item.shape} · ${photoSize(shared, item)}` : `video · ${item.size || 's'}`;
-    return el('div', { style: 'display:flex;align-items:center;gap:10px;padding:5px 0;border-top:1px solid var(--line)' },
-      el('span', { className: 'mono', style: 'width:2.2em;opacity:.6' }, String(i + 1)),
-      el('img', { src: '/' + (isPhoto ? item.src : item.poster), alt: '', loading: 'lazy',
-                  style: 'width:56px;height:36px;object-fit:cover;border-radius:4px' }),
-      el('span', { style: 'flex:1;min-width:0' },
-         titleInPlace(el('span', {}, label), read, (l, text) => {
-           const w = words(l);
-           (w[item.id] || (w[item.id] = {}))[key] = text;
-         }), ' ',
-         el('small', { className: 'hint' }, shape)),
-      el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Earlier'), onclick: () => move(i, i - 1) }, '↑'),
-      el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Later'), onclick: () => move(i, i + 1) }, '↓'));
-  });
-  return card('Grid order', null, el('details', {},
-    el('summary', { className: 'hint' }, T('{n} pieces — open to reorder', { n: order.length })),
+  return card('Arrangement', null, el('div', {},
     el('p', { className: 'hint' },
-      T('Top to bottom here is left-to-right, row by row on the page. The grid fills gaps with later, '
-        + 'smaller pieces, so a big piece followed by several small ones packs best.')),
-    ...rows));
+      T('Arrange the grid in the preview on the left. Every row fills the page from margin to margin, '
+        + 'and a picture is bigger the fewer pictures share its row. Click to select, Shift/Ctrl-click '
+        + 'for more, drag to move (the pink line shows where it lands), double-click a photo to crop it. '
+        + 'New uploads go at the end.')),
+    shared.visualsRows
+      ? el('button', { className: 'btn btn--small btn--ghost', type: 'button', onclick: () => {
+        if (!confirm(T('Forget the arrangement and lay everything out automatically, in the current order?'))) return;
+        const order = arrRefs(shared);
+        delete shared.visualsRows;
+        shared.visualsOrder = order;
+        markDirty();
+        renderPanel();
+      } }, T('Reset to the automatic layout'))
+      : null), 'visuals.grid');
+}
+
+/* A photo's crop, from the photo card: the same choices as the crop
+ * dialog, which also places it and zooms it. */
+function cropChoice(ph, rerender) {
+  const node = el('select', {});
+  ['orig', ...ARR_RATIOS].forEach((r) => {
+    const opt = el('option', { value: r }, r === 'orig' ? T('Original') : r);
+    if ((ph.ratio || 'orig') === r) opt.selected = true;
+    node.append(opt);
+  });
+  node.addEventListener('change', () => { ph.ratio = node.value; delete ph.shape; markDirty(); rerender(); });
+  return node;
 }
 
 // ---------------------------------------------------------------- tags
@@ -2250,9 +2238,8 @@ function renderPhotos() {
     el('div', { style: 'margin-bottom:16px' },
       uploadButton('img/photos', '+ Add a photo', async (path, file) => {
         const id = newId('photo', shared.photos.map((p) => p.id));
-        // no size: the grid gives it one (Auto), so an upload needs no decisions
-        shared.photos.push({ id, src: path, shape: await shapeOf(file), tags: [] });
-        (shared.visualsOrder || (shared.visualsOrder = [])).push(`photo:${id}`);
+        // its own proportions, uncropped: the layout finds it a place at the end
+        shared.photos.push({ id, src: path, ar: await arOf(file), ratio: 'orig', tags: [] });
         LOC('en').photos[id] = { caption: '' };
         LOC('zh').photos[id] = { caption: '' };
         cardOpen.add('photo:' + id);
@@ -2261,14 +2248,14 @@ function renderPhotos() {
       })),
   ];
 
-  // newest first: the list is stored oldest first, and only the view turns round
-  [...shared.photos].reverse().forEach((ph) => {
-    const i = shared.photos.indexOf(ph);
+  // in the order the page shows them, top to bottom
+  const byId = new Map(shared.photos.map((p) => [`photo:${p.id}`, p]));
+  arrRefs(shared).filter((r) => byId.has(r)).map((r) => byId.get(r)).forEach((ph) => {
     const enP = LOC('en').photos[ph.id] || (LOC('en').photos[ph.id] = { caption: '' });
     const zhP = LOC('zh').photos[ph.id] || (LOC('zh').photos[ph.id] = { caption: '' });
     const opensNow = (ph.album && ph.album.length) || opensInto(ph, enP, zhP);
     const opens = opensNow ? el('span', { className: 'live' }, T('opens')) : null;
-    const title = el('span', {}, enP.caption || T('(no caption)'), ' ', opens,
+    const title = el('span', {}, plainWords(enP.caption) || T('(no caption)'), ' ', opens,
                      problemBadge(problems, 'photo:' + ph.id), el('small', {}, ph.id));
 
     const body = el('div', { className: 'vidrow' },
@@ -2278,16 +2265,17 @@ function renderPhotos() {
         el('div', { style: 'margin-top:8px' },
           uploadButton('img/photos', 'Replace', async (path, file) => {
             ph.src = path;
-            ph.shape = await shapeOf(file);
+            ph.ar = await arOf(file);
+            delete ph.shape;
             markDirty();
             rerender();
           }))),
       el('div', { className: 'vidrow__fields' },
         row(
-          field('Shape', choice(ph, 'shape', PHOTO_SHAPES.map(([v, , label]) => [v, label])),
-                'Set automatically when you upload.'),
-          field('Size', choice(ph, 'size', [['auto', T('Auto ({size})', { size: T(SIZE_NAMES[autoSize(shared, ph)]) })], ...PHOTO_SIZES], rerender),
-                'Auto picks a size from a rhythm that packs well. Pick one only to make a photo stand out.'),
+          field('Crop', cropChoice(ph, rerender),
+                'Original shows the whole photo. Its size on the page comes from its row - arrange it in the preview.'),
+          el('div', { className: 'f' }, el('span', {}, ' '),
+            el('button', { className: 'btn btn--small', type: 'button', onclick: () => arrCrop(ph) }, T('Edit crop…'))),
         ),
         field('Tags', tagPicker(ph, rerender), 'What the Filter panel finds it by. The first one is the small label on the tile.'),
         // The caption stays either way: it is the tile's own words and its
@@ -2310,10 +2298,10 @@ function renderPhotos() {
     const remove = el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button',
       onclick: () => {
         if (!confirm(T('Remove this photo? It disappears from both languages.'))) return;
-        shared.photos.splice(i, 1);
+        arrRemove(shared, `photo:${ph.id}`);
+        shared.photos.splice(shared.photos.indexOf(ph), 1);
         delete LOC('en').photos[ph.id];
         delete LOC('zh').photos[ph.id];
-        shared.visualsOrder = (shared.visualsOrder || []).filter((r) => r !== `photo:${ph.id}`);
         markDirty();
         rerender();
       } }, T('Remove'));
@@ -2324,7 +2312,7 @@ function renderPhotos() {
       body,
       'visuals.cell.photo:' + ph.id,
       ph.src,
-      `${ph.album && ph.album.length ? T('album of {n}', { n: ph.album.length + 1 }) + ' · ' : ''}${ph.shape || '?'} · ${photoSize(shared, ph).toUpperCase()}${['s', 'm', 'l'].includes(ph.size) ? '' : ' ' + T('auto')}`,
+      `${ph.album && ph.album.length ? T('album of {n}', { n: ph.album.length + 1 }) + ' · ' : ''}${(ph.ratio || 'orig') === 'orig' ? T('Original') : ph.ratio}`,
     ));
   });
 
@@ -3202,6 +3190,14 @@ function journalPostBody(post, rerender) {
     markDirty();
   });
 
+  // the date is a small line under the title; some posts read better without it
+  const showDate = el('input', { type: 'checkbox' });
+  showDate.checked = post.showDate !== false;
+  showDate.addEventListener('change', () => {
+    if (showDate.checked) delete post.showDate; else post.showDate = false;
+    markDirty();
+  });
+
   const live = el('input', { type: 'checkbox' });
   live.checked = !post.hidden;
   live.addEventListener('change', () => {
@@ -3212,6 +3208,8 @@ function journalPostBody(post, rerender) {
 
   return el('div', {},
     row(field('Date', date), field('Kind', kind)),
+    el('label', { className: 'check' }, showDate,
+      el('span', {}, T('Show the date on the site (it still sets the order either way)'))),
     el('label', { className: 'check' }, live,
       el('span', {}, T('On the site (untick to unpublish without deleting)'))),
     bi('Title', 'title', (l) => postWords(l, post.id),
@@ -3415,7 +3413,7 @@ function renderFiles() {
       if (!confirm(T('Delete {n} files? They disappear from the draft now, and from the live site when you publish.', { n: picked.size }))) return;
       try {
         const res = await api('/delete', { method: 'POST', body: JSON.stringify({ paths: [...picked] }) });
-        state.headSha = res.commit;
+        adoptCommit(res);
         toast(T('Deleted {n} files', { n: res.deleted }), 'good', T('Publish to take them off the live site too.'));
         picked.clear();
         state.fileList = null;
@@ -4160,7 +4158,7 @@ function renderVisuals() {
     asFold(pageMeta('visuals'), 'visuals:meta'),
     asFold(sectionHeading('videos', 'visuals.heading'), 'visuals:heading'),
     asFold(visualsFilterCard(), 'visuals:filter'),
-    visualsOrderCard(),
+    visualsArrangeCard(),
     asFold(tagsCard(), 'visuals:categories'),
     fold('Images', { defaultOpen: true, key: 'visuals:images' }, T('{n} photos', { n: (shared.photos || []).length }),
       ...renderPhotos()),

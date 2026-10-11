@@ -1128,8 +1128,9 @@ class VideoFacade {
      own caption, so that caption gets the inverse scale for the same beat
      and stays at its true weight throughout. */
   morph (grid, mutate) {
-    // whatever the grid's own items are: tiles in .vids, cells in .gallery
-    const tiles = [...grid.children];
+    // whatever the grid's own items are: tiles in .vids, every picture in
+    // .gallery (which are inside its rows, not children of it)
+    const tiles = grid.classList.contains('gallery') ? [...grid.querySelectorAll('.photo')] : [...grid.children];
     if (REDUCED || !grid.animate) { mutate(); return; }
 
     const first = new Map(tiles.map(t => [t, t.getBoundingClientRect()]));
@@ -2002,72 +2003,6 @@ class InkLoop {
 
 
 /* ---------------------------------------------------------
-   packVisuals — re-cut the gallery spans so a subset still tiles
-
-   The spans in content/ were tuned by hand against the whole grid, and
-   they tile it exactly. Take a third of the cells away and they no longer
-   do: `grid-auto-flow: row dense` will backfill what it can, but a run of
-   free columns that nothing left in the queue is narrow enough to enter
-   stays a hole in the middle of the page.
-
-   So rather than trust the authored widths, work out what each cell can
-   be. This walks the same first-fit-row-major order the browser's dense
-   flow uses, and at each step measures the run of free columns it is
-   about to place into:
-
-     - the cell takes its authored width, or the run, whichever is smaller
-     - a one-column remainder cannot hold anything at all, so the cell
-       swallows it
-     - the last cell swallows a small remainder too, rather than leaving a
-       notch under the middle of the grid
-
-   Its height then follows from `data-ar`, the shape's own proportions, so
-   a portrait stays a portrait. Nothing is distorted by any of this: every
-   tile is `object-fit:cover`, so a re-cut span moves the crop and leaves
-   the picture inside it alone.
-
-   On the unfiltered grid it is a no-op. A layout that already tiles never
-   hits a remainder rule, and `round(c / (c0 / r0))` at `c === c0` is just
-   `r0` again - which is what keeps Tony's hand-tuned arrangement exactly
-   as authored while still covering whatever the admin adds later.
-   --------------------------------------------------------- */
-const GALLERY_COLS = 12;
-
-function packVisuals (cells) {
-  const occ = [];
-  const row = (y) => (occ[y] || (occ[y] = new Array(GALLERY_COLS).fill(false)));
-
-  cells.forEach((cell, n) => {
-    // first free cell, scanning row by row
-    let y = 0, x = 0;
-    for (;; y++) {
-      const line = row(y);
-      x = line.indexOf(false);
-      if (x !== -1) break;
-    }
-    // how far the free run reaches from there
-    const line = row(y);
-    let w = 0;
-    while (x + w < GALLERY_COLS && !line[x + w]) w++;
-
-    let c = Math.max(1, Math.min(cell.c0, w));
-    const remainder = w - c;
-    const last = n === cells.length - 1;
-    if (remainder === 1 || (last && remainder > 0 && remainder <= 3)) c = w;
-    const r = Math.max(1, Math.round(c / cell.ar));
-
-    for (let j = y; j < y + r; j++) {
-      const target = row(j);
-      for (let i = x; i < x + c; i++) target[i] = true;
-    }
-    cell.c = c;
-    cell.r = r;
-  });
-  return cells;
-}
-
-
-/* ---------------------------------------------------------
    FindPanel — the Filter button and its panel
 
    Search words and tag chips, shared by Visuals and In the Making. It only
@@ -2159,7 +2094,11 @@ function emptyNote (find, after) {
    VisualsFilter — All / Photos / Videos over the one grid
 
    Nothing is fetched or rebuilt: every cell is already on the page, and
-   filtering is the `hidden` attribute plus a re-pack. The move happens in
+   filtering is the `hidden` attribute. Unfiltered, the grid is the rows as
+   they were arranged; filtered, it goes flat (.is-flat) and the pictures
+   left flow into fresh rows of their own, so a row that lost three of its
+   four pictures does not leave the fourth stretched across the page. The
+   move happens in
    two beats - the leaving cells fade while still holding their places, and
    only then does the grid re-flow - so the arrangement never jumps out
    from under the fade.
@@ -2173,8 +2112,10 @@ class VisualsFilter {
      becomes `hidden` like any filtered cell, and "Load more" raises the
      limit by a page. The limit counts what the current filter shows, so
      Photos shows the first page of photos, not whatever photos happened
-     to fall in the first page of everything. The bar is optional - the
-     Chinese page can have nothing to filter and still need paging. */
+     to fall in the first page of everything. Unfiltered, it pages whole
+     rows - a row is shown when it starts inside the limit - because half
+     an arranged row is not the row anyone arranged. The bar is optional -
+     the Chinese page can have nothing to filter and still need paging. */
   constructor (facade = null, gridSel = '.gallery', barSel = '.vfilter') {
     this.facade = facade;
     this.grid = document.querySelector(gridSel);
@@ -2184,15 +2125,18 @@ class VisualsFilter {
     this.find = document.querySelector('.vfind');
     if (!this.bar && !this.more && !this.find) return;
 
-    this.cells = [...this.grid.children].map((el) => ({
+    this.rows = [...this.grid.children].filter((el) => el.classList.contains('vrow'));
+    this.cells = [...this.grid.querySelectorAll('.photo')].map((el, n) => ({
       el,
+      n,
+      row: el.closest('.vrow'),
       kind: el.dataset.kind,
       tags: new Set((el.dataset.tags || '').split(' ').filter(Boolean)),
       text: el.dataset.text || '',
-      ar: parseFloat(el.dataset.ar) || 1,
-      c0: parseInt(el.style.getPropertyValue('--c'), 10) || 1,
     }));
     if (!this.cells.length) return;
+    // where each row starts, counted in pictures, for paging whole rows
+    this.rowStart = new Map(this.rows.map((r) => [r, this.cells.find((c) => c.row === r)?.n ?? 0]));
 
     // tags picked in the Filter panel, by category, and the search words
     if (this.find) {
@@ -2214,7 +2158,7 @@ class VisualsFilter {
       this.more.querySelector('button').addEventListener('click', () => this.loadMore());
       // the stylesheet's hold on data-later hands over to `hidden` here
       this.settle(true);
-      this.cells.forEach((c) => c.el.removeAttribute('data-later'));
+      this.rows.forEach((r) => r.removeAttribute('data-later'));
     }
   }
 
@@ -2237,8 +2181,17 @@ class VisualsFilter {
     setTimeout(() => { this.busy = false; this.settle(); }, 220);
   }
 
+  // anything picked at all - which is when the arranged rows let go
+  filtered () {
+    return this.mode !== 'all' || !!(this.find && (this.find.query
+      || [...this.find.picked.values()].some((t) => t.size)));
+  }
+
   // which cells are on show: the filter's, up to the limit
   showing () {
+    if (!this.filtered()) {
+      return new Set(this.cells.filter((c) => !c.row || this.rowStart.get(c.row) < this.limit));
+    }
     return new Set(this.cells.filter((c) => this.matches(c)).slice(0, this.limit));
   }
 
@@ -2285,12 +2238,14 @@ class VisualsFilter {
       c.el.hidden = !shown;
       if (shown) live.push(c);
     }
-    for (const c of packVisuals(live)) {
-      c.el.style.setProperty('--c', c.c);
-      c.el.style.setProperty('--r', c.r);
-    }
+    const flat = this.filtered();
+    grid.classList.toggle('is-flat', flat);
+    // a row with nothing showing would still take a gap's worth of height
+    for (const r of this.rows) r.hidden = !live.some((c) => c.row === r);
     if (this.more) {
-      this.more.hidden = this.cells.filter((c) => this.matches(c)).length <= this.limit;
+      this.more.hidden = flat
+        ? this.cells.filter((c) => this.matches(c)).length <= this.limit
+        : live.length >= this.cells.length;
     }
     if (this.empty) this.empty.hidden = live.length > 0;
 
