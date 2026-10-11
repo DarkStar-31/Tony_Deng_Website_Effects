@@ -66,8 +66,7 @@
         },
         {
           "id": "recording-03",
-          "src": "img/placeholder/ring-03.webp",
-          "post": "entry-6"
+          "src": "img/placeholder/ring-03.webp"
         },
         {
           "id": "recording-04",
@@ -89,28 +88,23 @@
         },
         {
           "id": "recording-05",
-          "src": "img/placeholder/ring-05.webp",
-          "post": "entry-3"
+          "src": "img/placeholder/ring-05.webp"
         },
         {
           "id": "recording-06",
-          "src": "img/placeholder/ring-06.webp",
-          "post": "entry-5"
+          "src": "img/placeholder/ring-06.webp"
         },
         {
           "id": "recording-07",
-          "src": "img/placeholder/ring-07.webp",
-          "post": "entry-2"
+          "src": "img/placeholder/ring-07.webp"
         },
         {
           "id": "recording-08",
-          "src": "img/placeholder/ring-08.webp",
-          "post": "entry-4"
+          "src": "img/placeholder/ring-08.webp"
         },
         {
           "id": "recording-09",
-          "src": "img/placeholder/ring-09.webp",
-          "post": "entry-1"
+          "src": "img/placeholder/ring-09.webp"
         }
       ]
     },
@@ -340,8 +334,6 @@
     "video:if-its-true",
     "video:time-will-speak",
     "video:saturn-diary",
-    "photo:photo-11",
-    "photo:photo-12",
     "video:how-it-feels-like",
     "video:oh-mother",
     "photo:photo-13",
@@ -457,54 +449,37 @@
     },
     {
       "id": "photo-10",
-      "src": "img/placeholder/photo-10.webp",
-      "shape": "tall",
+      "src": "img/photos/a009.webp",
+      "shape": "portrait",
       "size": "s",
       "tags": [
-        "press"
-      ]
-    },
-    {
-      "id": "photo-11",
-      "src": "img/placeholder/photo-11.webp",
-      "shape": "panorama",
-      "size": "m",
-      "tags": [
-        "live"
-      ]
-    },
-    {
-      "id": "photo-12",
-      "src": "img/placeholder/photo-12.webp",
-      "shape": "square",
-      "size": "s",
-      "tags": [
+        "press",
         "portrait"
       ]
     },
     {
       "id": "photo-13",
-      "src": "img/placeholder/photo-13.webp",
-      "shape": "wide",
+      "src": "img/photos/b004.webp",
+      "shape": "portrait",
       "size": "s",
       "tags": [
         "studio"
+      ],
+      "opens": false,
+      "album": [
+        {
+          "id": "a1",
+          "src": "img/photos/b003.webp"
+        }
       ]
     },
     {
       "id": "photo-14",
-      "src": "img/photos/img_0553.webp",
-      "shape": "wide",
+      "src": "img/photos/b002.webp",
+      "shape": "portrait",
       "size": "s",
       "tags": [
-        "studio",
-        "live"
-      ],
-      "album": [
-        {
-          "id": "a1",
-          "src": "img/photos/img_0602.webp"
-        }
+        "portrait"
       ]
     },
     {
