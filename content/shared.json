@@ -224,39 +224,73 @@
           "id": "orbit-02",
           "src": "img/rings/img_8167.webp",
           "opens": false,
-          "entry": false
+          "entry": false,
+          "album": [
+            {
+              "id": "a1",
+              "src": "img/rings/img_8171.webp"
+            }
+          ]
         },
         {
           "id": "orbit-03",
-          "src": "img/orbit/hi-cyan.webp"
+          "src": "img/rings/screenshot-2026-06-02-at-19.09.36_--2.webp"
         },
         {
           "id": "orbit-04",
-          "src": "img/orbit/poster-her.webp"
+          "src": "img/rings/screenshot-2026-06-03-at-14.32.31_-.webp",
+          "album": [
+            {
+              "id": "a4",
+              "src": "img/rings/img_7393.webp"
+            },
+            {
+              "id": "a1",
+              "src": "img/rings/screenshot-2026-06-03-at-13.56.03.webp"
+            },
+            {
+              "id": "a2",
+              "src": "img/rings/screenshot-2026-06-03-at-14.49.14.webp"
+            },
+            {
+              "id": "a3",
+              "src": "img/rings/screenshot-2026-06-03-at-14.53.33.webp"
+            }
+          ]
         },
         {
           "id": "orbit-05",
-          "src": "img/orbit/her-road.webp"
+          "src": "img/rings/img_8123.webp"
         },
         {
           "id": "orbit-06",
-          "src": "img/orbit/banner-overthinking.webp"
+          "src": "img/rings/img_7378.webp"
         },
         {
           "id": "orbit-07",
-          "src": "img/orbit/hi-magenta.webp"
+          "src": "img/rings/img_8019.webp",
+          "album": [
+            {
+              "id": "a1",
+              "src": "img/rings/screenshot-2026-06-02-at-19.15.31_-.webp"
+            }
+          ]
         },
         {
           "id": "orbit-08",
-          "src": "img/orbit/poster-wide.webp"
+          "src": "img/rings/ony-deng-24_-.webp"
         },
         {
           "id": "orbit-09",
-          "src": "img/orbit/her-clouds.webp"
+          "src": "img/rings/img_0553.webp"
         },
         {
           "id": "orbit-10",
-          "src": "img/orbit/mask-green.webp"
+          "src": "img/rings/img_0653-4.webp"
+        },
+        {
+          "id": "orbit-11",
+          "src": "img/rings/-_-.webp"
         }
       ],
       "showTitle": true
