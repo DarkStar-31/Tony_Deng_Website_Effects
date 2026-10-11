@@ -533,25 +533,18 @@
       "caption": "Quis nostrud"
     },
     "photo-10": {
-      "caption": "Exercitation ullamco"
-    },
-    "photo-11": {
-      "caption": "Laboris nisi ut aliquip",
-      "desc": "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.\n\nNeque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit."
-    },
-    "photo-12": {
-      "caption": "Ex ea commodo"
+      "caption": "<br>"
     },
     "photo-13": {
-      "caption": "Duis aute irure",
-      "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur."
+      "caption": "<br>",
+      "desc": "<br>"
     },
     "photo-14": {
-      "caption": "In reprehenderit"
+      "caption": "<br>"
     },
     "photo-15": {
-      "caption": "Voluptate velit",
-      "desc": "test"
+      "caption": "<br>",
+      "desc": "<br>"
     }
   },
   "photoTags": {
@@ -743,10 +736,8 @@
     "playAudio": "播放"
   },
   "journal": {
-    "latest": "最新",
     "read": "阅读",
-    "readFull": "阅读全文",
-    "back": "返回创作手记",
+    "back": "全部日志",
     "newer": "较新",
     "older": "较早",
     "pager": "更多日志",
