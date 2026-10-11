@@ -542,74 +542,6 @@
     "next": "Next ring"
   },
   "rings": {
-    "recording": {
-      "centreAlt": "Placeholder artwork for the song in progress",
-      "photos": {
-        "recording-01": {
-          "caption": "Sed do eiusmod",
-          "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.",
-          "project": "New EP",
-          "media": {
-            "m2": {}
-          }
-        },
-        "recording-02": {
-          "caption": "Tempor incididunt",
-          "desc": "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.\n\nNeque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit.",
-          "project": "New EP",
-          "media": {
-            "m1": {
-              "label": "Before"
-            },
-            "m2": {
-              "label": "After"
-            }
-          }
-        },
-        "recording-03": {
-          "caption": "Lorem ipsum: new song",
-          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-          "media": {
-            "m1": {}
-          }
-        },
-        "recording-04": {
-          "caption": "Magna aliqua",
-          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
-          "project": "New EP",
-          "media": {
-            "m2": {
-              "label": "Listen on the Music page"
-            },
-            "m1": {}
-          }
-        },
-        "recording-05": {
-          "caption": "Lorem ipsum dolor sit",
-          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.\n\nExcepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
-          "media": {
-            "m5": {}
-          }
-        },
-        "recording-06": {
-          "caption": "Ut labore et dolore",
-          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
-        },
-        "recording-07": {
-          "caption": "Consectetur adipiscing",
-          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-        },
-        "recording-08": {
-          "caption": "Magna aliqua",
-          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\n\nUt enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.\n\nExcepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
-        },
-        "recording-09": {
-          "caption": "Sed do eiusmod tempor",
-          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-        }
-      },
-      "title": "Now Recording"
-    },
     "orbit": {
       "centreAlt": "",
       "photos": {
@@ -647,7 +579,7 @@
           "caption": ""
         }
       },
-      "title": "Now Recording"
+      "title": "Coming Soon"
     }
   },
   "footer": {
