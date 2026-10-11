@@ -122,6 +122,26 @@ function arrStore(shared, rows) {
   markDirty();
 }
 
+/* Where a new upload goes: the top of the grid, the first thing under
+ * the Featured rows (and so the first card in its list on the right).
+ * It joins the front of the top row while that row has room - rows aim
+ * for ROW_TARGET - and otherwise starts a new top row of its own. An
+ * undo puts the arrangement back as it was before. */
+function arrPlaceNew(shared, ref) {
+  const rows = arrLayout(shared);
+  arr.undo.push(arrSnapshot(shared));
+  arr.redo = [];
+  const at = rows.indexOf(DIVIDER);
+  const items = arrItems(shared);
+  const top = rows[at + 1];
+  const fits = isRow(top) && !top.some((u) => u.includes(ref))
+    && top.reduce((a, u) => a + arrUnitAr(u, items), 0) + items.get(ref).ar <= ROW_TARGET;
+  const target = fits
+    ? { type: 'beside', ref: top[0][0], after: false }
+    : { type: 'row', index: at + 1 };
+  arrStore(shared, arrMove(rows, [ref], target));
+}
+
 // a picture on or off the Featured rows, from its card on the tab
 function arrSetFeatured(shared, ref, on) {
   const rows = arrLayout(shared);

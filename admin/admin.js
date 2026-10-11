@@ -662,6 +662,8 @@ function renderVideos() {
   const out = [addButton('+ Add a video', () => {
     const id = newId('video', shared.videos.map((v) => v.id));
     shared.videos.push({ id, yt: '', bv: '', poster: PLACEHOLDER_POSTER, tags: [] });
+    // new things go at the top of the grid, and so at the top of this list
+    arrPlaceNew(shared, `video:${id}`);
     LOC('en').videos[id] = { title: '', sub: '' };
     LOC('zh').videos[id] = { title: '', sub: '' };
     cardOpen.add('video:' + id);
@@ -1965,7 +1967,7 @@ function opensCheck(item, enC, zhC, rerender) {
 /* The other pictures in an album. The tile's own picture is always the
  * first one shown, so this is everything after it. Drop several at once;
  * arrows reorder, and the last one removed turns it back into one photo. */
-function albumEditor(ph, rerender) {
+function albumEditor(ph, rerender, dir = 'img/photos') {
   const album = ph.album || [];
   const nextId = () => {
     const taken = (ph.album || []).map((a) => a.id);
@@ -2002,7 +2004,7 @@ function albumEditor(ph, rerender) {
       T('Add more pictures and this tile becomes an album: it shows how many it holds, and opens into a viewer '
         + 'that steps left and right (and swipes on phones).')),
     album.length ? strip : null,
-    dropZone('img/photos', '.webp,.png,.jpg,.jpeg',
+    dropZone(dir, '.webp,.png,.jpg,.jpeg',
       album.length ? 'Drop more pictures here, or click to choose' : 'Drop pictures here to make this an album',
       (path) => {
         if (!ph.album) ph.album = [];
@@ -2263,6 +2265,8 @@ function renderPhotos() {
         const id = newId('photo', shared.photos.map((p) => p.id));
         // its own proportions, uncropped: the layout finds it a place at the end
         shared.photos.push({ id, src: path, ar: await arOf(file), ratio: 'orig', tags: [] });
+        // the top of the grid, and so the top of this list
+        arrPlaceNew(shared, `photo:${id}`);
         LOC('en').photos[id] = { caption: '' };
         LOC('zh').photos[id] = { caption: '' };
         cardOpen.add('photo:' + id);
@@ -2880,8 +2884,10 @@ function ringPhotoCards(ring) {
     const enP = en[ph.id] || (en[ph.id] = { caption: '' });
     const zhP = zh[ph.id] || (zh[ph.id] = { caption: '' });
     const isEntry = hasEntry(ph);
-    const opensNow = isEntry || opensInto(ph, enP, zhP);
+    const hasAlbum = !isEntry && !!(ph.album && ph.album.length);
+    const opensNow = isEntry || hasAlbum || opensInto(ph, enP, zhP);
     const badge = isEntry ? el('span', { className: 'live' }, T('diary'))
+      : hasAlbum ? el('span', { className: 'live' }, T('album of {n}', { n: ph.album.length + 1 }))
       : opensNow ? el('span', { className: 'live' }, T('opens')) : null;
     // double-click the title - or either picture of it - to rename it
     const name = titleInPlace(el('span', {}, ring.label(ph)),
@@ -2900,8 +2906,10 @@ function ringPhotoCards(ring) {
         el('p', { className: 'hint' },
           T('Any shape works: the ring keeps each picture’s own proportions.')),
         diaryCheck(ph, rerender),
-        // an entry always opens, so its own box would only say so
-        ...(isEntry ? [] : [opensCheck(ph, enP, zhP, rerender)]),
+        // an entry always opens, and so does a picture with more pictures
+        ...(isEntry ? [] : hasAlbum
+          ? [el('p', { className: 'hint' }, T('An album always opens, so the box below is not needed.'))]
+          : [opensCheck(ph, enP, zhP, rerender)]),
         // Neither of these reaches the ring: the caption is the heading of
         // the card the picture opens into and the description is its body,
         // so with the box unticked there is nothing either could do.
@@ -2916,6 +2924,9 @@ function ringPhotoCards(ring) {
           : [el('p', { className: 'hint' },
             T('Decoration: it turns with the ring and cannot be clicked. Anything written here '
               + 'before is kept, and comes back if the box is ticked again.'))]),
+        // more pictures, without being a diary entry: it opens into a viewer
+        // that steps through them (a diary entry has its own media instead)
+        isEntry ? null : albumEditor(ph, rerender, ring.dir),
       ));
 
     const node = cardFold(

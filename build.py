@@ -2009,10 +2009,12 @@ def render_ring(loc: dict, shared: dict, ring: dict) -> list[str]:
         text = search_text(caption, c.get("project", ""), loc["making"]["kinds"].get(kind or "", ""))
         if text:
             data += f' data-text="{attr(text)}"'
-        # A diary entry always opens - there is something to show. Any other
-        # picture opens when it has a description, unless the admin's
+        # A diary entry always opens - there is something to show - and so
+        # does a picture with more pictures (`album`, as on Visuals). Any
+        # other picture opens when it has a description, unless the admin's
         # "opens" box was unticked on purpose.
-        opens = entry or (bool(photo["opens"]) if "opens" in photo else bool(desc))
+        album = [] if entry else [a for a in photo.get("album", []) if a.get("src")]
+        opens = entry or bool(album) or (bool(photo["opens"]) if "opens" in photo else bool(desc))
         if opens:
             tid = f'lens-{photo["id"]}'
             label = f'{loc["lens"]["open"]}: {plain(caption)}'
@@ -2020,7 +2022,15 @@ def render_ring(loc: dict, shared: dict, ring: dict) -> list[str]:
                 f'        <img class="orbit__card" style="--i:{i}" src="{img}" alt="{attr(label)}"'
                 f' role="button" tabindex="0" aria-haspopup="dialog" data-lens="{attr(tid)}"{data} decoding="async">'
             )
-            parts = entry_parts(loc, shared, photo, c) if entry else None
+            if entry:
+                parts = entry_parts(loc, shared, photo, c)
+            elif album:
+                # the viewer that steps through them, the ring picture first
+                media = [{"id": a.get("id", f"a{n}"), "type": "image", "src": a["src"]}
+                         for n, a in enumerate(album, 1)]
+                parts = entry_parts(loc, shared, {"id": photo["id"], "src": photo["src"], "media": media}, {})
+            else:
+                parts = None
             play = title_play(loc, entry_audio(photo), caption) if entry else ""
             templates += lens_template(tid, "", caption, desc, parts, play)
         else:
