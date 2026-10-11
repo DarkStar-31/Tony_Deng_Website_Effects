@@ -202,7 +202,8 @@
       "yt": "WemMShRTg6E",
       "bv": "",
       "poster": "img/video/WemMShRTg6E.webp",
-      "feature": true
+      "feature": true,
+      "tags": []
     },
     {
       "id": "look-in-the-mirror",
@@ -210,7 +211,8 @@
       "bv": "",
       "poster": "img/video/Z-EP0Qwl2xw.webp",
       "feature": false,
-      "size": "s"
+      "size": "s",
+      "tags": []
     },
     {
       "id": "her",
@@ -218,7 +220,8 @@
       "bv": "",
       "poster": "img/video/NwpjbcHqua4.webp",
       "feature": false,
-      "size": "s"
+      "size": "s",
+      "tags": []
     },
     {
       "id": "i-do",
@@ -226,7 +229,8 @@
       "bv": "",
       "poster": "img/video/4BrMzNiupXQ.webp",
       "feature": false,
-      "size": "s"
+      "size": "s",
+      "tags": []
     },
     {
       "id": "its-raining",
@@ -234,7 +238,8 @@
       "bv": "",
       "poster": "img/video/R5OQh-loln4.webp",
       "feature": false,
-      "size": "m"
+      "size": "m",
+      "tags": []
     },
     {
       "id": "curiosity",
@@ -242,7 +247,8 @@
       "bv": "",
       "poster": "img/video/_KBXlZYRx8E.webp",
       "feature": false,
-      "size": "m"
+      "size": "m",
+      "tags": []
     },
     {
       "id": "if-its-true",
@@ -250,7 +256,8 @@
       "bv": "",
       "poster": "img/video/VeyHXexUB8Y.webp",
       "feature": false,
-      "size": "s"
+      "size": "s",
+      "tags": []
     },
     {
       "id": "time-will-speak",
@@ -258,7 +265,8 @@
       "bv": "",
       "poster": "img/video/xOxKN4OKFsw.webp",
       "feature": false,
-      "size": "s"
+      "size": "s",
+      "tags": []
     },
     {
       "id": "saturn-diary",
@@ -266,7 +274,8 @@
       "bv": "",
       "poster": "img/video/VSP5IlXHq8E.webp",
       "feature": false,
-      "size": "s"
+      "size": "s",
+      "tags": []
     },
     {
       "id": "how-it-feels-like",
@@ -274,7 +283,8 @@
       "bv": "",
       "poster": "img/video/foud-nkltS8.webp",
       "feature": false,
-      "size": "m"
+      "size": "m",
+      "tags": []
     },
     {
       "id": "oh-mother",
@@ -282,7 +292,8 @@
       "bv": "",
       "poster": "img/video/f55cIm9AYd4.webp",
       "feature": false,
-      "size": "m"
+      "size": "m",
+      "tags": []
     },
     {
       "id": "one-day",
@@ -290,7 +301,8 @@
       "bv": "",
       "poster": "img/video/CiVWFo4Mlbg.webp",
       "feature": false,
-      "size": "m"
+      "size": "m",
+      "tags": []
     },
     {
       "id": "be-mine",
@@ -298,7 +310,8 @@
       "bv": "",
       "poster": "img/video/5qcaCLkbfys.webp",
       "feature": false,
-      "size": "m"
+      "size": "m",
+      "tags": []
     }
   ],
   "$visualsOrder": "The one grid under the title video on Visuals, photos and videos together, in this order. Entries are photo:<id> or video:<id>. Anything left out is added at the end; a video with `feature` is the big one above the grid and is not listed here. Videos take `size` s, m or l (VIDEO_SPANS in build.py).",
@@ -483,12 +496,13 @@
     },
     {
       "id": "photo-15",
-      "src": "img/placeholder/photo-15.webp",
-      "shape": "wide",
+      "src": "img/photos/9c6d1653-7bb0-4140-92a1-fe23cd7e16f1.webp",
+      "shape": "portrait",
       "size": "s",
       "tags": [
         "press"
-      ]
+      ],
+      "opens": true
     }
   ],
   "milestones": [
