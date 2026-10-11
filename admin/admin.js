@@ -229,6 +229,59 @@ function bi(label, key, getObj, opts = {}) {
   );
 }
 
+/* Drag to reorder a list of things: `items` are [{ node, handle }] in
+ * order, and `onMove(from, to)` is called with the indices once one is
+ * dropped. A pink line shows where it will land - across, for a list that
+ * runs down the page, or upright for one that runs along (axis 'x'). The
+ * handle is what is picked up, so a card with fields in it can still be
+ * typed in and its text selected. Native drag and drop: this is the admin,
+ * on a desktop. */
+function dragSort(items, onMove, { axis = 'y' } = {}) {
+  let from = null;
+  const clear = () => items.forEach(({ node }) => node.classList.remove('is-drop-before', 'is-drop-after'));
+  const after = (node, e) => {
+    const b = node.getBoundingClientRect();
+    return axis === 'x' ? e.clientX > b.left + b.width / 2 : e.clientY > b.top + b.height / 2;
+  };
+  items.forEach(({ node, handle }, i) => {
+    node.classList.add('dragsort', axis === 'x' ? 'dragsort--x' : 'dragsort--y');
+    const grip = handle || node;
+    grip.setAttribute('draggable', 'true');
+    grip.classList.add('dragsort__handle');
+    grip.addEventListener('dragstart', (e) => {
+      if (e.target.closest && e.target.closest('[contenteditable="true"], [contenteditable="plaintext-only"]')) {
+        e.preventDefault(); return;
+      }
+      e.stopPropagation();
+      from = i;
+      node.classList.add('is-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(i));
+      // the whole thing follows the pointer, not just its handle
+      if (handle && e.dataTransfer.setDragImage) e.dataTransfer.setDragImage(node, 20, 20);
+    });
+    grip.addEventListener('dragend', () => { node.classList.remove('is-dragging'); clear(); from = null; });
+    node.addEventListener('dragover', (e) => {
+      if (from === null) return;
+      e.preventDefault();
+      e.stopPropagation();
+      clear();
+      node.classList.add(after(node, e) ? 'is-drop-after' : 'is-drop-before');
+    });
+    node.addEventListener('drop', (e) => {
+      if (from === null) return;
+      e.preventDefault();
+      e.stopPropagation();
+      let to = i + (after(node, e) ? 1 : 0);
+      if (to > from) to -= 1;
+      clear();
+      const was = from;
+      from = null;
+      if (to !== was) onMove(was, to);
+    });
+  });
+}
+
 function check(label, obj, key, onChange) {
   const box = el('input', { type: 'checkbox' });
   box.checked = !!obj[key];
@@ -1982,12 +2035,8 @@ function albumEditor(ph, rerender, dir = 'img/photos') {
     markDirty();
     rerender();
   };
-  const strip = el('div', { className: 'album' },
-    el('figure', { className: 'album__pic album__pic--cover' },
-      el('img', { src: '/' + ph.src, alt: '', loading: 'lazy' }),
-      el('figcaption', {}, T('Tile (shown first)'))),
-    ...album.map((a, i) => el('figure', { className: 'album__pic' },
-      el('img', { src: '/' + a.src, alt: '', loading: 'lazy' }),
+  const pics = album.map((a, i) => el('figure', { className: 'album__pic', title: T('Drag to reorder') },
+      el('img', { src: '/' + a.src, alt: '', loading: 'lazy', draggable: 'false' }),
       el('figcaption', {},
         el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Earlier'), onclick: () => move(i, i - 1) }, '←'),
         el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Later'), onclick: () => move(i, i + 1) }, '→'),
@@ -1997,12 +2046,25 @@ function albumEditor(ph, rerender, dir = 'img/photos') {
             if (!album.length) delete ph.album;
             markDirty();
             rerender();
-          } }, '×')))));
+          } }, '×'))));
+  // drag a picture along the strip, as well as the arrows; the tile itself
+  // always comes first, so it stays put
+  dragSort(pics.map((node) => ({ node })), (from, to) => {
+    const [a] = album.splice(from, 1);
+    album.splice(to, 0, a);
+    markDirty();
+    rerender();
+  }, { axis: 'x' });
+  const strip = el('div', { className: 'album' },
+    el('figure', { className: 'album__pic album__pic--cover' },
+      el('img', { src: '/' + ph.src, alt: '', loading: 'lazy' }),
+      el('figcaption', {}, T('Tile (shown first)'))),
+    ...pics);
   return el('div', { className: 'entryed' },
     el('p', { className: 'entryed__head' }, T('Album')),
     el('p', { className: 'hint' },
       T('Add more pictures and this tile becomes an album: it shows how many it holds, and opens into a viewer '
-        + 'that steps left and right (and swipes on phones).')),
+        + 'that steps left and right (and swipes on phones). Drag the pictures to reorder them.')),
     album.length ? strip : null,
     dropZone(dir, '.webp,.png,.jpg,.jpeg',
       album.length ? 'Drop more pictures here, or click to choose' : 'Drop pictures here to make this an album',
@@ -4088,7 +4150,7 @@ function renderMaking() {
       T('A new ring starts empty and goes at the bottom of the page. Give it a middle and some '
         + 'pictures below, and use the arrows in its header to move it past the others.'))));
 
-  rings.forEach((ring) => out.push(fold(
+  const ringFolds = rings.map((ring) => fold(
     ring.name,
     { defaultOpen: true,
       key: `ring:${ring.id}`,
@@ -4100,7 +4162,27 @@ function renderMaking() {
     ringOrderCard(ring),
     ringCentreCard(ring),
     ...ringPhotoCards(ring),
-  )));
+    // the same as the one in Ring order, where the list of pictures ends
+    el('div', { className: 'ringadd' },
+      uploadButton(ring.dir, '+ Add a picture to the ring', (path) => {
+        ring.add(path);
+        markDirty();
+        rerender();
+      })),
+  ));
+  /* Drag a ring by the grip in its header to move it up or down the page,
+   * as well as the arrows. */
+  dragSort(ringFolds.map((node) => {
+    const grip = el('span', { className: 'fold__grip', title: T('Drag to move this ring'), 'aria-hidden': 'true' }, '⠿');
+    node.querySelector('summary').prepend(grip);
+    return { node, handle: grip };
+  }), (from, to) => {
+    const [moved] = shared.rings.splice(from, 1);
+    shared.rings.splice(to, 0, moved);
+    markDirty();
+    rerender();
+  });
+  out.push(...ringFolds);
 
   out.push(journalWordsCard());
   return out;

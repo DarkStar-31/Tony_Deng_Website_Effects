@@ -647,6 +647,9 @@ const UI_STRINGS = {
   'unpublished': '未发布',
   'Opens a journal post': '打开一篇日志',
   'Show the date on the site (it still sets the order either way)': '在网站上显示日期（无论是否显示，排序仍按日期）',
+  'Drag to move this ring': '拖动以移动这个圆环',
+  'Add more pictures and this tile becomes an album: it shows how many it holds, and opens into a viewer that steps left and right (and swipes on phones). Drag the pictures to reorder them.':
+    '加入更多图片，这张就会变成相册：显示一共几张，点开后可以左右切换（手机上可以滑动）。拖动图片即可调整顺序。',
   // ------------------------------------------- featured rows, undo (10-11, round 4)
   'Nothing to undo.': '没有可以撤销的操作。',
   'Nothing to redo.': '没有可以重做的操作。',

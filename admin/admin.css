@@ -1327,3 +1327,19 @@ input[type="date"] { color-scheme: dark; }
 }
 .arr__divider span:first-child { color: var(--magenta); }
 .arr__hist { margin-left: auto; display: flex; gap: 4px; }
+
+/* ---- drag to reorder (dragSort in admin.js) ---- */
+.dragsort { position: relative; }
+.dragsort__handle { cursor: grab; }
+.dragsort.is-dragging { opacity: .4; }
+.dragsort.is-drop-before::before,
+.dragsort.is-drop-after::after {
+  content: ""; position: absolute; z-index: 5; pointer-events: none;
+  background: var(--magenta); border-radius: 2px; box-shadow: 0 0 8px var(--magenta);
+}
+.dragsort--y.is-drop-before::before { left: 0; right: 0; top: -5px; height: 3px; }
+.dragsort--y.is-drop-after::after { left: 0; right: 0; bottom: -5px; height: 3px; }
+.dragsort--x.is-drop-before::before { top: 0; bottom: 0; left: -5px; width: 3px; }
+.dragsort--x.is-drop-after::after { top: 0; bottom: 0; right: -5px; width: 3px; }
+.fold__grip { color: var(--dim); font-size: 15px; padding: 0 6px 0 0; user-select: none; }
+.ringadd { margin: 10px 0 4px; }
