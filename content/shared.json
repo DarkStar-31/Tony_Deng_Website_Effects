@@ -213,16 +213,18 @@
     {
       "id": "orbit",
       "centre": {
-        "release": "saturn"
+        "src": "img/rings/dscv1430.webp"
       },
       "photos": [
         {
           "id": "orbit-01",
-          "src": "img/orbit/overthinking-white.webp"
+          "src": "img/rings/img_8141.webp"
         },
         {
           "id": "orbit-02",
-          "src": "img/orbit/banner-curiosity.webp"
+          "src": "img/rings/img_8167.webp",
+          "opens": false,
+          "entry": false
         },
         {
           "id": "orbit-03",
@@ -256,7 +258,8 @@
           "id": "orbit-10",
           "src": "img/orbit/mask-green.webp"
         }
-      ]
+      ],
+      "showTitle": true
     }
   ],
   "$tracks": "Every audio file on disk. `playlists` picks which of these the hero player queues, per locale - the two are separate so a file can sit here unused rather than having to be deleted.",
@@ -410,7 +413,8 @@
         "portrait"
       ],
       "ar": 0.7496,
-      "ratio": "orig"
+      "ratio": "orig",
+      "opens": false
     },
     {
       "id": "photo-06",
@@ -428,7 +432,8 @@
         "portrait"
       ],
       "ar": 0.7496,
-      "ratio": "orig"
+      "ratio": "orig",
+      "opens": false
     },
     {
       "id": "photo-09",
@@ -480,14 +485,15 @@
         "press"
       ],
       "opens": true,
-      "album": [
-        {
-          "id": "a2",
-          "src": "img/photos/12_726e607f-7bd5-43f0-aedb-3c4b4c883315_--2.webp"
-        }
-      ],
       "ar": 0.75,
       "ratio": "orig"
+    },
+    {
+      "id": "photo",
+      "src": "img/photos/12_726e607f-7bd5-43f0-aedb-3c4b4c883315_--3.webp",
+      "ar": 0.6667,
+      "ratio": "orig",
+      "tags": []
     }
   ],
   "milestones": [
@@ -585,15 +591,14 @@
   ],
   "visualsRows": [
     [
-      "video:look-in-the-mirror"
-    ],
-    [
+      "video:look-in-the-mirror",
       "video:her",
       "video:i-do"
     ],
     [
       "photo:photo-05",
       "photo:photo-04",
+      "photo:photo-13",
       "photo:photo-06"
     ],
     [
@@ -614,9 +619,9 @@
       "video:how-it-feels-like"
     ],
     [
-      "photo:photo-13",
       "photo:photo-14",
-      "photo:photo-15"
+      "photo:photo-15",
+      "photo:photo"
     ],
     [
       "video:oh-mother",
