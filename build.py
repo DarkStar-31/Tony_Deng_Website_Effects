@@ -986,8 +986,8 @@ def entry_parts(loc: dict, shared: dict, photo: dict, words: dict) -> tuple:
         meta.append(f'<span class="entry__kind">{kind}</span>')
     if words.get("project"):
         meta.append(f'<span>{words["project"]}</span>')
-    if counts:
-        meta.append(f'<span>{" · ".join(counts)}</span>')
+    # (the counts - "2 photos · 1 clip" - are not shown: the strip and the
+    # players right below say as much, and Josie found the line redundant)
 
     top = []
     if photo.get("date") and photo.get("showDate") is not False:
@@ -1996,13 +1996,16 @@ def render_ring(loc: dict, shared: dict, ring: dict) -> list[str]:
             # the middle is a diary entry too: it opens like any ring picture
             photo, c = centre
             tid = f'lens-{photo["id"]}'
+            kind = photo.get("kind", "")
+            data = f' data-kind="{attr(kind)}"' if kind else ""
+            text = search_text(c.get("caption", ""), c.get("project", ""), loc["making"]["kinds"].get(kind, ""))
+            data += f' data-entry data-text="{attr(text)}"'
             out.append(
                 f'        <img class="orbit__centre" src="{p}{src}" alt="{attr(loc["lens"]["open"] + ": " + plain(c.get("caption", "")))}"'
-                f' role="button" tabindex="0" aria-haspopup="dialog" data-lens="{attr(tid)}">'
+                f' role="button" tabindex="0" aria-haspopup="dialog" data-lens="{attr(tid)}"{data}>'
             )
             templates += lens_template(tid, "", c.get("caption", ""), c.get("desc", "").strip(),
-                                       entry_parts(loc, shared, photo, c),
-                                       title_play(loc, entry_audio(photo), c.get("caption", "")))
+                                       entry_parts(loc, shared, photo, c))
         elif src:
             out.append(f'        <img class="orbit__centre" src="{p}{src}" alt="{attr(alt)}">')
 
@@ -2043,8 +2046,7 @@ def render_ring(loc: dict, shared: dict, ring: dict) -> list[str]:
                 parts = entry_parts(loc, shared, {"id": photo["id"], "src": photo["src"], "media": media}, {})
             else:
                 parts = None
-            play = title_play(loc, entry_audio(photo), caption) if entry else ""
-            templates += lens_template(tid, "", caption, desc, parts, play)
+            templates += lens_template(tid, "", caption, desc, parts)
         else:
             out.append(
                 f'        <img class="orbit__card" style="--i:{i}" src="{img}"'
@@ -2108,27 +2110,21 @@ def render_making_filter(loc: dict, shared: dict) -> list[str]:
     """Filter for In the Making, then Journal: the same Filter button and
     panel as Visuals, with the kinds of work as its chips (Recording,
     Arranging, ...) - only the kinds some diary entry actually carries, in
-    the order making.kinds lists them - and a Journal button that keeps only
-    the diary entries. MakingFilter in main.js hides the pictures that do
+    the order making.kinds lists them, all of them - and a Journal button
+    that keeps only the diary entries (a ring's middle picture included). MakingFilter in main.js hides the pictures that do
     not match and closes up the gaps on each ring."""
     find = loc.get("visualsFind")
     if not find:
         return []
     kinds = loc["making"]["kinds"]
-    used = set()
-    any_card = any_entry = False
-    for ring in shared.get("rings", []):
-        for photo in ring.get("photos", []):
-            any_card = True
-            if has_entry(photo):
-                any_entry = True
-                if photo.get("kind"):
-                    used.add(photo["kind"])
-    if not any_card:
+    if not any(ring.get("photos") for ring in shared.get("rings", [])):
         return []
-    groups = [("kind", "", [k for k in kinds if k in used])] if used else []
+    # Every kind, even one nothing carries yet, and the Journal button even
+    # with no diary entries: the client asked to see them on the page. A
+    # chip with nothing behind it says "Nothing matches".
+    groups = [("kind", "", list(kinds))]
     out = ['<div class="vtools">'] + ["  " + l for l in render_find(find, groups, kinds)]
-    if any_entry and loc["making"].get("journalOnly"):
+    if loc["making"].get("journalOnly"):
         out.append(f'  <button class="vjournal" type="button" aria-pressed="false">{loc["making"]["journalOnly"]}</button>')
     return out + ["</div>"]
 

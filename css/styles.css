@@ -2114,7 +2114,10 @@ html[lang^="zh"] .more__btn{ font-size:.85rem; letter-spacing:.06em; text-transf
   display:block; width:100%; height:100%; object-fit:cover;
   max-width:none; border-radius:10px;
 }
-.lens__body{ align-self:center; max-height:72vh; overflow:auto; padding-right:.25rem; }
+/* The column scrolls, and anything scrolling clips: a round button's ring
+   and glow at its left edge were cut off along the picture's side. A
+   little room inside, given back with a negative margin, keeps them whole. */
+.lens__body{ align-self:center; max-height:72vh; overflow:auto; padding:.4rem .25rem .4rem .6rem; margin:-.4rem 0 -.4rem -.6rem; }
 .lens__kicker{
   margin:0 0 .6rem;
   font-size:.66rem; letter-spacing:.2em; text-transform:uppercase; color:var(--magenta);

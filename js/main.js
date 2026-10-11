@@ -2509,9 +2509,17 @@ class MakingFilter {
   constructor () {
     const el = document.querySelector('#press .vfind');
     if (!el) return;
+    const piece = (node) => node && ({
+      tags: new Set(node.dataset.kind ? [node.dataset.kind] : []),
+      text: node.dataset.text || '',
+      entry: node.hasAttribute('data-entry'),
+    });
     this.rings = [...document.querySelectorAll('[data-orbit]')].map((root) => ({
       root,
       scene: root.querySelector('.orbit__scene'),
+      // a middle picture that is a diary entry: it keeps its ring on the
+      // page when it matches, even if no picture round it does
+      centre: piece(root.querySelector('.orbit__centre[data-lens]')),
       cards: [...root.querySelectorAll('.orbit__card')].map((card) => ({
         el: card,
         tags: new Set(card.dataset.kind ? [card.dataset.kind] : []),
@@ -2537,12 +2545,14 @@ class MakingFilter {
     let total = 0;
     for (const ring of this.rings) {
       const only = this.journal && this.journal.getAttribute('aria-pressed') === 'true';
-      const on = ring.cards.filter((c) => (!only || c.entry) && this.find.matches(c.tags, c.text));
+      const fits = (c) => (!only || c.entry) && this.find.matches(c.tags, c.text);
+      const on = ring.cards.filter(fits);
+      const middle = !!(ring.centre && fits(ring.centre));
       ring.cards.forEach((c) => c.el.classList.toggle('is-out', !on.includes(c)));
       on.forEach((c, i) => c.el.style.setProperty('--i', i));
       ring.scene.style.setProperty('--n', Math.max(on.length, 1));
-      ring.root.hidden = !on.length;
-      total += on.length;
+      ring.root.hidden = !on.length && !middle;
+      total += on.length + (middle ? 1 : 0);
       if (!REDUCED) {
         on.forEach((c) => c.el.animate({ opacity: [0, 1] }, { duration: 450, easing: 'ease-out' }));
       }
