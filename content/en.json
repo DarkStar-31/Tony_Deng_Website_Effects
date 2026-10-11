@@ -737,7 +737,9 @@
           },
           "b3": {
             "text": "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.\n\nExcepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
-          }
+          },
+          "b4": {},
+          "b5": {}
         }
       },
       "entry-2": {
@@ -745,7 +747,8 @@
         "blocks": {
           "b1": {
             "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-          }
+          },
+          "b2": {}
         }
       },
       "entry-1": {
@@ -754,14 +757,16 @@
         "blocks": {
           "b1": {
             "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-          }
+          },
+          "b2": {}
         }
       },
       "entry-6": {
         "title": "Lorem ipsum: new song",
         "blocks": {
           "b1": {
-            "caption": "Placeholder caption"
+            "caption": "Placeholder caption",
+            "links": []
           },
           "b2": {
             "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
