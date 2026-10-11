@@ -1966,17 +1966,6 @@ class Lens {
 
     if (d.kind === 'image') {
       this.img.src = d.src;
-      // pictures only: the frame takes this photo's shape, so nothing is
-      // letterboxed in black
-      if (this.photosOnly) {
-        const probe = new Image();
-        probe.onload = () => {
-          if (probe.naturalHeight) this.card.style.setProperty('--ar', (probe.naturalWidth / probe.naturalHeight).toFixed(4));
-        };
-        probe.src = d.src;
-        media.classList.remove('is-other');
-        return;
-      }
       // the slot keeps the ring picture's shape; anything else fits inside it
       media.classList.toggle('is-other', d.src !== this.home && !this.home.endsWith(d.src));
       return;
