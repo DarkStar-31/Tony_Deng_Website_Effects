@@ -1303,3 +1303,16 @@ input[type="date"] { color-scheme: dark; }
 .postnew__head { margin: 0 0 8px; font-weight: 600; font-size: 13px; letter-spacing: .04em; }
 .postnew__row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
 .postnew__row .additem { margin: 0; }
+
+/* ---- ring order: drag a row ---- */
+.ringrow[draggable="true"] { cursor: grab; position: relative; }
+.ringrow.is-dragging { opacity: .4; }
+.ringrow__grip { color: var(--dim); font-size: 14px; line-height: 1; padding: 0 2px; cursor: grab; user-select: none; }
+.ringrow.is-drop-before::before,
+.ringrow.is-drop-after::after {
+  content: ""; position: absolute; left: 0; right: 0; height: 3px; border-radius: 2px;
+  background: var(--magenta); box-shadow: 0 0 8px var(--magenta); pointer-events: none;
+}
+.ringrow.is-drop-before::before { top: -2px; }
+.ringrow.is-drop-after::after { bottom: -2px; }
+.ringrow__thumb { cursor: zoom-in; }

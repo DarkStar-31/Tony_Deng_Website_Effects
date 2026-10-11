@@ -647,6 +647,37 @@ const UI_STRINGS = {
   'unpublished': '未发布',
   'Opens a journal post': '打开一篇日志',
   'Show the date on the site (it still sets the order either way)': '在网站上显示日期（无论是否显示，排序仍按日期）',
+  // ------------------------------------------- rings and the journal (10-11, round 3)
+  'Double-click to edit the title': '双击编辑标题',
+  'Drag to reorder': '拖动排序',
+  'The order they go round: drag a row, or use the arrows. Double-click a title, or its picture, to edit it.':
+    '图片转动的顺序：拖动一行，或用箭头。双击标题或图片可以编辑标题。',
+  'A countdown, then a picture': '倒计时，然后揭晓图片',
+  'That is {time} in Beijing.': '北京时间 {time}。',
+  'Pick the moment the picture appears.': '选择图片揭晓的时间。',
+  'Counts down to': '倒计时到',
+  'In this computer’s time.': '按这台电脑的时间。',
+  'Replace the picture': '更换图片',
+  'Choose the picture': '选择图片',
+  'Shown when the countdown ends. Until then it is not on the site at all - not in the page, and not as a file anyone could open.':
+    '倒计时结束时显示。在那之前它完全不在网站上——不在页面里，也没有任何人能打开的文件。',
+  'Words over the clock': '时钟上方的文字',
+  'Optional. Left empty, the site says “Revealed in” / “距离揭晓”.': '可选。留空则显示 “Revealed in” / “距离揭晓”。',
+  'Picture description (alt text)': '图片描述（替代文字）',
+  'The still picture in the middle of the ring. Any shape works.': '圆环中间的静态图片。任何比例都可以。',
+  'diary': '日志',
+  'Studio diary entry (part of the journal)': '录音室日志（属于创作日志）',
+  'Show the date on the site (it still decides which entry is newest)': '在网站上显示日期（仍按日期决定哪篇最新）',
+  'With an audio clip, a play button sits beside the title.': '有音频时，标题旁会出现播放按钮。',
+  'Title on the page': '页面上的标题',
+  'Show the title at the bottom left while the ring is on screen': '圆环在屏幕上时，在左下角显示标题',
+  'Journal words': '日志里的小字',
+  'The journal is the ring pictures marked “Studio diary entry”. The newest of them, by date, sits on top of the page.':
+    '创作日志就是标为“录音室日志”的圆环图片。日期最新的一篇放在页面最上方。',
+  'Above the newest entry': '最新日志上方',
+  'On its card': '卡片上',
+  'The Journal button beside Filter': '筛选旁边的“日志”按钮',
+  'Over a countdown (default)': '倒计时上方（默认）',
   // ------------------------------------------- arranging Visuals (10-11)
   'Click to select · Shift/Ctrl-click for more · drag to move · double-click to crop':
     '点击选择 · Shift/Ctrl 点击多选 · 拖动移动 · 双击裁剪',

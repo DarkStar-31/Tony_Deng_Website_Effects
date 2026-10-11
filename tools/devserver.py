@@ -114,7 +114,60 @@ class Handler(SimpleHTTPRequestHandler):
 
             return self.send_json({"error": f"No dev route for GET {route}"}, 404)
 
+        path = self.path.split("?")[0]
+        # a countdown's picture, after its moment (the Worker's serveReveal)
+        if path.startswith("/reveal/"):
+            return self.reveal(path[len("/reveal/"):])
+        # byte ranges for audio and video, as the Worker answers them
+        if self.headers.get("Range") and (path.startswith("/audio/") or path.startswith("/video/")):
+            return self.ranged(path)
         return super().do_GET()
+
+    def reveal(self, ring_id: str):
+        import datetime
+        shared = json.loads((ROOT / "content/shared.json").read_text(encoding="utf-8"))
+        ring = next((r for r in shared.get("rings", []) if r.get("id") == ring_id), None)
+        centre = (ring or {}).get("centre") or {}
+        when, src = centre.get("countdown"), centre.get("reveal", "")
+        try:
+            due = datetime.datetime.fromisoformat(when.replace("Z", "+00:00")) <= datetime.datetime.now(datetime.timezone.utc)
+        except (AttributeError, ValueError):
+            due = False
+        f = ROOT / src
+        if not due or not src.startswith("img/reveal/") or not f.is_file():
+            return self.send_json({"error": "Not found"}, 404)
+        data = f.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", self.guess_type(str(f)))
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+        return None
+
+    def ranged(self, path: str):
+        f = (ROOT / path.lstrip("/")).resolve()
+        if ROOT.resolve() not in f.parents or not f.is_file():
+            return super().do_GET()
+        data = f.read_bytes()
+        m = re.match(r"bytes=(\d*)-(\d*)$", self.headers["Range"].strip())
+        if not m:
+            return super().do_GET()
+        size = len(data)
+        start = size - int(m[2]) if m[1] == "" else int(m[1])
+        end = size - 1 if m[1] == "" or m[2] == "" else min(size - 1, int(m[2]))
+        if start > end or start >= size:
+            self.send_response(416)
+            self.send_header("Content-Range", f"bytes */{size}")
+            self.end_headers()
+            return None
+        self.send_response(206)
+        self.send_header("Content-Type", self.guess_type(str(f)))
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self.send_header("Content-Length", str(end - start + 1))
+        self.end_headers()
+        self.wfile.write(data[start:end + 1])
+        return None
 
     def files_listing(self):
         out = []

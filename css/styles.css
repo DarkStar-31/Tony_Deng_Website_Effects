@@ -1354,6 +1354,43 @@ html[lang^="zh"] .card__badge{ letter-spacing:.04em; text-transform:none; font-s
   margin-inline:calc(-1 * var(--pad));   /* full bleed: cards fly past the gutter */
 }
 .orbit.is-live{ height:300vh; }
+/* The ring's name, low on the left while it holds the screen. */
+.orbit__title{
+  position:absolute; left:var(--pad); bottom:clamp(1.2rem,4vh,2.6rem); z-index:2; margin:0;
+  font-family:var(--f-serif); font-size:clamp(1.4rem,2.6vw,2.2rem); line-height:1.05;
+  color:var(--bone); pointer-events:none;
+  text-shadow:0 2px 18px rgba(0,0,0,.6);
+  transition:opacity .5s var(--ease), transform .5s var(--ease);
+}
+.js .orbit.is-live .orbit__title{ opacity:0; transform:translateY(.6rem); }
+.js .orbit.is-live .orbit__title.is-on{ opacity:1; transform:none; }
+
+/* ---- a countdown in the middle of a ring ----
+   Four numbers on a dark glass card, each over its unit. Countdown in
+   main.js fills them in and, at zero, asks the server for the picture. */
+.count{
+  display:grid; justify-items:center; gap:.6rem;
+  width:max-content; max-width:none;
+  padding:1.1rem 1.4rem 1.2rem; border-radius:16px;
+  background:rgba(11,10,12,.72); border:1px solid rgba(237,230,220,.18);
+  backdrop-filter:blur(6px);
+}
+.count__label{
+  margin:0; font-size:.66rem; font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:var(--magenta);
+}
+html[lang^="zh"] .count__label{ font-size:.8rem; letter-spacing:.08em; }
+.count__clock{ display:flex; gap:clamp(.6rem,1.4vw,1.1rem); margin:0; }
+.count__unit{ display:grid; justify-items:center; min-width:2.6ch; }
+.count__unit b{
+  font-family:var(--f-serif); font-weight:400; font-variant-numeric:tabular-nums;
+  font-size:clamp(1.6rem,3.2vw,2.6rem); line-height:1; color:var(--bone);
+}
+.count__unit small{ margin-top:.3rem; font-size:.6rem; letter-spacing:.14em; text-transform:uppercase; color:var(--bone-dim); }
+html[lang^="zh"] .count__unit small{ font-size:.72rem; letter-spacing:.04em; }
+.count__when{ margin:0; font-size:.8rem; color:var(--bone-dim); }
+/* the picture, once it is out, arrives over where the clock was */
+.orbit__centre.is-revealed{ animation:reveal 1.2s var(--ease) both; }
+@keyframes reveal{ from{ opacity:0; filter:blur(14px); } to{ opacity:1; filter:none; } }
 /* the In the Making filter: a ring with no match goes, and so does a card */
 .orbit[hidden],
 .orbit__card.is-out{ display:none; }
@@ -1382,10 +1419,16 @@ html[lang^="zh"] .card__badge{ letter-spacing:.04em; text-transform:none; font-s
   border-radius:6px;
   box-shadow:0 1.2rem 3rem rgba(0,0,0,.55);
 }
+/* The middle keeps its own proportions - a square cover, a tall poster, a
+   wide banner - inside a box about the size the square used to be, centred
+   by a translate since its size is not known until it loads. */
 .orbit__centre{
-  width:var(--cover); aspect-ratio:1; object-fit:cover;
-  margin:calc(var(--cover) / -2) 0 0 calc(var(--cover) / -2);
+  width:auto; height:auto;
+  max-width:calc(var(--cover) * 1.35); max-height:var(--cover);
+  transform:translate(-50%, -50%);
 }
+/* the clock is sized by its numbers, not by the picture box */
+.orbit__centre.count{ max-width:none; max-height:none; border-radius:16px; }
 /* Cards keep their own shape - square covers, tall posters, wide banners -
    fitted inside a box a little wider than it is tall, so a banner reads as
    a banner without dwarfing everything else. Since their height is unknown
@@ -1523,6 +1566,17 @@ html[lang^="zh"] .press__src{ font-size:.78rem; letter-spacing:.08em; }
 /* Filter, then the switch, side by side beside the heading. */
 .vtools{ display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; }
 .vfind{ display:none; position:relative; }
+.vjournal{
+  display:none; padding:.6rem 1rem; border:1px solid var(--line); border-radius:999px;
+  background:transparent; color:var(--bone-dim); cursor:pointer;
+  font:inherit; font-size:.7rem; font-weight:600; letter-spacing:.16em; text-transform:uppercase;
+  transition:border-color .25s var(--ease), color .25s var(--ease), background .25s var(--ease);
+}
+html.js .vjournal{ display:inline-block; }
+html[lang^="zh"] .vjournal{ font-size:.8rem; letter-spacing:.04em; text-transform:none; }
+.vjournal:hover{ color:var(--bone); border-color:var(--magenta); }
+.vjournal:focus-visible{ outline:2px solid var(--magenta); outline-offset:2px; }
+.vjournal[aria-pressed="true"]{ background:var(--magenta); border-color:var(--magenta); color:#fff; }
 html.js .vfind{ display:block; }
 .vfind__btn{
   display:flex; align-items:center; gap:.5rem;
@@ -1645,7 +1699,33 @@ html[lang^="zh"] .vfilter__btn{ font-size:.8rem; letter-spacing:.04em; text-tran
   font-size:.7rem; font-weight:600; letter-spacing:.18em; text-transform:uppercase; color:var(--magenta);
 }
 html[lang^="zh"] .latest__kicker{ font-size:.82rem; letter-spacing:.06em; }
-.jcard--latest{ grid-template-columns:minmax(0,22rem) minmax(0,1fr); padding:1.2rem; }
+.jcard--latest{ position:relative; grid-template-columns:minmax(0,22rem) minmax(0,1fr); padding:1.2rem; cursor:zoom-in; }
+.jcard__open{
+  position:absolute; inset:0; z-index:1; border:0; padding:0; margin:0;
+  background:transparent; border-radius:inherit; cursor:inherit;
+}
+.jcard__open:focus-visible{ outline:2px solid var(--magenta); outline-offset:3px; }
+.jcard--latest:has(.jcard__open:hover){ border-color:rgba(250,39,159,.6); }
+.jcard__titlerow{ display:flex; align-items:center; gap:.8rem; }
+.jcard__titlerow .jcard__title{ margin:0; }
+.jcard__titlerow + .jdate{ margin-top:.4rem; }
+
+/* A play button at the end of an entry's title, a round one like the
+   homepage's. It sits above the card's own button, so it plays rather
+   than opening the card. */
+.tplay{
+  position:relative; z-index:2; flex:none;
+  width:2.9rem; height:2.9rem; display:grid; place-items:center;
+  border:0; border-radius:50%; background:var(--magenta); color:#fff; cursor:pointer;
+  box-shadow:0 6px 20px rgba(250,39,159,.35);
+  transition:transform .25s var(--ease), background .25s var(--ease);
+}
+.tplay:hover{ background:#ff45ad; transform:scale(1.06); }
+.tplay:focus-visible{ outline:2px solid var(--bone); outline-offset:3px; }
+.tplay svg{ width:1.15rem; height:1.15rem; fill:currentColor; margin-left:.12rem; }
+.tplay[aria-pressed="true"] svg{ margin-left:0; }
+.lens__titlerow{ display:flex; align-items:center; gap:.9rem; }
+.lens__titlerow .lens__title{ margin:0; }
 .jcard--latest.jcard--text{ grid-template-columns:minmax(0,1fr); }
 .jcard{
   display:grid; grid-template-columns:minmax(0,15rem) minmax(0,1fr); gap:1.4rem;
@@ -1656,6 +1736,7 @@ html[lang^="zh"] .latest__kicker{ font-size:.82rem; letter-spacing:.06em; }
 }
 .jcard:hover,
 .jcard:focus-visible{ border-color:rgba(250,39,159,.6); transform:translateY(-2px); }
+.jcard--latest:hover{ transform:none; }
 .jcard:focus-visible{ outline:2px solid var(--magenta); outline-offset:3px; }
 .jcard__pic{ display:block; aspect-ratio:4/3; border-radius:9px; overflow:hidden; background:var(--ink-3, #1C1A20); }
 .jcard__pic img{ display:block; width:100%; height:100%; object-fit:cover; transition:transform .6s var(--ease); }

@@ -544,6 +544,8 @@ function ringCentreSrc(shared, ring) {
     const rel = (shared.releases || []).find((r) => r.id === centre.release);
     return (rel && rel.art) || null;
   }
+  // a countdown's picture is drawn here, though the page hides it until then
+  if ('countdown' in centre) return centre.reveal || null;
   return centre.src || null;
 }
 
@@ -560,8 +562,9 @@ function ringFigure(cfg, items, centre, opts = {}) {
 
   const box = el('div', { className: opts.className || 'ring' });
   if (centre) {
+    // its own proportions, inside the box the page gives it
     box.append(el('img', { className: 'ring__mid', src: '/' + centre, alt: '', loading: 'lazy',
-                           style: `width:${cover}px;height:${cover}px` }));
+                           style: `max-width:${Math.round(cover * 1.35)}px;max-height:${cover}px;width:auto;height:auto` }));
   }
   const pics = items.map((it) => el('img', {
     className: 'ring__pic', src: '/' + it.src, alt: '', loading: 'lazy', 'data-pv': it.pv,

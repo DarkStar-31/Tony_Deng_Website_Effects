@@ -574,12 +574,66 @@ async function handlePublish(env, user) {
 
 // ------------------------------------------------------------ router
 
+// ------------------------------------------------------------ media
+
+/* Audio and video with byte ranges. The static assets answer a Range
+   request with the whole file and a 200, and a browser that gets that
+   cannot seek: pressing halfway along a clip's bar played on from the
+   start. So /audio/* and /video/* come through here (wrangler.toml,
+   run_worker_first) and a Range is answered with a 206 and just those
+   bytes. The files are a few MB, so slicing the asset is fine. */
+async function serveMedia(request, env) {
+  const res = await env.ASSETS.fetch(request);
+  const range = request.headers.get('Range');
+  // a 206 means the assets did it themselves; anything else not ours to cut
+  if (!res.ok || res.status === 206 || request.method !== 'GET') return res;
+  const headers = new Headers(res.headers);
+  headers.set('Accept-Ranges', 'bytes');
+  const m = range && /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+  if (!m) return new Response(res.body, { status: res.status, headers });
+
+  const body = await res.arrayBuffer();
+  const size = body.byteLength;
+  let start = m[1] === '' ? size - Number(m[2]) : Number(m[1]);
+  let end = m[1] === '' || m[2] === '' ? size - 1 : Number(m[2]);
+  start = Math.max(0, start);
+  end = Math.min(size - 1, end);
+  if (start > end || start >= size) {
+    return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${size}` } });
+  }
+  headers.set('Content-Range', `bytes ${start}-${end}/${size}`);
+  headers.set('Content-Length', String(end - start + 1));
+  return new Response(body.slice(start, end + 1), { status: 206, headers });
+}
+
+/* A countdown's picture (build.py: render_countdown, build_dist). Only
+   /reveal/<ring id>, and only once that ring's moment has passed on this
+   clock; before then - and for any other path under /reveal/, the
+   manifest and the files' own names included - there is nothing here. */
+async function serveReveal(request, env, url) {
+  const nothing = () => new Response('Not found', { status: 404, headers: { 'Cache-Control': 'no-store' } });
+  const id = url.pathname.slice('/reveal/'.length);
+  if (!/^[a-z0-9-]+$/.test(id)) return nothing();
+  const list = await env.ASSETS.fetch(new Request(new URL('/reveal/manifest.json', url.origin)));
+  if (!list.ok) return nothing();
+  const entry = (await list.json())[id];
+  if (!entry || !(Date.now() >= Date.parse(entry.at))) return nothing();
+  const file = await env.ASSETS.fetch(new Request(new URL(`/reveal/${entry.file}`, url.origin)));
+  if (!file.ok) return nothing();
+  const headers = new Headers(file.headers);
+  headers.set('Cache-Control', 'public, max-age=3600');
+  return new Response(file.body, { status: 200, headers });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // wrangler.toml only runs this script for /api/admin/*, but if that
-    // pattern ever widens the site must still be served.
+    if (url.pathname.startsWith('/reveal/')) return serveReveal(request, env, url);
+    if (/^\/(audio|video)\//.test(url.pathname)) return serveMedia(request, env);
+    // wrangler.toml only runs this script for the paths above and
+    // /api/admin/*, but if that pattern ever widens the site must still be
+    // served.
     if (!url.pathname.startsWith('/api/admin/')) return env.ASSETS.fetch(request);
 
     const path = url.pathname.replace(/^\/api\/admin/, '');

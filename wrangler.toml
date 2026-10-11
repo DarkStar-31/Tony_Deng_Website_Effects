@@ -16,7 +16,8 @@
 # dist/ is gitignored on purpose, so it only ever exists as build output.
 #
 # The admin API runs inside this same Worker. `main` is the admin script,
-# but `run_worker_first` hands it /api/admin/* only; every other request is
+# but `run_worker_first` hands it /api/admin/* (and the media and reveal paths
+# below) only; every other request is
 # answered from dist/ without the script running at all, so the public site
 # costs nothing extra and cannot be broken by the admin.
 #
@@ -31,7 +32,9 @@ compatibility_date = "2026-08-01"
 [assets]
 directory = "./dist"
 binding = "ASSETS"
-run_worker_first = ["/api/admin/*"]
+# /audio/* and /video/* so seeking works (the Worker answers byte ranges),
+# /reveal/* so a countdown's picture is served only after its moment.
+run_worker_first = ["/api/admin/*", "/audio/*", "/video/*", "/reveal/*"]
 
 [vars]
 # This copy of the admin must never write to the live repository - it is

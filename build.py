@@ -820,20 +820,27 @@ def opens_into_lens(item: dict, desc: str) -> bool:
 
 
 def lens_template(tid: str, kicker: str, title: str, desc: str,
-                  entry: tuple[list[str], list[str], list[str]] | None = None) -> list[str]:
+                  entry: tuple[list[str], list[str], list[str]] | None = None,
+                  play: str = "") -> list[str]:
     """What the detail view shows for one picture. A <template> is inert, so
     none of this is on the page until someone opens it. Blank lines in the
     description split it into paragraphs.
 
     `entry` is a diary entry's three parts - see entry_parts - placed the
     way the client's mock-ups have them: date and tags above the title, the
-    media between the title and the words, "view all" at the very end."""
+    media between the title and the words, "view all" at the very end.
+
+    `play` is a play button to sit at the end of the title line (title_play)
+    - an entry with a song in it can be started from its name."""
     top, media, tail = entry or ([], [], [])
     out = [f'<template id="{attr(tid)}">']
     out += ["  " + l for l in top]
     if kicker:
         out.append(f'  <p class="lens__kicker">{kicker}</p>')
-    out.append(f'  <h3 class="lens__title">{title}</h3>')
+    if play:
+        out += ['  <div class="lens__titlerow">', f'    <h3 class="lens__title">{title}</h3>', f"    {play}", "  </div>"]
+    else:
+        out.append(f'  <h3 class="lens__title">{title}</h3>')
     out += ["  " + l for l in media]
     # A picture can open without carrying any text, so this is guarded:
     # splitting "" yields one empty string and would print a blank paragraph.
@@ -875,7 +882,33 @@ GALLERY_SHOWN = 4      # tiles the strip shows before its arrows appear
 
 
 def has_entry(photo: dict) -> bool:
+    """Whether a ring picture is a studio diary entry - the admin's box,
+    `entry`. Pictures from before the box existed count as entries when they
+    carry any of an entry's parts. An entry is also what the journal is: the
+    Journal button on the page narrows the rings to these, and the newest
+    one sits on top as Latest."""
+    if "entry" in photo:
+        return bool(photo["entry"])
     return bool(photo.get("date") or photo.get("kind") or photo.get("media"))
+
+
+def entry_audio(photo: dict) -> str:
+    """The first audio clip in an entry, which its title's play button plays."""
+    for m in photo.get("media", []):
+        if m.get("type") == "audio" and m.get("src"):
+            return m["src"]
+    return ""
+
+
+def title_play(loc: dict, src: str, title: str) -> str:
+    """A round play button for the end of an entry's title line. In the
+    detail view it drives the entry's first clip (Lens in main.js); on the
+    Latest card it plays the clip by itself (TitlePlay)."""
+    if not src:
+        return ""
+    label = f'{loc["making"].get("playTitle", "Play")}: {plain(title)}'
+    return (f'<button class="tplay" type="button" data-audio="{attr(loc["assetPrefix"] + src)}"'
+            f' aria-label="{attr(label)}" aria-pressed="false">{PLAY_SVG}</button>')
 
 
 def entry_date(loc: dict, iso: str) -> str:
@@ -957,7 +990,7 @@ def entry_parts(loc: dict, shared: dict, photo: dict, words: dict) -> tuple:
         meta.append(f'<span>{" · ".join(counts)}</span>')
 
     top = []
-    if photo.get("date"):
+    if photo.get("date") and photo.get("showDate") is not False:
         top.append(entry_date(loc, photo["date"]))
     if meta:
         top.append(f'<p class="entry__meta">{"".join(meta)}</p>')
@@ -1793,7 +1826,8 @@ def ring_centre(loc: dict, shared: dict, ring: dict, words: dict) -> tuple:
     shows, so the ring circles something the reader has seen - or a picture
     of its own with its own alt text. A ring can have neither, and then it
     turns around a hole, which is a legitimate thing to want and is what a
-    ring looks like the moment it is added.
+    ring looks like the moment it is added. (A countdown is the fourth kind;
+    render_countdown draws it.)
     """
     centre = ring.get("centre") or {}
     if centre.get("release"):
@@ -1807,57 +1841,61 @@ def ring_centre(loc: dict, shared: dict, ring: dict, words: dict) -> tuple:
     return None, ""
 
 
-def ring_post(loc: dict, shared: dict, ring: dict, photo: dict) -> dict | None:
-    """The journal post a ring picture opens into, if it has one.
+# ---------------------------------------------------------------- countdown
+#
+# A ring's middle can count down to a moment and then show a picture:
+#
+#   "centre": {"countdown": "2026-11-01T04:00:00Z", "reveal": "img/reveal/x.webp"}
+#
+# The picture must not be findable before then, so it is never on the page
+# and never among the site's files: build_dist keeps img/reveal/ out of
+# dist/img and puts each one at reveal/<hash>, with reveal/manifest.json
+# saying which ring it belongs to and when. The Worker answers /reveal/*
+# (wrangler.toml, run_worker_first) and hands out /reveal/<ring id> only once
+# its moment has passed on the server's clock - before that, nothing under
+# /reveal/ is served at all. The page carries the time and the ring id;
+# Countdown in main.js counts down and then asks for the picture.
+#
+# The words: rings.<id>.countdownLabel (over the clock; making.countdown.label
+# when empty) and centreAlt, the picture's alt text once it is out.
 
-    `post` on a ring picture names a journal post by id. A name that is not
-    in the journal at all stops the build - that is a typo, and it would
-    otherwise show up only as a picture that quietly stopped opening. A post
-    that is unpublished, or has no title in this language yet, is simply not
-    there: the picture falls back to whatever it carries of its own."""
-    pid = photo.get("post")
-    if not pid:
-        return None
-    if not any(x.get("id") == pid for x in shared.get("journal", [])):
-        raise SystemExit(f'rings[{ring["id"]}] photo {photo["id"]}: no journal post {pid!r}')
-    post = next((x for x in journal_posts(shared) if x["id"] == pid), None)
-    if post and journal_words(loc, post).get("title"):
-        return post
-    return None
-
-
-def post_media(post: dict) -> list[dict]:
-    """A post's pictures, videos and clips, in the shape a diary entry's
-    `media` takes, so the card a ring picture opens into can show them."""
-    out = []
-    for b in post.get("blocks", []):
-        kind = b.get("type")
-        if kind == "image" and b.get("src"):
-            out.append({"type": "image", "src": b["src"]})
-        elif kind == "gallery":
-            out += [{"type": "image", "src": i["src"]} for i in b.get("images", []) if i.get("src")]
-        elif kind == "video" and b.get("src"):
-            out.append({"type": "video", "src": b["src"], "poster": b.get("poster", "")})
-        elif kind == "video" and b.get("video"):
-            out.append({"type": "video", "video": b["video"]})
-        elif kind == "song" and b.get("audio"):
-            out.append({"type": "audio", "src": b["audio"]})
-    return out
+REVEAL_DIR = "img/reveal/"
 
 
-def post_lens(loc: dict, shared: dict, tid: str, photo: dict, post: dict) -> list[str]:
-    """The card a ring picture opens into when it is linked to a journal
-    post: the post's date, kind, title and opening words, its pictures and
-    clips in the strip, and a way through to the whole post."""
-    words = journal_words(loc, post)
-    stand_in = {"id": photo["id"], "src": photo["src"],
-                "date": post.get("date", "") if post.get("showDate") is not False else "",
-                "kind": post.get("kind", ""), "media": post_media(post)}
-    top, after, tail = entry_parts(loc, shared, {k: v for k, v in stand_in.items() if v}, {})
-    read = loc["journal"].get("readFull") or loc["journal"]["read"]
-    tail = tail + [f'<p class="entry__read"><a href="{journal_file(post)}">{read}'
-                   '<span aria-hidden="true"> &rarr;</span></a></p>']
-    return lens_template(tid, "", words["title"], journal_excerpt(loc, post, words), (top, after, tail))
+def reveal_time(ring: dict) -> str:
+    """The ring's countdown moment as an ISO string in UTC, or "" for none."""
+    when = ((ring.get("centre") or {}).get("countdown") or "").strip()
+    if not when:
+        return ""
+    import datetime
+    try:
+        t = datetime.datetime.fromisoformat(when.replace("Z", "+00:00"))
+    except ValueError:
+        raise SystemExit(f'rings[{ring["id"]}].centre.countdown: {when!r} is not a date and time')
+    if t.tzinfo is None:
+        raise SystemExit(f'rings[{ring["id"]}].centre.countdown: {when!r} has no time zone')
+    return t.astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def render_countdown(loc: dict, ring: dict, words: dict) -> list[str]:
+    """The clock in the middle of a counting-down ring, eight spaces in.
+    Its four numbers are filled in by Countdown; with JS off it shows the
+    date it is counting to."""
+    when = reveal_time(ring)
+    c = loc["making"]["countdown"]
+    label = words.get("countdownLabel") or c["label"]
+    units = "".join(
+        f'<span class="count__unit"><b data-unit="{u}">--</b><small>{c[u]}</small></span>'
+        for u in ("days", "hours", "minutes", "seconds"))
+    return [
+        f'        <div class="orbit__centre count" data-countdown="{when}"'
+        f' data-reveal="{loc["assetPrefix"]}reveal/{attr(ring["id"])}"'
+        f' data-alt="{attr(plain(words.get("centreAlt", "")))}" role="timer">',
+        f'          <p class="count__label">{label}</p>',
+        f'          <p class="count__clock">{units}</p>',
+        f'          <noscript><p class="count__when"><time datetime="{when}">{when[:10]}</time></p></noscript>',
+        "        </div>",
+    ]
 
 
 def render_ring(loc: dict, shared: dict, ring: dict) -> list[str]:
@@ -1890,9 +1928,12 @@ def render_ring(loc: dict, shared: dict, ring: dict) -> list[str]:
         '    <div class="orbit__stage">',
         f'      <div class="orbit__scene" style="--n:{len(photos)}">',
     ]
-    src, alt = ring_centre(loc, shared, ring, words)
-    if src:
-        out.append(f'        <img class="orbit__centre" src="{p}{src}" alt="{attr(alt)}">')
+    if reveal_time(ring):
+        out += render_countdown(loc, ring, words)
+    else:
+        src, alt = ring_centre(loc, shared, ring, words)
+        if src:
+            out.append(f'        <img class="orbit__centre" src="{p}{src}" alt="{attr(alt)}">')
 
     templates = []
     for i, photo in enumerate(photos):
@@ -1900,36 +1941,30 @@ def render_ring(loc: dict, shared: dict, ring: dict) -> list[str]:
         desc = c.get("desc", "").strip()
         caption = c.get("caption", "")
         img = f'{p}{photo["src"]}'
-        post = ring_post(loc, shared, ring, photo)
-        kind = post.get("kind") if post else photo.get("kind")
-        # what the In the Making filter reads: the kind is the chip, and the
-        # search box looks through the title, the project and the kind's name
+        entry = has_entry(photo)
+        kind = photo.get("kind") if entry else ""
+        # what the In the Making filter reads: the kind is the chip, the
+        # search box looks through the title, the project and the kind's
+        # name, and data-entry is what the Journal button keeps
         data = f' data-kind="{attr(kind)}"' if kind else ""
-        if post:
-            title = journal_words(loc, post)["title"]
-            text = search_text(title, loc["making"]["kinds"].get(kind, ""))
-        else:
-            title = caption
-            text = search_text(caption, c.get("project", ""), loc["making"]["kinds"].get(kind or "", ""))
+        data += " data-entry" if entry else ""
+        text = search_text(caption, c.get("project", ""), loc["making"]["kinds"].get(kind or "", ""))
         if text:
             data += f' data-text="{attr(text)}"'
-        # A picture carrying an entry opens, since there is something to
-        # show - unless the admin's "opens" box was unticked on purpose. One
-        # linked to a journal post always opens: the post is the point of it.
-        entry = has_entry(photo)
-        opens = bool(post) or (bool(photo["opens"]) if "opens" in photo else (entry or bool(desc)))
+        # A diary entry always opens - there is something to show. Any other
+        # picture opens when it has a description, unless the admin's
+        # "opens" box was unticked on purpose.
+        opens = entry or (bool(photo["opens"]) if "opens" in photo else bool(desc))
         if opens:
             tid = f'lens-{photo["id"]}'
-            label = f'{loc["lens"]["open"]}: {plain(title)}'
+            label = f'{loc["lens"]["open"]}: {plain(caption)}'
             out.append(
                 f'        <img class="orbit__card" style="--i:{i}" src="{img}" alt="{attr(label)}"'
                 f' role="button" tabindex="0" aria-haspopup="dialog" data-lens="{attr(tid)}"{data} decoding="async">'
             )
-            if post:
-                templates += post_lens(loc, shared, tid, photo, post)
-            else:
-                parts = entry_parts(loc, shared, photo, c) if entry else None
-                templates += lens_template(tid, "", caption, desc, parts)
+            parts = entry_parts(loc, shared, photo, c) if entry else None
+            play = title_play(loc, entry_audio(photo), caption) if entry else ""
+            templates += lens_template(tid, "", caption, desc, parts, play)
         else:
             out.append(
                 f'        <img class="orbit__card" style="--i:{i}" src="{img}"'
@@ -1938,8 +1973,11 @@ def render_ring(loc: dict, shared: dict, ring: dict) -> list[str]:
 
     # Outside the stage on purpose: the stage carries a perspective, which
     # would make it the box a position:fixed child is pinned to.
+    out += ["      </div>"]
+    # the ring's name, low on the left while it holds the screen
+    if ring.get("showTitle") and words.get("title"):
+        out.append(f'      <p class="orbit__title" data-orbit-title>{words["title"]}</p>')
     out += [
-        "      </div>",
         "    </div>",
         f'    <a class="to-top" href="#top" data-to-top>&uarr;&#160;{loc["footer"]["backToTop"]}</a>',
     ]
@@ -1961,17 +1999,17 @@ def render_making(loc: dict, shared: dict) -> list[str]:
     There is no fixed number of rings: the section is whatever `rings` in
     shared.json holds, in that order.
 
-    The journal lives with the rings rather than under them: the newest post
-    sits on top as one large card, and the rest are reached through the ring
-    pictures linked to them (`post` on a ring picture) and the newer/older
-    links on each post's own page. Beside the heading, a Filter button
-    narrows the rings to a kind of work, or to words in a title.
+    The journal is the rings: every ring picture marked as a studio diary
+    entry is part of it. The newest entry sits on top as one wide card,
+    which opens the same card its picture does. Beside the heading, Filter
+    narrows the rings to a kind of work or to words in a title, and Journal
+    to the diary entries alone.
     """
     out = [
         "<!-- ================= 05 IN THE MAKING ================= -->",
         '<section class="section section--lead" id="press">',
     ] + section_head(loc, "press", aside=render_making_filter(loc, shared) or None) + [""]
-    out += render_journal_latest(loc, shared)
+    out += render_latest(loc, shared)
     for ring in shared.get("rings", []):
         # A ring with no pictures is not a ring: once the script runs it is
         # three screens of nothing to scroll past, and the arrows would count
@@ -1987,333 +2025,109 @@ def render_making(loc: dict, shared: dict) -> list[str]:
 
 
 def render_making_filter(loc: dict, shared: dict) -> list[str]:
-    """Filter for In the Making: the same button and panel as Visuals, with
-    the kinds of work as its chips (Recording, Arranging, ...) - only the
-    kinds some ring picture actually carries, in the order making.kinds
-    lists them. MakingFilter in main.js hides the pictures that do not
-    match and closes up the gaps on each ring."""
+    """Filter for In the Making, then Journal: the same Filter button and
+    panel as Visuals, with the kinds of work as its chips (Recording,
+    Arranging, ...) - only the kinds some diary entry actually carries, in
+    the order making.kinds lists them - and a Journal button that keeps only
+    the diary entries. MakingFilter in main.js hides the pictures that do
+    not match and closes up the gaps on each ring."""
     find = loc.get("visualsFind")
     if not find:
         return []
     kinds = loc["making"]["kinds"]
     used = set()
-    any_card = False
+    any_card = any_entry = False
     for ring in shared.get("rings", []):
         for photo in ring.get("photos", []):
             any_card = True
-            post = ring_post(loc, shared, ring, photo)
-            k = post.get("kind") if post else photo.get("kind")
-            if k:
-                used.add(k)
+            if has_entry(photo):
+                any_entry = True
+                if photo.get("kind"):
+                    used.add(photo["kind"])
     if not any_card:
         return []
     groups = [("kind", "", [k for k in kinds if k in used])] if used else []
-    return ['<div class="vtools">'] + ["  " + l for l in render_find(find, groups, kinds)] + ["</div>"]
+    out = ['<div class="vtools">'] + ["  " + l for l in render_find(find, groups, kinds)]
+    if any_entry and loc["making"].get("journalOnly"):
+        out.append(f'  <button class="vjournal" type="button" aria-pressed="false">{loc["making"]["journalOnly"]}</button>')
+    return out + ["</div>"]
 
 
-def latest_post(loc: dict, shared: dict) -> dict | None:
-    """The newest post on this language's page, by its date. Posts with no
-    date count as oldest; between two of the same date, the one higher in
-    the admin's list wins."""
-    posts = [x for x in journal_posts(shared) if journal_words(loc, x).get("title")]
-    if not posts:
-        return None
-    return max(enumerate(posts), key=lambda ix: (ix[1].get("date", ""), -ix[0]))[1]
+def ring_entries(loc: dict, shared: dict) -> list[tuple[dict, dict, dict]]:
+    """Every diary entry on the page as (ring, picture, its words), in page
+    order - the ones with a title in this language."""
+    out = []
+    for ring in shared.get("rings", []):
+        words = loc.get("rings", {}).get(ring["id"], {}).get("photos", {})
+        for photo in ring.get("photos", []):
+            w = words.get(photo["id"], {})
+            if has_entry(photo) and plain(w.get("caption", "")).strip():
+                out.append((ring, photo, w))
+    return out
 
 
-def render_journal_latest(loc: dict, shared: dict) -> list[str]:
-    """The newest journal post, as one wide card above the rings. It keeps
-    the `#journal` anchor the old list had, so the way back from a post
-    still lands here."""
-    post = latest_post(loc, shared)
-    if not post or not loc.get("journal"):
+def render_latest(loc: dict, shared: dict) -> list[str]:
+    """The newest diary entry, by its date, as one wide card above the
+    rings. The card is the same picture's own way in: its button opens the
+    detail view the ring picture opens (the same template), and a play
+    button beside the title plays the entry's song, if it has one."""
+    j = loc.get("journal")
+    entries = [e for e in ring_entries(loc, shared) if e[1].get("date")]
+    if not j or not entries:
         return []
-    j = loc["journal"]
+    # newest first; between two of the same date, the one earlier on the page
+    ring, photo, w = max(enumerate(entries), key=lambda ix: (ix[1][1]["date"], -ix[0]))[1]
+    p = loc["assetPrefix"]
+    title = w["caption"]
+    kind = loc["making"]["kinds"].get(photo.get("kind", ""), "")
+    date = entry_date_line(loc, photo)
+    desc = re.sub(r"\s+", " ", plain(w.get("desc", ""))).strip()
+    cut = 70 if loc["lang"].startswith("zh") else 160
+    if len(desc) > cut:
+        desc = desc[:cut].rsplit(" ", 1)[0] if not loc["lang"].startswith("zh") else desc[:cut]
+        desc = desc.rstrip(" ,.;:，。；：") + "…"
+    play = title_play(loc, entry_audio(photo), title)
     out = [
-        "  <!-- the newest journal post; the card is a link to its own page -->",
+        "  <!-- the newest diary entry; it opens the same card its ring picture does -->",
         '  <div class="latest reveal" id="journal">',
     ]
     if j.get("latest"):
         out.append(f'    <p class="latest__kicker">{j["latest"]}</p>')
-    out += ["    " + l for l in journal_card(loc, shared, post, "jcard--latest")]
-    out += ["  </div>", ""]
+    out += [
+        '    <div class="jcard jcard--latest">',
+        f'      <span class="jcard__pic"><img src="{p}{attr(photo["src"])}" alt="" loading="lazy" decoding="async"></span>',
+        '      <span class="jcard__body">',
+    ]
+    if kind:
+        out.append(f'        <span class="jcard__kind">{kind}</span>')
+    out.append(f'        <span class="jcard__titlerow"><span class="jcard__title">{title}</span>{play}</span>')
+    if date:
+        out.append(f"        {date}")
+    if desc:
+        out.append(f'        <span class="jcard__excerpt">{desc}</span>')
+    out += [
+        f'        <span class="jcard__read">{j["read"]}<span aria-hidden="true"> &rarr;</span></span>',
+        "      </span>",
+        # the whole card is this button; the play button sits above it
+        f'      <button class="jcard__open" type="button" data-lens="lens-{attr(photo["id"])}"'
+        f' aria-haspopup="dialog" aria-label="{attr(loc["lens"]["open"] + ": " + plain(title))}"></button>',
+        "    </div>",
+        "  </div>",
+        "",
+    ]
     return out
 
 
-# ---------------------------------------------------------------- journal
-#
-# The making-of journal (client issue 5): posts with a title, a date and a
-# cover, and a body built from blocks that can be put in any order. The
-# newest sits on top of In the Making, ring pictures can open into the
-# others (`post` on a ring picture - see ring_post), and each
-# post is a page of its own - journal-<id>.html - so a post can be linked to,
-# shared on WeChat, and found by a search engine, which a pop-up could not.
-#
-# The shape (shared.json; `hidden` takes a post off the site without
-# deleting it - the admin calls it unpublishing):
-#
-#   "journal": [ {"id": "temple-week-one", "date": "2026-10-04",
-#                 "kind": "recording", "cover": "img/journal/x.webp",
-#                 "hidden": false,
-#                 "blocks": [ {"id": "b1", "type": "text"},
-#                             {"id": "b2", "type": "image", "src": "img/..."},
-#                             {"id": "b3", "type": "gallery", "images": [{"src": "..."}]},
-#                             {"id": "b4", "type": "video", "video": "<shared.videos id>"},
-#                             {"id": "b5", "type": "video", "src": "video/x.mp4", "poster": "img/..."},
-#                             {"id": "b6", "type": "song", "release": "<shared.releases id, optional>",
-#                              "cover": "img/...", "audio": "audio/x.mp3"} ]} ]
-#
-# A song block is the 新歌速递 card: cover, name, a line of billing, a player
-# and where to listen. With `release` set, anything not filled in comes from
-# that release (its cover, title, meta and each language's own links); with
-# none, it stands alone, for a song that is not in the catalogue yet. Its
-# words are blocks.<id>.title / .meta / .caption / .links ([{label, url}]).
-#
-# The client's four kinds of post are four mixes of these blocks, not four
-# schemas: text only (text), text and pictures (text + image), a photo set
-# (gallery, usually with a line of text) and a new song (song + text). The
-# admin's "New post" buttons start each one with its blocks in place.
-#
-# The words (en/zh.json, journal.posts.<id>): title, excerpt (optional - the
-# first text block stands in), and blocks.<block id>.text / .caption.
-# A post is on a language's page only once it has a title in that language,
-# so one written in Chinese first simply is not on the English page yet.
-
-JOURNAL_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,60}")
-
-
-def journal_posts(shared: dict) -> list[dict]:
-    """The posts that are on the site, in the order the admin has them."""
-    out = []
-    for post in shared.get("journal", []):
-        if post.get("hidden"):
-            continue
-        if not JOURNAL_ID.fullmatch(post.get("id", "")):
-            raise SystemExit(f'journal post id {post.get("id")!r} must be lowercase letters, digits and dashes')
-        out.append(post)
-    return out
-
-
-def journal_file(post: dict) -> str:
-    return f'journal-{post["id"]}.html'
-
-
-def journal_words(loc: dict, post: dict) -> dict:
-    return loc.get("journal", {}).get("posts", {}).get(post["id"], {})
-
-
-def journal_excerpt(loc: dict, post: dict, words: dict) -> str:
-    if words.get("excerpt"):
-        return words["excerpt"]
-    for b in post.get("blocks", []):
-        if b.get("type") == "text":
-            text = re.sub(r"\s+", " ", plain(words.get("blocks", {}).get(b.get("id", ""), {}).get("text", ""))).strip()
-            if text:
-                # Chinese runs about twice as dense as English
-                cut = 70 if loc["lang"].startswith("zh") else 150
-                if len(text) <= cut:
-                    return text
-                short = text[:cut]
-                if " " in short and not loc["lang"].startswith("zh"):
-                    short = short[: short.rfind(" ")]
-                return short.rstrip(" ,.;:，。；：") + "…"
-    return ""
-
-
-def journal_cover(shared: dict, post: dict) -> str:
-    """The post's cover, or else its first picture, or nothing."""
-    if post.get("cover"):
-        return post["cover"]
-    for b in post.get("blocks", []):
-        if b.get("type") == "image" and b.get("src"):
-            return b["src"]
-        if b.get("type") == "gallery" and b.get("images"):
-            return b["images"][0]["src"]
-        if b.get("type") == "song":
-            art = song_cover(shared, b)
-            if art:
-                return art
-    return ""
-
-
-
-def song_cover(shared: dict, block: dict) -> str:
-    if block.get("cover"):
-        return block["cover"]
-    rel = next((r for r in shared.get("releases", []) if r["id"] == block.get("release")), None)
-    return rel["art"] if rel else ""
-
-
-def journal_kind(loc: dict, post: dict) -> str:
-    """The kind of post ("New song"), the small coloured word over its title."""
-    return loc["making"]["kinds"].get(post.get("kind", ""), "")
-
-
-def journal_date(loc: dict, post: dict) -> str:
-    """The post's date as one small line under its title - or nothing, when
-    the post has none or the admin's "Show the date" is off (`showDate`).
-    The title is what the card leads with; the date is a footnote to it."""
-    iso = post.get("date", "")
-    if not iso or post.get("showDate") is False:
+def entry_date_line(loc: dict, photo: dict) -> str:
+    """An entry's date as one small line under its title - or nothing, when
+    it has none or the admin's "Show the date" is off (`showDate`)."""
+    iso = photo.get("date", "")
+    if not iso or photo.get("showDate") is False:
         return ""
     entry_date(loc, iso)    # the same check a malformed date gets anywhere else
     y, mo, d = (int(x) for x in iso.split("-"))
     day = f"{y}年{mo}月{d}日" if loc["lang"].startswith("zh") else f"{EN_MONTHS[mo - 1]} {d}, {y}"
     return f'<time class="jdate" datetime="{iso}">{day}</time>'
-
-
-def journal_card(loc: dict, shared: dict, post: dict, extra: str = "") -> list[str]:
-    """One post as a card that links to its page: cover, kind, title, a
-    small date, opening words. A text-only post gets a card of words rather than
-    an empty frame."""
-    p = loc["assetPrefix"]
-    words = journal_words(loc, post)
-    cover = journal_cover(shared, post)
-    excerpt = journal_excerpt(loc, post, words)
-    cls = " ".join(x for x in ("jcard", "" if cover else "jcard--text", extra) if x)
-    out = [f'<a class="{cls}" href="{journal_file(post)}">']
-    if cover:
-        out.append(f'  <span class="jcard__pic"><img src="{p}{attr(cover)}" alt="" loading="lazy" decoding="async"></span>')
-    out.append('  <span class="jcard__body">')
-    kind, date = journal_kind(loc, post), journal_date(loc, post)
-    if kind:
-        out.append(f'    <span class="jcard__kind">{kind}</span>')
-    out.append(f'    <span class="jcard__title">{words["title"]}</span>')
-    if date:
-        out.append(f"    {date}")
-    if excerpt:
-        out.append(f'    <span class="jcard__excerpt">{excerpt}</span>')
-    out += [
-        f'    <span class="jcard__read">{loc["journal"]["read"]}<span aria-hidden="true"> &rarr;</span></span>',
-        "  </span>",
-        "</a>",
-    ]
-    return out
-
-
-def render_journal_block(loc: dict, shared: dict, block: dict, words: dict) -> list[str]:
-    p = loc["assetPrefix"]
-    w = words.get("blocks", {}).get(block.get("id", ""), {})
-    kind = block.get("type")
-    cap = (f'    <figcaption>{w["caption"]}</figcaption>' if w.get("caption") else None)
-    if kind == "text":
-        text = w.get("text", "").replace("\r\n", "\n").strip()
-        if not text:
-            return []
-        return [f'  <p>{para.strip().replace(chr(10), "<br>")}</p>' for para in re.split(r"\n\s*\n", text)]
-    if kind == "image" and block.get("src"):
-        return ['  <figure class="post__fig">',
-                f'    <img src="{p}{attr(block["src"])}" alt="{attr(plain(w.get("caption", "")))}" loading="lazy" decoding="async">',
-                *([cap] if cap else []), "  </figure>"]
-    if kind == "gallery" and block.get("images"):
-        imgs = [i for i in block["images"] if i.get("src")]
-        out = [f'  <figure class="post__gallery" data-count="{len(imgs)}">']
-        out += [f'    <img src="{p}{attr(i["src"])}" alt="" loading="lazy" decoding="async">' for i in imgs]
-        if cap:
-            out.append(cap)
-        out.append("  </figure>")
-        return out
-    if kind == "song":
-        return render_song_block(loc, shared, block, w)
-    if kind == "video":
-        if block.get("src"):
-            poster = f' poster="{p}{attr(block["poster"])}"' if block.get("poster") else ""
-            return ['  <figure class="post__fig post__fig--video">',
-                    f'    <video src="{p}{attr(block["src"])}"{poster} controls playsinline preload="none"></video>',
-                    *([cap] if cap else []), "  </figure>"]
-        vid = next((v for v in shared["videos"] if v["id"] == block.get("video")), None)
-        # same rule as everywhere else: no BV id, no video on the Chinese page
-        if vid is None or not plays_here(loc, vid) or (loc["videoBackend"] != "bilibili" and not vid.get("yt")):
-            return []
-        out = ['  <figure class="post__fig post__fig--video">']
-        out += render_video_tile(loc, vid, 4, True)
-        if cap:
-            out.append(cap)
-        out.append("  </figure>")
-        return out
-    return []
-
-
-def render_song_block(loc: dict, shared: dict, block: dict, w: dict) -> list[str]:
-    p = loc["assetPrefix"]
-    rid = block.get("release")
-    rel = next((r for r in shared["releases"] if r["id"] == rid), None) if rid else None
-    if rid and rel is None:
-        raise SystemExit(f'journal song block {block.get("id")}: no release {rid!r} in shared.releases')
-    rw = loc["releases"].get(rid, {}) if rel else {}
-    title = w.get("title") or rw.get("title", "")
-    if not title:
-        return []           # a song with no name in this language is not shown in it
-    meta = w.get("meta") or rw.get("meta", "")
-    links = [l for l in (w.get("links") or rw.get("links") or []) if l.get("url") and not l.get("missing")]
-    for l in links:
-        if re.match(r"\s*(javascript|data|vbscript):", l["url"], re.I):
-            raise SystemExit(f'journal song block {block.get("id")}: refusing link {l["url"]!r}')
-    art = song_cover(shared, block)
-    kicker = loc.get("journal", {}).get("newSong") or loc["making"]["kinds"].get("song", "")
-    out = ['  <figure class="post__song">']
-    if art:
-        out.append(f'    <img class="post__song-art" src="{p}{attr(art)}" alt="" loading="lazy" decoding="async">')
-    out.append('    <div class="post__song-body">')
-    if kicker:
-        out.append(f'      <p class="post__song-kicker">{kicker}</p>')
-    out.append(f'      <p class="post__song-title">{title}</p>')
-    if meta:
-        out.append(f'      <p class="post__song-meta">{meta}</p>')
-    if block.get("audio"):
-        out.append(f'      <audio class="post__song-audio" src="{p}{attr(block["audio"])}" controls preload="none"></audio>')
-    if links:
-        out.append('      <p class="post__song-links">')
-        out += render_links(links, 8)
-        out.append("      </p>")
-    out.append("    </div>")
-    if w.get("caption"):
-        out.append(f'    <figcaption>{w["caption"]}</figcaption>')
-    out.append("  </figure>")
-    return out
-
-
-def render_post(loc: dict, shared: dict, post: dict) -> list[str]:
-    p = loc["assetPrefix"]
-    j = loc["journal"]
-    posts = [x for x in journal_posts(shared) if journal_words(loc, x).get("title")]
-    words = journal_words(loc, post)
-    i = next(n for n, x in enumerate(posts) if x["id"] == post["id"])
-    cover = journal_cover(shared, post)
-    out = [
-        "<!-- ================= JOURNAL POST ================= -->",
-        '<article class="section section--lead post" id="post">',
-        f'  <p class="post__back"><a href="{PAGE_FILE["press"]}#journal"><span aria-hidden="true">&larr; </span>{j["back"]}</a></p>',
-        '  <header class="post__head">',
-    ]
-    kind, date = journal_kind(loc, post), journal_date(loc, post)
-    if kind:
-        out.append(f'    <p class="post__kind">{kind}</p>')
-    out.append(f'    <h1 class="post__title">{words["title"]}</h1>')
-    if date:
-        out.append(f'    <p class="post__date">{date}</p>')
-    out.append("  </header>")
-    if post.get("cover"):
-        out += ['  <figure class="post__cover">',
-                f'    <img src="{p}{attr(cover)}" alt="" decoding="async">', "  </figure>"]
-    out.append('  <div class="post__body">')
-    for block in post.get("blocks", []):
-        out += ["  " + l for l in render_journal_block(loc, shared, block, words)]
-    out.append("  </div>")
-    # newer is up the list, older is down it
-    newer = posts[i - 1] if i > 0 else None
-    older = posts[i + 1] if i + 1 < len(posts) else None
-    if newer or older:
-        out.append(f'  <nav class="post__pager" aria-label="{attr(j["pager"])}">')
-        if newer:
-            out.append(f'    <a class="post__newer" href="{journal_file(newer)}"><small>{j["newer"]}</small>'
-                       f'{journal_words(loc, newer)["title"]}</a>')
-        if older:
-            out.append(f'    <a class="post__older" href="{journal_file(older)}"><small>{j["older"]}</small>'
-                       f'{journal_words(loc, older)["title"]}</a>')
-        out.append("  </nav>")
-    out.append("</article>")
-    return out
 
 
 def render_contact(loc: dict, shared: dict) -> list[str]:
@@ -2438,14 +2252,8 @@ def render_footer(loc: dict, shared: dict) -> list[str]:
 # ---------------------------------------------------------------- page
 
 def render_page(loc: dict, shared: dict, page: str, other: dict | None = None) -> str:
-    """`page` is a PAGE_FILE key, or "post:<id>" for a journal post, which
-    also needs `other` - the other locale - to know whether that language has
-    a copy of the post for the language switch to point at."""
+    """`page` is a PAGE_FILE key. `other` is the other locale."""
     p = loc["assetPrefix"]
-    post = None
-    if page.startswith("post:"):
-        post = next(x for x in journal_posts(shared) if x["id"] == page[5:])
-        page = "press"
     html_attrs = f' lang="{attr(loc["lang"])}"'
     lines = ["<!DOCTYPE html>", BANNER]
 
@@ -2458,18 +2266,10 @@ def render_page(loc: dict, shared: dict, page: str, other: dict | None = None) -
         html_attrs += ' data-video="bilibili"'
 
     lines.append(f"<html{html_attrs}>")
-    own = None
-    if post:
-        words = journal_words(loc, post)
-        # the other language's copy of this post, or its journal if there is none yet
-        alt_rel = journal_file(post) if journal_words(other or {}, post).get("title") else PAGE_FILE["press"]
-        own = (f'{plain(words["title"])} — {plain(loc["journal"]["siteName"])}',
-               journal_excerpt(loc, post, words) or loc["pages"]["press"]["description"],
-               alt_rel)
-    lines += render_head(loc, page, shared, own)
+    lines += render_head(loc, page, shared)
 
     # the skip link has to name a section that exists on this page
-    first = "music" if page == "home" else "post" if post else page
+    first = "music" if page == "home" else page
     lines += ["<body>", "", "<!-- film grain overlay, and the light that follows the pointer -->",
               '<div class="grain" aria-hidden="true"></div>',
               '<div class="glow" aria-hidden="true"></div>', "",
@@ -2509,11 +2309,6 @@ def render_page(loc: dict, shared: dict, page: str, other: dict | None = None) -
             render_milestones(loc, shared, full=True),
             render_press(loc, shared),
         ]
-    elif post:
-        blocks = [
-            render_nav(loc, page, alt_rel),
-            render_post(loc, shared, post),
-        ]
     else:
         blocks = [
             render_nav(loc, page),
@@ -2528,7 +2323,7 @@ def render_page(loc: dict, shared: dict, page: str, other: dict | None = None) -
         render_contact(loc, shared),
     ]
     # the detail view, on the pages that have pictures to open
-    if page in ("videos", "press") and loc.get("lens") and not post:
+    if page in ("videos", "press") and loc.get("lens"):
         blocks.append(render_lens(loc))
 
     for block in blocks:
@@ -2573,7 +2368,30 @@ def build_dist(shared: dict, pages: list[tuple[dict, str]]) -> None:
     for name in DEPLOY_DIRS:
         src = ROOT / name
         if src.is_dir():
-            shutil.copytree(src, dist / name, dirs_exist_ok=True)
+            # a countdown's picture is not one of the site's files until its
+            # moment: it goes to reveal/ below, behind the Worker, instead
+            skip = shutil.ignore_patterns("reveal") if name == "img" else None
+            shutil.copytree(src, dist / name, dirs_exist_ok=True, ignore=skip)
+
+    # Each countdown picture at reveal/<hash of its path>, which is not
+    # guessable from anything on the page, and reveal/manifest.json saying
+    # which ring it is for and when. The Worker serves /reveal/<ring id>
+    # after that moment and nothing under /reveal/ before it.
+    import hashlib
+    manifest = {}
+    for ring in shared.get("rings", []):
+        when = reveal_time(ring)
+        src = (ring.get("centre") or {}).get("reveal", "")
+        if not when or not src:
+            continue
+        if not src.startswith(REVEAL_DIR) or not (ROOT / src).is_file():
+            raise SystemExit(f'rings[{ring["id"]}].centre.reveal: {src!r} is not a file in {REVEAL_DIR}')
+        name = hashlib.sha256(f"{src}:{when}".encode()).hexdigest()[:24] + Path(src).suffix.lower()
+        (dist / "reveal").mkdir(exist_ok=True)
+        shutil.copyfile(ROOT / src, dist / "reveal" / name)
+        manifest[ring["id"]] = {"at": when, "file": name}
+    if manifest:
+        (dist / "reveal" / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
     for loc, page, rel, other in pages:
         out = dist / rel
@@ -2603,7 +2421,9 @@ def build_dist(shared: dict, pages: list[tuple[dict, str]]) -> None:
         "".join(
             f"/{was} /{now} 301\n/zh/{was} /zh/{now} 301\n"
             for was, now in RENAMED_PAGES.items()
-        ),
+        )
+        # the journal's own pages went when its entries moved into the rings
+        + f"/journal-* /{PAGE_FILE['press']} 301\n/zh/journal-* /zh/{PAGE_FILE['press']} 301\n",
         encoding="utf-8", newline="\n",
     )
     (dist / "robots.txt").write_text(
@@ -2618,14 +2438,10 @@ def build_dist(shared: dict, pages: list[tuple[dict, str]]) -> None:
 def main() -> int:
     shared = load("shared.json")
     en, zh = load("en.json"), load("zh.json")
-    # five pages per locale - the homepage plus one for each full section -
-    # and then one per journal post that has a title in either language
+    # five pages per locale - the homepage plus one for each full section
     pages = []
     for loc, other, prefix in ((en, zh, ""), (zh, en, "zh/")):
         pages += [(loc, page, f"{prefix}{PAGE_FILE[page]}", other) for page in PAGE_FILE]
-        if loc.get("journal"):
-            pages += [(loc, f'post:{post["id"]}', f"{prefix}{journal_file(post)}", other)
-                      for post in journal_posts(shared) if journal_words(loc, post).get("title")]
 
     if "--dist" in sys.argv:
         build_dist(shared, pages)

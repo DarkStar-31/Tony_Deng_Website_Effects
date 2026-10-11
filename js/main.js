@@ -1424,6 +1424,7 @@ class Orbit {
     this.stage = this.root.querySelector('.orbit__stage');
     this.scene = this.root.querySelector('.orbit__scene');
     this.up = this.root.querySelector('[data-to-top]');
+    this.title = this.root.querySelector('[data-orbit-title]');
     this.turns = turns;
     this.target = 0;
     this.now = 0;
@@ -1468,6 +1469,9 @@ class Orbit {
       // as long as the ring still holds the middle of the screen after.
       const held = box.top <= pin + 1 && box.bottom > innerHeight / 2;
       if (this.up) this.up.classList.toggle('is-on', held);
+      // the title only while the stage is fully pinned - riding up the
+      // middle of the screen with a departing ring, it read as a heading
+      if (this.title) this.title.classList.toggle('is-on', box.top <= pin + 1 && box.bottom >= innerHeight - 2);
       if (this.nav) this.nav.classList.toggle('is-on', held);
       if (!this.raf) this.raf = requestAnimationFrame(this.tick);
     };
@@ -1505,6 +1509,105 @@ class Orbit {
     this.now = Math.abs(gap) < 1e-4 ? this.target : this.now + gap * 0.1;
     this.scene.style.setProperty('--spin', `${(this.now * this.turns * 360).toFixed(2)}deg`);
     this.raf = this.now === this.target ? 0 : requestAnimationFrame(this.tick);
+  }
+}
+
+
+const PLAY_ICON = '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>';
+const PAUSE_ICON = '<svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>';
+
+/* ---------------------------------------------------------
+   SoloPlay — a title's play button outside the detail view
+
+   On the Latest card the button plays the entry's song by itself; one
+   sound at a time, so pressing another, or opening any card, stops it.
+   Inside the detail view the same button drives the entry's own player
+   instead (Lens.entry), and is left alone here.
+   --------------------------------------------------------- */
+const SoloPlay = {
+  audio: null,
+  btn: null,
+  stop () {
+    if (this.audio) this.audio.pause();
+  },
+  paint () {
+    if (!this.btn) return;
+    const on = !!(this.audio && !this.audio.paused);
+    this.btn.setAttribute('aria-pressed', String(on));
+    this.btn.innerHTML = on ? PAUSE_ICON : PLAY_ICON;
+  },
+  wire () {
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.tplay');
+      if (!btn || btn.closest('#lens')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (this.btn === btn && this.audio) {
+        if (this.audio.paused) this.audio.play().catch(() => {}); else this.audio.pause();
+        return;
+      }
+      this.stop();
+      const was = this.btn;
+      this.btn = btn;
+      if (was) { was.setAttribute('aria-pressed', 'false'); was.innerHTML = PLAY_ICON; }
+      this.audio = new Audio(btn.dataset.audio);
+      this.audio.addEventListener('play', () => this.paint());
+      this.audio.addEventListener('pause', () => this.paint());
+      this.audio.addEventListener('ended', () => this.paint());
+      this.audio.play().catch(() => {});
+    });
+  },
+};
+
+
+/* ---------------------------------------------------------
+   Countdown — a ring's middle counting down to a picture
+
+   The page carries only the moment and where to ask (build.py,
+   render_countdown); the picture itself is not on the page or among the
+   site's files until then. At zero this asks the server for it, and the
+   server - on its own clock - answers once the moment has passed. A
+   visitor whose clock runs fast is told "not yet" and asks again.
+   --------------------------------------------------------- */
+class Countdown {
+  constructor (node) {
+    this.node = node;
+    this.at = Date.parse(node.dataset.countdown);
+    if (!this.at) return;
+    this.cells = Object.fromEntries([...node.querySelectorAll('[data-unit]')].map((b) => [b.dataset.unit, b]));
+    this.tries = 0;
+    this.tick = this.tick.bind(this);
+    this.tick();
+  }
+
+  tick () {
+    const left = Math.max(0, this.at - Date.now());
+    const s = Math.floor(left / 1000);
+    const parts = { days: Math.floor(s / 86400), hours: Math.floor(s / 3600) % 24,
+                    minutes: Math.floor(s / 60) % 60, seconds: s % 60 };
+    for (const [k, v] of Object.entries(parts)) {
+      if (this.cells[k]) this.cells[k].textContent = k === 'days' ? String(v) : String(v).padStart(2, '0');
+    }
+    if (left > 0) { setTimeout(this.tick, 1000 - (Date.now() % 1000) + 5); return; }
+    this.reveal();
+  }
+
+  async reveal () {
+    try {
+      const res = await fetch(this.node.dataset.reveal, { cache: 'no-store' });
+      if (res.ok) {
+        const blob = await res.blob();
+        const img = new Image();
+        img.className = 'orbit__centre is-revealed';
+        img.alt = this.node.dataset.alt || '';
+        img.src = URL.createObjectURL(blob);
+        await img.decode().catch(() => {});
+        this.node.replaceWith(img);
+        return;
+      }
+    } catch (err) { /* offline for a moment; try again below */ }
+    // not yet on the server's clock, or a blip: ask again for a few minutes
+    if (++this.tries < 30) setTimeout(() => this.reveal(), 10000);
   }
 }
 
@@ -1636,8 +1739,10 @@ class Lens {
   open (trigger) {
     if (this.state !== 'closed') return;
     const tpl = document.getElementById(trigger.dataset.lens);
-    const src = trigger.tagName === 'IMG' ? trigger : trigger.closest('.photo')?.querySelector('img');
+    const src = trigger.tagName === 'IMG' ? trigger : trigger.closest('.photo, .jcard')?.querySelector('img');
     if (!tpl || !src) return;
+    // whatever the Latest card was playing gives way to the card's own player
+    SoloPlay.stop();
 
     this.trigger = trigger;
     this.src = src;
@@ -1769,6 +1874,24 @@ class Lens {
     }
     this.body.querySelectorAll('.entry__audio').forEach((node) => this.clip(node));
 
+    // The play button on the title line is the entry's first clip: it
+    // presses that clip's button, and shows what that clip is doing.
+    const tplay = this.body.querySelector('.tplay');
+    const first = tplay && [...this.body.querySelectorAll('.entry__audio')]
+      .find((n) => n.dataset.audio === tplay.dataset.audio);
+    if (first && first._audio) {
+      const a = first._audio;
+      tplay.addEventListener('click', () => first.querySelector('.entry__audio-btn').click());
+      const sync = () => {
+        tplay.setAttribute('aria-pressed', String(!a.paused));
+        tplay.innerHTML = a.paused ? PLAY_ICON : PAUSE_ICON;
+      };
+      a.addEventListener('play', sync);
+      a.addEventListener('pause', sync);
+    } else if (tplay) {
+      tplay.hidden = true;
+    }
+
     this.tiles = gallery ? [...gallery.querySelectorAll('.entry__tile')] : [];
     const many = this.tiles.length > 1;
     [this.prev, this.next, this.count].forEach((n) => { if (n) n.hidden = !many; });
@@ -1876,13 +1999,14 @@ class Lens {
     const fill = node.querySelector('.entry__audio-fill');
     const time = node.querySelector('.entry__audio-time');
     const playIcon = btn.innerHTML;
-    const pauseIcon = '<svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>';
+    const pauseIcon = PAUSE_ICON;
     const fmt = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 
     const a = new Audio();
     a.preload = 'metadata';
     a.src = node.dataset.audio;
     this.audios.push(a);
+    node._audio = a;
     const paint = () => {
       const on = !a.paused;
       node.classList.toggle('is-playing', on);
@@ -1911,11 +2035,28 @@ class Lens {
         a.pause();
       }
     });
-    bar.addEventListener('click', (e) => {
+    /* Press anywhere on the bar to jump there, or drag along it. Seeking
+       needs the server to answer byte ranges, which the Worker does for
+       audio/ and video/ - without that a jump played on from the start. */
+    const seek = (e) => {
       if (!a.duration) return;
       const r = bar.getBoundingClientRect();
-      a.currentTime = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * a.duration;
+      const at = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+      a.currentTime = at * a.duration;
+      fill.style.width = `${at * 100}%`;
+      time.textContent = fmt(a.currentTime);
+    };
+    bar.style.touchAction = 'none';
+    bar.addEventListener('pointerdown', (e) => {
+      if (!a.duration) { a.load(); return; }
+      bar.setPointerCapture(e.pointerId);
+      node.classList.add('is-seeking');
+      seek(e);
     });
+    bar.addEventListener('pointermove', (e) => { if (bar.hasPointerCapture(e.pointerId)) seek(e); });
+    const release = () => node.classList.remove('is-seeking');
+    bar.addEventListener('pointerup', release);
+    bar.addEventListener('pointercancel', release);
   }
 
   pauseClips () {
@@ -2305,17 +2446,28 @@ class MakingFilter {
         el: card,
         tags: new Set(card.dataset.kind ? [card.dataset.kind] : []),
         text: card.dataset.text || '',
+        entry: card.hasAttribute('data-entry'),
       })),
     }));
     if (!this.rings.length) return;
     this.empty = emptyNote(el, this.rings[this.rings.length - 1].root);
     this.find = new FindPanel(el, () => this.apply());
+    // Journal: only the studio diary entries
+    this.journal = document.querySelector('#press .vjournal');
+    if (this.journal) {
+      this.journal.addEventListener('click', () => {
+        const on = this.journal.getAttribute('aria-pressed') !== 'true';
+        this.journal.setAttribute('aria-pressed', String(on));
+        this.apply();
+      });
+    }
   }
 
   apply () {
     let total = 0;
     for (const ring of this.rings) {
-      const on = ring.cards.filter((c) => this.find.matches(c.tags, c.text));
+      const only = this.journal && this.journal.getAttribute('aria-pressed') === 'true';
+      const on = ring.cards.filter((c) => (!only || c.entry) && this.find.matches(c.tags, c.text));
       ring.cards.forEach((c) => c.el.classList.toggle('is-out', !on.includes(c)));
       on.forEach((c, i) => c.el.style.setProperty('--i', i));
       ring.scene.style.setProperty('--n', Math.max(on.length, 1));
@@ -2365,6 +2517,8 @@ document.addEventListener('DOMContentLoaded', () => {
   new ScrollSpy();
   new VisualsFilter(new VideoFacade());
   new MakingFilter();
+  SoloPlay.wire();
+  document.querySelectorAll('[data-countdown]').forEach((el) => new Countdown(el));
   document.querySelectorAll('.inks').forEach((el) => new InkLoop(el));
 
   const year = document.getElementById('year');

@@ -1939,13 +1939,13 @@ function arOf(file) {
  * someone touches it, the old rule still answers, so nothing changes on its
  * own. Clicking it is what makes the choice explicit. */
 function opensInto(item, enC, zhC) {
-  if (item.post) return true;     // a ring picture linked to a journal post
   if ('opens' in item) return !!item.opens;
   return !!(enC.desc || zhC.desc || hasEntry(item));
 }
 
-// same rule as has_entry in build.py
+// same rule as has_entry in build.py: the box, or for older pictures, any of an entry's parts
 function hasEntry(item) {
+  if ('entry' in item) return !!item.entry;
   return !!(item.date || item.kind || (item.media && item.media.length));
 }
 
@@ -2418,7 +2418,8 @@ function titleInPlace(node, read, write) {
   const lang = UI.lang === 'zh' ? 'zh' : 'en';
   node.classList.add('inplace');
   node.title = T('Double-click to edit the title ({lang})', { lang: LANG[lang].label });
-  node.addEventListener('dblclick', () => {
+  // also started from elsewhere - double-clicking the picture beside it
+  node.startEdit = () => {
     if (node.isContentEditable) return;
     const before = plainWords(read(lang));
     node.textContent = before;
@@ -2458,7 +2459,13 @@ function titleInPlace(node, read, write) {
     const onBlur = () => finish(true);
     node.addEventListener('keydown', onKey);
     node.addEventListener('blur', onBlur);
-  });
+  };
+  node.addEventListener('dblclick', node.startEdit);
+  // Inside a card's <summary>, a click or a Space would open and shut the
+  // card under the caret; while editing, they belong to the text.
+  const hold = (e) => { if (node.isContentEditable) { e.stopPropagation(); if (e.type !== 'keyup' || e.key === ' ') e.preventDefault(); } };
+  node.addEventListener('click', hold);
+  node.addEventListener('keyup', hold);
   return node;
 }
 
@@ -2591,19 +2598,9 @@ function ringGeometryBody(ring) {
           ? 'The ring as the page will draw it.'
           : 'Turning the way the page will turn it.'))),
     el('div', { className: 'ringgeom__fields' },
-      slider('tilt', 'Tilt',
-             'Which way the ring lies across the screen. At 0° it is level; the site was built at '
-             + '26°, which is what sends the near side of the ring sweeping down from top-left to '
-             + 'bottom-right.'),
-      slider('lean', 'Lean',
-             'How far the ring is tipped towards the reader. Near 0° it is edge-on and the pictures '
-             + 'cross in a line; the further from 0, the rounder it opens out.'),
-      field('Direction', direction,
-            'Which way scrolling down turns it. The pictures keep the same places in the ring '
-            + 'either way — only the direction of travel changes.', null, ring.pv),
-      el('p', { className: 'hint' },
-        T('26°, -20° and clockwise are the stylesheet’s own values, and a ring left at them writes '
-          + 'nothing into the content.'))));
+      slider('tilt', 'Tilt'),
+      slider('lean', 'Lean'),
+      field('Direction', direction, null, null, ring.pv)));
 }
 
 /* What is in the ring, and in what order.
@@ -2626,16 +2623,22 @@ function ringOrderCard(ring) {
     markDirty();
     rerender();
   };
-  const rows = ring.arr.map((it, i) => el('div',
-    { className: 'ringrow', 'data-pv-target': ring.key(it, i) },
-    el('span', { className: 'mono ringrow__n' }, String(i + 1)),
-    el('img', { className: 'ringrow__thumb', src: '/' + ring.src(it, i), alt: '', loading: 'lazy' }),
-    titleInPlace(el('span', { className: 'ringrow__name' }, ring.label(it, i)),
+  const rows = ring.arr.map((it, i) => {
+    const name = titleInPlace(el('span', { className: 'ringrow__name' }, ring.label(it, i)),
       (l) => ring.words(l).photos[it.id]?.caption || '',
       (l, text) => {
         const ph = ring.words(l).photos;
         (ph[it.id] || (ph[it.id] = { caption: '' })).caption = text;
-      }),
+      });
+    const thumb = el('img', { className: 'ringrow__thumb', src: '/' + ring.src(it, i), alt: '', loading: 'lazy',
+                              draggable: 'false', title: T('Double-click to edit the title'),
+                              ondblclick: () => name.startEdit() });
+    return el('div',
+    { className: 'ringrow', 'data-pv-target': ring.key(it, i), 'data-i': i, draggable: 'true' },
+    el('span', { className: 'ringrow__grip', 'aria-hidden': 'true', title: T('Drag to reorder') }, '⠿'),
+    el('span', { className: 'mono ringrow__n' }, String(i + 1)),
+    thumb,
+    name,
     el('button', { className: 'btn btn--small btn--ghost', type: 'button',
                    title: T('Earlier'), onclick: () => move(i, i - 1) }, '↑'),
     el('button', { className: 'btn btn--small btn--ghost', type: 'button',
@@ -2647,12 +2650,50 @@ function ringOrderCard(ring) {
                      ring.drop(i);
                      markDirty();
                      rerender();
-                   } }, '×')));
+                   } }, '×'));
+  });
 
-  return card('Ring order', null, el('div', {},
+  /* Drag a row to reorder, as well as the arrows: a line shows where it
+   * will go. Native drag and drop - this is the admin, on a desktop. */
+  let from = null;
+  const clearLine = () => rows.forEach((r) => r.classList.remove('is-drop-before', 'is-drop-after'));
+  rows.forEach((r) => {
+    r.addEventListener('dragstart', (e) => {
+      // a title being edited is text, not a handle
+      if (e.target.closest && e.target.closest('[contenteditable="true"], [contenteditable="plaintext-only"]')) { e.preventDefault(); return; }
+      from = Number(r.dataset.i);
+      r.classList.add('is-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(from));
+    });
+    r.addEventListener('dragend', () => { r.classList.remove('is-dragging'); clearLine(); from = null; });
+    r.addEventListener('dragover', (e) => {
+      if (from === null) return;
+      e.preventDefault();
+      const box = r.getBoundingClientRect();
+      const after = e.clientY > box.top + box.height / 2;
+      clearLine();
+      r.classList.add(after ? 'is-drop-after' : 'is-drop-before');
+    });
+    r.addEventListener('drop', (e) => {
+      if (from === null) return;
+      e.preventDefault();
+      const box = r.getBoundingClientRect();
+      let to = Number(r.dataset.i) + (e.clientY > box.top + box.height / 2 ? 1 : 0);
+      if (to > from) to -= 1;
+      clearLine();
+      if (to !== from) {
+        const [item] = ring.arr.splice(from, 1);
+        ring.arr.splice(to, 0, item);
+        markDirty();
+        rerender();
+      }
+    });
+  });
+
+  return cardFold(`ringorder:${ring.id}`, 'Ring order', null, el('div', {},
     el('p', { className: 'hint' },
-      T('The order they go round. The ring spaces them evenly however many there are, so this is '
-        + 'which picture follows which rather than where any one of them sits.')),
+      T('The order they go round: drag a row, or use the arrows. Double-click a title, or its picture, to edit it.')),
     rows.length
       ? el('div', { className: 'ringlist' }, ...rows)
       : el('p', { className: 'hint' }, T('Nothing in this ring yet, so it is not on the page.')),
@@ -2662,7 +2703,7 @@ function ringOrderCard(ring) {
         markDirty();
         rerender();
       })),
-    el('p', { className: 'hint' }, T(UPLOAD_NOTE))), ring.pv);
+    el('p', { className: 'hint' }, T(UPLOAD_NOTE))), ring.pv, null, T('{n} pictures', { n: ring.arr.length }));
 }
 
 // ---------------------------------------------------------------- one ring
@@ -2680,10 +2721,12 @@ function ringCentreCard(ring) {
   const centre = ring.cfg.centre || (ring.cfg.centre = {});
   // `src` present but empty is a ring whose own picture has been chosen as
   // the kind but not yet uploaded, which is not the same as no middle at all
-  const kind = centre.release !== undefined ? 'release' : ('src' in centre ? 'image' : 'none');
+  const kind = 'countdown' in centre ? 'countdown'
+    : centre.release !== undefined ? 'release' : ('src' in centre ? 'image' : 'none');
 
   const kinds = el('select', {});
-  [['release', 'A release cover'], ['image', 'A picture of its own'], ['none', 'Nothing']]
+  [['release', 'A release cover'], ['image', 'A picture of its own'],
+   ['countdown', 'A countdown, then a picture'], ['none', 'Nothing']]
     .forEach(([value, label]) => {
       const opt = el('option', { value }, T(label));
       if (value === kind) opt.selected = true;
@@ -2692,7 +2735,12 @@ function ringCentreCard(ring) {
   kinds.addEventListener('change', () => {
     // one key or the other, never both: build.py prefers `release` and a
     // leftover `src` would sit in the content meaning nothing
-    if (kinds.value === 'release') {
+    if (kinds.value !== 'countdown') { delete centre.countdown; delete centre.reveal; }
+    if (kinds.value === 'countdown') {
+      delete centre.src;
+      delete centre.release;
+      if (!('countdown' in centre)) centre.countdown = '';
+    } else if (kinds.value === 'release') {
       delete centre.src;
       // deliberately empty rather than the first release: picking one for
       // somebody would quietly change what the ring circles, and that is the
@@ -2730,18 +2778,70 @@ function ringCentreCard(ring) {
       el('div', {},
         centre.src
           ? el('img', { className: 'vidrow__thumb', src: '/' + centre.src, alt: '',
-                        style: 'aspect-ratio:1' })
+                        style: 'aspect-ratio:auto;max-height:160px;object-fit:contain' })
           : el('p', { className: 'hint' }, T('No picture chosen yet.')),
         el('div', { style: 'margin-top:8px' },
           uploadButton(ring.dir, centre.src ? 'Replace center' : 'Choose a picture', (path) => {
             centre.src = path; markDirty(); rerender();
           }))),
       el('div', { className: 'vidrow__fields' },
-        el('p', { className: 'hint' }, T('The still picture in the middle of the ring, shown square.')),
+        el('p', { className: 'hint' }, T('The still picture in the middle of the ring. Any shape works.')),
         bi('Center description (alt text)', 'centreAlt', (l) => ring.words(l)))));
+  } else if (kind === 'countdown') {
+    body.push(countdownFields(ring, centre, rerender));
   }
 
-  return card('Center', null, el('div', {}, ...body), ring.pv);
+  return cardFold(`ringcentre:${ring.id}`, 'Center', null, el('div', {}, ...body), ring.pv,
+                  null, T({ release: 'A release cover', image: 'A picture of its own',
+                            countdown: 'A countdown, then a picture', none: 'Nothing' }[kind]));
+}
+
+/* A countdown in the middle of the ring, and the picture it ends in.
+ * The moment is typed in this computer's own time and stored in UTC; the
+ * line under it says what that is in Beijing. The picture goes up into
+ * img/reveal/, which is never published as an ordinary file: the site only
+ * hands it out after the moment (build.py, render_countdown). */
+function countdownFields(ring, centre, rerender) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const local = (iso) => {
+    const d = new Date(iso);
+    if (!iso || isNaN(d)) return '';
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+  const when = el('input', { type: 'datetime-local', value: local(centre.countdown) });
+  const beijing = el('p', { className: 'hint' });
+  const paintBeijing = () => {
+    const d = new Date(centre.countdown);
+    beijing.textContent = centre.countdown && !isNaN(d)
+      ? T('That is {time} in Beijing.', { time: d.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }) })
+      : T('Pick the moment the picture appears.');
+  };
+  paintBeijing();
+  when.addEventListener('change', () => {
+    centre.countdown = when.value ? new Date(when.value).toISOString().replace(/\.\d{3}Z$/, 'Z') : '';
+    paintBeijing();
+    markDirty();
+  });
+  return el('div', {},
+    field('Counts down to', when, 'In this computer’s time.', null, ring.pv),
+    beijing,
+    el('div', { className: 'vidrow' },
+      el('div', {},
+        centre.reveal
+          ? el('img', { className: 'vidrow__thumb', src: '/' + centre.reveal, alt: '',
+                        style: 'aspect-ratio:auto;max-height:160px;object-fit:contain' })
+          : el('p', { className: 'hint' }, T('No picture chosen yet.')),
+        el('div', { style: 'margin-top:8px' },
+          uploadButton('img/reveal', centre.reveal ? 'Replace the picture' : 'Choose the picture', (path) => {
+            centre.reveal = path; markDirty(); rerender();
+          }))),
+      el('div', { className: 'vidrow__fields' },
+        el('p', { className: 'hint' },
+          T('Shown when the countdown ends. Until then it is not on the site at all - not in the page, '
+            + 'and not as a file anyone could open.')),
+        bi('Words over the clock', 'countdownLabel', (l) => ring.words(l),
+           { rich: false, dropWhenEmpty: true, hint: 'Optional. Left empty, the site says “Revealed in” / “距离揭晓”.' }),
+        bi('Picture description (alt text)', 'centreAlt', (l) => ring.words(l)))));
 }
 
 /* A card per picture: the file, whether it opens into a card when it is
@@ -2755,41 +2855,46 @@ function ringPhotoCards(ring) {
     const zh = ring.words('zh').photos;
     const enP = en[ph.id] || (en[ph.id] = { caption: '' });
     const zhP = zh[ph.id] || (zh[ph.id] = { caption: '' });
-    const opensNow = opensInto(ph, enP, zhP);
-    const opens = opensNow ? el('span', { className: 'live' }, T('opens')) : null;
-    const title = el('span', {}, enP.caption || T('(no caption)'), ' ', opens,
-                     el('small', {}, ph.id));
+    const isEntry = hasEntry(ph);
+    const opensNow = isEntry || opensInto(ph, enP, zhP);
+    const badge = isEntry ? el('span', { className: 'live' }, T('diary'))
+      : opensNow ? el('span', { className: 'live' }, T('opens')) : null;
+    // double-click the title - or either picture of it - to rename it
+    const name = titleInPlace(el('span', {}, ring.label(ph)),
+      (l) => (l === 'en' ? enP : zhP).caption || '',
+      (l, text) => { (l === 'en' ? enP : zhP).caption = text; });
+    const title = el('span', {}, name, ' ', badge, el('small', {}, ph.id));
 
     const body = el('div', { className: 'vidrow' },
       el('div', {},
         el('img', { className: 'vidrow__thumb', src: '/' + ph.src, alt: '', loading: 'lazy',
+                    title: T('Double-click to edit the title'), ondblclick: () => name.startEdit(),
                     style: 'aspect-ratio:auto;max-height:160px;object-fit:contain' }),
         el('div', { style: 'margin-top:8px' },
           uploadButton(ring.dir, 'Replace', (path) => { ph.src = path; markDirty(); rerender(); }))),
       el('div', { className: 'vidrow__fields' },
         el('p', { className: 'hint' },
           T('Any shape works: the ring keeps each picture’s own proportions.')),
-        ringPostPicker(ph, rerender),
-        // Linked to a post, the picture opens into the post and everything
-        // below would be ignored - so it is not offered (and not deleted).
-        ...(ph.post ? [] : [opensCheck(ph, enP, zhP, rerender)]),
+        diaryCheck(ph, rerender),
+        // an entry always opens, so its own box would only say so
+        ...(isEntry ? [] : [opensCheck(ph, enP, zhP, rerender)]),
         // Neither of these reaches the ring: the caption is the heading of
         // the card the picture opens into and the description is its body,
         // so with the box unticked there is nothing either could do.
-        ...(ph.post ? [] : opensNow
+        ...(opensNow
           ? [
             bi('Caption', 'caption', (l) => (l === 'en' ? enP : zhP),
                { hint: 'The heading of the card it opens into. Not shown on the ring itself.' }),
             bi('Description', 'desc', (l) => (l === 'en' ? enP : zhP),
                { multiline: true, rows: 3, dropWhenEmpty: true, hint: DESC_HINT }),
-            ringEntryFields(ring, ph, rerender),
+            isEntry ? ringEntryFields(ring, ph, rerender) : null,
           ]
           : [el('p', { className: 'hint' },
             T('Decoration: it turns with the ring and cannot be clicked. Anything written here '
               + 'before is kept, and comes back if the box is ticked again.'))]),
       ));
 
-    return cardFold(
+    const node = cardFold(
       `ring:${ring.id}:${ph.id}`,
       title,
       listControls(ring.arr, i, rerender, { onDelete: (gone) => {
@@ -2799,35 +2904,40 @@ function ringPhotoCards(ring) {
       ring.key(ph),
       ph.src,
     );
+    const mini = node.querySelector('.card__mini');
+    if (mini) {
+      mini.title = T('Double-click to edit the title');
+      mini.addEventListener('dblclick', (e) => { e.preventDefault(); name.startEdit(); });
+    }
+    return node;
   });
 }
 
-/* Which journal post a ring picture opens into, if any. With one chosen,
- * the picture opens into a card made from the post - its date, kind, title,
- * opening words, pictures and clips - with a button through to the whole
- * post, and its kind is what the page's Filter sorts it by. */
-function ringPostPicker(ph, rerender) {
-  const posts = SHARED().journal || [];
-  const lang = UI.lang === 'zh' ? 'zh' : 'en';
-  const pick = el('select', {});
-  pick.append(el('option', { value: '' }, T('None — the picture keeps its own words')));
-  posts.forEach((post) => {
-    const name = plainWords(postWords(lang, post.id).title)
-      || plainWords(postWords(lang === 'en' ? 'zh' : 'en', post.id).title) || post.id;
-    const tail = [post.date, post.hidden ? T('unpublished') : ''].filter(Boolean).join(' · ');
-    const opt = el('option', { value: post.id }, tail ? `${name} (${tail})` : name);
-    if (ph.post === post.id) opt.selected = true;
-    pick.append(opt);
+// on unless turned off: `showDate: false` is the only thing ever stored
+function showDateCheck(ph) {
+  const box = el('input', { type: 'checkbox' });
+  box.checked = ph.showDate !== false;
+  box.addEventListener('change', () => {
+    if (box.checked) delete ph.showDate; else ph.showDate = false;
+    markDirty();
   });
-  pick.addEventListener('change', () => {
-    if (pick.value) { ph.post = pick.value; delete ph.opens; } else delete ph.post;
+  return el('label', { className: 'check' }, box,
+    el('span', {}, T('Show the date on the site (it still decides which entry is newest)')));
+}
+
+/* Whether a ring picture is a studio diary entry - part of the journal:
+ * it opens into the diary card (date, kind, project, photos, clips, links),
+ * the Journal button on the page keeps it, and the newest one by date sits
+ * on top of the page. Unticked, everything written for it is kept. */
+function diaryCheck(ph, rerender) {
+  const box = el('input', { type: 'checkbox' });
+  box.checked = hasEntry(ph);
+  box.addEventListener('change', () => {
+    ph.entry = box.checked;
     markDirty();
     rerender();
   });
-  return field('Opens a journal post', pick, ph.post
-    ? 'The card shows the post’s date, title, opening words and pictures, with a button to read the rest. '
-      + 'An unpublished post, or one with no title in a language yet, is skipped there.'
-    : 'Pick a post and this picture opens into it.');
+  return el('label', { className: 'check' }, box, el('span', {}, T('Studio diary entry (part of the journal)')));
 }
 
 /* A ring picture's diary entry: what the card beside it shows when it is
@@ -2958,10 +3068,12 @@ function ringEntryFields(ring, ph, rerender) {
     el('p', { className: 'entryed__head' }, T('Studio diary entry')),
     el('p', { className: 'hint' },
       T('All optional. Shown in the card beside the picture when it is opened: the date and tags at the top, '
-        + 'then the caption, the photos, videos, audio and links below, then the description.')),
+        + 'then the caption, the photos, videos, audio and links below, then the description. '
+        + 'With an audio clip, a play button sits beside the title.')),
     el('div', { className: 'row' },
       field('Date', date),
       field('Kind', kind)),
+    showDateCheck(ph),
     bi('Project', 'project', (l) => {
       const w = ring.words(l).photos;
       return w[ph.id] || (w[ph.id] = { caption: '' });
@@ -2979,331 +3091,35 @@ function ringEntryFields(ring, ph, rerender) {
                      onclick: () => add({ type: 'link', href: '' }) }, T('+ Link'))));
 }
 
-// ---------------------------------------------------------------- journal
-
-/* The making-of journal (client issue 5). Posts live in shared.json →
- * journal, their words in each locale's journal.posts.<id>; build.py
- * documents the shape above journal_posts. Each post becomes its own page,
- * journal-<id>.html. The newest sits on top of In the Making, and ring
- * pictures open into the others (the "Opens a journal post" picker).
- *
- * A new post starts unpublished, so a half-written one can be saved as a
- * draft - even published - without appearing on the site. A post shows on a
- * language's page only once it has a title in that language. */
-const JOURNAL_DEFAULTS = {
-  en: { latest: 'Latest', read: 'Read', readFull: 'Read the whole entry', back: 'In the Making', newer: 'Newer', older: 'Older',
-        pager: 'More journal entries', siteName: 'Tony D', newSong: 'New song', posts: {} },
-  zh: { latest: '最新', read: '阅读', readFull: '阅读全文', back: '返回创作手记', newer: '较新', older: '较早',
-        pager: '更多日志', siteName: 'Tony D', newSong: '新歌速递', posts: {} },
-};
-
-function journalWords(l) {
-  const loc = LOC(l);
-  if (!loc.journal) loc.journal = JSON.parse(JSON.stringify(JOURNAL_DEFAULTS[l]));
-  if (!loc.journal.posts) loc.journal.posts = {};
-  return loc.journal;
-}
-
-function postWords(l, id) {
-  const posts = journalWords(l).posts;
-  return posts[id] || (posts[id] = { title: '' });
-}
-
-function blockWords(l, postId, blockId) {
-  const w = postWords(l, postId);
-  const blocks = w.blocks || (w.blocks = {});
-  return blocks[blockId] || (blocks[blockId] = {});
-}
-
-function journalBlockEditor(post, block, rerender) {
-  const shared = SHARED();
-  const words = (l) => blockWords(l, post.id, block.id);
-  const caption = () => bi('Caption', 'caption', words, { dropWhenEmpty: true, hint: 'Optional. Shown under it.' });
-  if (block.type === 'text') {
-    return bi('Text', 'text', words, { multiline: true, rows: 6,
-      hint: 'A blank line starts a new paragraph. Links and bold work as everywhere else.' });
-  }
-  if (block.type === 'image') {
-    return el('div', {},
-      singleImage(block.src, 'img/journal', (path) => { block.src = path; }),
-      caption());
-  }
-  if (block.type === 'gallery') {
-    const imgs = block.images || (block.images = []);
-    return el('div', {},
-      el('div', { className: 'album' },
-        ...imgs.map((im, i) => el('figure', { className: 'album__pic' },
-          el('img', { src: '/' + im.src, alt: '', loading: 'lazy' }),
-          el('figcaption', {},
-            el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Earlier'),
-              onclick: () => { if (i) { imgs.splice(i - 1, 0, imgs.splice(i, 1)[0]); markDirty(); rerender(); } } }, '←'),
-            el('button', { className: 'btn btn--small btn--ghost', type: 'button', title: T('Later'),
-              onclick: () => { if (i < imgs.length - 1) { imgs.splice(i + 1, 0, imgs.splice(i, 1)[0]); markDirty(); rerender(); } } }, '→'),
-            el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button', title: T('Remove'),
-              onclick: () => { imgs.splice(i, 1); markDirty(); rerender(); } }, '×'))))),
-      dropZone('img/journal', '.webp,.png,.jpg,.jpeg', 'Drop pictures here, or click to choose',
-        (path) => imgs.push({ src: path })),
-      caption());
-  }
-  if (block.type === 'song') return songBlockEditor(block, words, caption, rerender);
-  if (block.type === 'video' && 'video' in block) {
-    const pick = el('select', {});
-    pick.append(el('option', { value: '' }, T('Choose a video…')));
-    shared.videos.forEach((v) => {
-      const name = plainWords(LOC('en').videos[v.id]?.title) || v.id;
-      const opt = el('option', { value: v.id }, name + (v.bv ? '' : ' — ' + T('no Bilibili id, English page only')));
-      if (block.video === v.id) opt.selected = true;
-      pick.append(opt);
-    });
-    pick.addEventListener('change', () => { block.video = pick.value; markDirty(); });
-    return el('div', {},
-      field('One of the site’s videos', pick,
-        'Plays from YouTube on the English page and from Bilibili on the Chinese one. '
-        + 'A video with no Bilibili id is left out of the Chinese page, because YouTube does not load in mainland China.'),
-      caption());
-  }
-  // a clip uploaded to the site
-  return el('div', {},
-    el('div', { className: 'vidrow' },
-      block.poster ? el('img', { className: 'vidrow__thumb', src: '/' + block.poster, alt: '', loading: 'lazy' }) : null,
-      el('div', {},
-        el('p', { className: 'hint' }, block.src ? block.src : T('No clip uploaded yet.')),
-        el('div', { className: 'row' },
-          uploadButton('video', block.src ? 'Replace clip' : 'Upload clip (mp4, up to 20MB)',
-                       (path) => { block.src = path; markDirty(); rerender(); }, '.mp4,.webm'),
-          uploadButton('img/journal', block.poster ? 'Replace still' : 'Upload a still for the tile',
-                       (path) => { block.poster = path; markDirty(); rerender(); })))),
-    caption());
-}
-
-/* 新歌速递 - a new song inside a post (render_song_block in build.py).
- * Pointed at a release, it borrows that record's cover, name, billing and
- * each language's listening links for whatever is left empty here; pointed
- * at nothing, it stands alone, for a song that is not on the Music page yet. */
-function songBlockEditor(block, words, caption, rerender) {
-  const shared = SHARED();
-  const rel = shared.releases.find((r) => r.id === block.release);
-
-  const pick = el('select', {});
-  pick.append(el('option', { value: '' }, T('None — a song not on the Music page yet')));
-  shared.releases.forEach((r) => {
-    const opt = el('option', { value: r.id }, plainWords(LOC('en').releases[r.id]?.title) || r.id);
-    if (block.release === r.id) opt.selected = true;
-    pick.append(opt);
-  });
-  pick.addEventListener('change', () => {
-    if (pick.value) block.release = pick.value; else delete block.release;
+/* The ring's name on the page: low on the left while the ring holds the
+ * screen, if the box is ticked. */
+function ringTitleCard(ring) {
+  const box = el('input', { type: 'checkbox' });
+  box.checked = !!ring.cfg.showTitle;
+  box.addEventListener('change', () => {
+    if (box.checked) ring.cfg.showTitle = true; else delete ring.cfg.showTitle;
     markDirty();
-    rerender();
   });
+  return card('Title on the page', null, el('div', {},
+    el('label', { className: 'check' }, box,
+      el('span', {}, T('Show the title at the bottom left while the ring is on screen'))),
+    bi('Title', 'title', (l) => ring.words(l), { rich: false, dropWhenEmpty: true })), ring.pv);
+}
 
-  const tracks = el('select', {});
-  tracks.append(el('option', { value: '' }, T('Choose one of the site’s songs…')));
-  (shared.tracks || []).forEach((t) => {
-    const opt = el('option', { value: t.file }, t.id);
-    if (block.audio === t.file) opt.selected = true;
-    tracks.append(opt);
-  });
-  tracks.addEventListener('change', () => {
-    if (tracks.value) block.audio = tracks.value; else delete block.audio;
-    markDirty();
-    rerender();
-  });
-
-  return el('div', {},
-    field('From a release', pick,
-          'Optional. Anything left empty below is taken from that record.'),
-    field('Cover', singleImage(block.cover, 'img/journal', (path) => { block.cover = path; },
-                               { missingNote: rel ? 'No cover — the release’s cover is used' : 'Nothing uploaded yet' })),
-    block.cover
-      ? el('button', { className: 'btn btn--small btn--ghost', type: 'button',
-                       onclick: () => { delete block.cover; markDirty(); rerender(); } }, T('Remove cover'))
-      : null,
-    field('Listen', el('div', {},
-      block.audio
-        ? el('div', { className: 'row' },
-            el('audio', { src: '/' + block.audio, controls: '', preload: 'none' }),
-            el('button', { className: 'btn btn--small btn--ghost', type: 'button',
-                           onclick: () => { delete block.audio; markDirty(); rerender(); } }, T('Remove')))
-        : null,
-      el('div', { className: 'row' },
-        tracks,
-        uploadButton('audio', block.audio ? 'Replace clip' : 'Upload a clip (mp3)',
-                     (path) => { block.audio = path; markDirty(); rerender(); }, '.mp3,.m4a,.ogg'))),
-      'Optional. A player on the card. Pick a song the site already has, or upload a clip.'),
-    bi('Song name', 'title', words, { dropWhenEmpty: true,
-       hint: rel ? 'Left empty, the release’s name is used.'
-                 : 'Needed: a song with no name in a language is left out of that page.' }),
-    bi('Line under the name', 'meta', words, { dropWhenEmpty: true,
-       hint: rel ? 'Left empty, the release’s line is used.' : 'Optional. For example: Single · 2026' }),
+/* The few words around the journal: the label over the newest entry and
+ * the word on its card, and the Journal button beside Filter. */
+function journalWordsCard() {
+  for (const l of ['en', 'zh']) {
+    if (!LOC(l).journal) LOC(l).journal = {};
+  }
+  return card('Journal words', null, el('div', {},
     el('p', { className: 'hint' },
-      T(rel ? 'Where to listen. Leave a language’s list empty to use the release’s links.'
-            : 'Where to listen, for each page.')),
-    row(...langOrder().map((lang) => linksEditor(lang.code, words(lang.code)))),
-    caption());
-}
-
-const BLOCK_NAMES = { text: 'Text', image: 'Photo', gallery: 'Gallery', video: 'Video', song: 'New song' };
-
-/* The client's four kinds of post. They are not four kinds of thing to the
- * site - each is a post made of blocks - so these only decide which blocks a
- * new post starts with; any post can have any block added later. */
-const POST_FORMATS = [
-  { label: 'Text only', blocks: () => [{ type: 'text' }] },
-  { label: 'Text + photos', blocks: () => [{ type: 'text' }, { type: 'image', src: '' }] },
-  { label: 'Photo set', blocks: () => [{ type: 'text' }, { type: 'gallery', images: [] }] },
-  { label: 'New song', kind: 'song', blocks: () => [{ type: 'song' }, { type: 'text' }] },
-];
-
-function journalPostBody(post, rerender) {
-  const blocks = post.blocks || (post.blocks = []);
-  const add = (block) => {
-    const taken = blocks.map((b) => b.id);
-    let n = 1;
-    while (taken.includes(`b${n}`)) n++;
-    block.id = `b${n}`;
-    blocks.push(block);
-    markDirty();
-    rerender();
-  };
-  const dropBlockWords = (id) => {
-    for (const l of ['en', 'zh']) {
-      const w = journalWords(l).posts[post.id];
-      if (w && w.blocks) delete w.blocks[id];
-    }
-  };
-
-  const date = el('input', { type: 'date', value: post.date || '' });
-  date.addEventListener('change', () => {
-    if (date.value) post.date = date.value; else delete post.date;
-    markDirty();
-  });
-  const kindWords = (LOC(UI.lang === 'zh' ? 'zh' : 'en').making || {}).kinds || {};
-  const kind = el('select', {});
-  [['', '—'], ...ENTRY_KINDS.map((k) => [k, kindWords[k] || k])].forEach(([value, label]) => {
-    const opt = el('option', { value, html: label });
-    if ((post.kind || '') === value) opt.selected = true;
-    kind.append(opt);
-  });
-  kind.addEventListener('change', () => {
-    if (kind.value) post.kind = kind.value; else delete post.kind;
-    markDirty();
-  });
-
-  // the date is a small line under the title; some posts read better without it
-  const showDate = el('input', { type: 'checkbox' });
-  showDate.checked = post.showDate !== false;
-  showDate.addEventListener('change', () => {
-    if (showDate.checked) delete post.showDate; else post.showDate = false;
-    markDirty();
-  });
-
-  const live = el('input', { type: 'checkbox' });
-  live.checked = !post.hidden;
-  live.addEventListener('change', () => {
-    if (live.checked) delete post.hidden; else post.hidden = true;
-    markDirty();
-    rerender();
-  });
-
-  return el('div', {},
-    row(field('Date', date), field('Kind', kind)),
-    el('label', { className: 'check' }, showDate,
-      el('span', {}, T('Show the date on the site (it still sets the order either way)'))),
-    el('label', { className: 'check' }, live,
-      el('span', {}, T('On the site (untick to unpublish without deleting)'))),
-    bi('Title', 'title', (l) => postWords(l, post.id),
-       { hint: 'A post appears on a language’s page only once it has a title in that language.' }),
-    bi('Excerpt', 'excerpt', (l) => postWords(l, post.id),
-       { multiline: true, rows: 2, dropWhenEmpty: true,
-         hint: 'Optional. The line under the title in the list. Left empty, the start of the first text block is used.' }),
-    field('Cover', singleImage(post.cover, 'img/journal', (path) => { post.cover = path; },
-                               { missingNote: 'No cover — the first photo is used' }),
-          'Top of the post and on its card in the list.'),
-    post.cover
-      ? el('button', { className: 'btn btn--small btn--ghost', type: 'button',
-                       onclick: () => { delete post.cover; markDirty(); rerender(); } }, T('Remove cover'))
-      : null,
-    el('p', { className: 'entryed__head' }, T('Body')),
-    el('p', { className: 'hint' }, T('Blocks, top to bottom. Use the arrows to move one past another.')),
-    ...blocks.map((b, i) => card(
-      T(b.type === 'video' ? ('video' in b ? 'Site video' : 'Video clip') : BLOCK_NAMES[b.type] || b.type),
-      listControls(blocks, i, rerender, { onDelete: (gone) => dropBlockWords(gone.id) }),
-      journalBlockEditor(post, b, rerender))),
-    el('div', { className: 'row entryed__add' },
-      el('button', { className: 'btn btn--small', type: 'button', onclick: () => add({ type: 'text' }) }, T('+ Text')),
-      uploadButton('img/journal', '+ Photo', (path) => add({ type: 'image', src: path })),
-      el('button', { className: 'btn btn--small', type: 'button', onclick: () => add({ type: 'gallery', images: [] }) }, T('+ Gallery')),
-      el('button', { className: 'btn btn--small', type: 'button', onclick: () => add({ type: 'song' }) }, T('+ New song')),
-      el('button', { className: 'btn btn--small', type: 'button', onclick: () => add({ type: 'video', video: '' }) }, T('+ Site video')),
-      el('button', { className: 'btn btn--small', type: 'button', onclick: () => add({ type: 'video', src: '' }) }, T('+ Video clip'))),
-    el('p', { className: 'hint' },
-      el('a', { href: `/journal-${post.id}.html`, target: '_blank', rel: 'noopener' },
-         T('Open this post on the site')), ' ',
-      T('(after Publish; the preview shows the last published version)')));
-}
-
-function journalCards() {
-  const shared = SHARED();
-  const rerender = () => renderPanel();
-  if (!shared.journal) shared.journal = [];
-  const posts = shared.journal;
-  journalWords('en'); journalWords('zh');
-
-  const out = [
-    card('Journal words', null, el('div', {},
-      el('p', { className: 'hint' }, T('The small words around the journal, on In the Making and on each post.')),
-      bi('Above the newest post', 'latest', (l) => journalWords(l), { rich: false }),
-      bi('“Read” on the newest post', 'read', (l) => journalWords(l), { rich: false }),
-      bi('Button in a ring picture’s card', 'readFull', (l) => journalWords(l), { rich: false }),
-      bi('Back to In the Making', 'back', (l) => journalWords(l), { rich: false }),
-      bi('Newer post', 'newer', (l) => journalWords(l), { rich: false }),
-      bi('Older post', 'older', (l) => journalWords(l), { rich: false }),
-      bi('Site name in the browser tab', 'siteName', (l) => journalWords(l), { rich: false }),
-      bi('Label on a new-song card', 'newSong', (l) => journalWords(l), { rich: false }),
-    )),
-    el('div', { className: 'postnew' },
-      el('p', { className: 'postnew__head' }, T('+ New journal post')),
-      el('div', { className: 'postnew__row' }, ...POST_FORMATS.map((f) => el('button', {
-        className: 'additem', type: 'button',
-        onclick: () => {
-          // local date, not UTC: in the evening in the Americas UTC is already tomorrow
-          const now = new Date();
-          const today = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'),
-                         String(now.getDate()).padStart(2, '0')].join('-');
-          const id = newId(today, posts.map((x) => x.id));
-          const blocks = f.blocks().map((b, n) => ({ id: 'b' + (n + 1), ...b }));
-          // newest first, and unpublished until someone says otherwise
-          posts.unshift({ id, date: today, ...(f.kind ? { kind: f.kind } : {}), hidden: true, blocks });
-          postWords('en', id); postWords('zh', id);
-          cardOpen.add('post:' + id);
-          markDirty();
-          rerender();
-        },
-      }, T(f.label)))),
-      el('p', { className: 'hint' },
-        T('Each starts with the blocks that kind of post needs. Any post can have more added later.'))),
-  ];
-
-  posts.forEach((post, i) => {
-    const en = plainWords(journalWords('en').posts[post.id]?.title);
-    const zh = plainWords(journalWords('zh').posts[post.id]?.title);
-    const status = [];
-    if (post.hidden) status.push(el('span', { className: 'pending' }, T('unpublished')));
-    else if (!en && !zh) status.push(el('span', { className: 'pending pending--bad' }, T('no title: not on the site')));
-    else if (!en) status.push(el('span', { className: 'pending' }, T('Chinese page only')));
-    else if (!zh) status.push(el('span', { className: 'pending' }, T('English page only')));
-    const title = el('span', {}, (UI.lang === 'zh' ? zh || en : en || zh) || T('(untitled)'), ' ', ...status);
-    out.push(cardFold('post:' + post.id, title,
-      listControls(posts, i, rerender, {
-        onDelete: (gone) => { for (const l of ['en', 'zh']) delete journalWords(l).posts[gone.id]; },
-      }),
-      journalPostBody(post, rerender),
-      'making.journal',
-      post.cover || (post.blocks || []).find((b) => b.type === 'image' && b.src)?.src,
-      post.date || ''));
-  });
-  return out;
+      T('The journal is the ring pictures marked “Studio diary entry”. The newest of them, by date, '
+        + 'sits on top of the page.')),
+    bi('Above the newest entry', 'latest', (l) => LOC(l).journal, { rich: false }),
+    bi('On its card', 'read', (l) => LOC(l).journal, { rich: false }),
+    bi('The Journal button beside Filter', 'journalOnly', (l) => LOC(l).making, { rich: false }),
+    bi('Over a countdown (default)', 'label', (l) => LOC(l).making.countdown || (LOC(l).making.countdown = {}), { rich: false })));
 }
 
 /* Move this ring up or down the page, or take it off it. These sit in the
@@ -4244,22 +4060,14 @@ function renderMaking() {
       rename: (span) => renameRing(span, ring.id, ring.index),
       controls: ringSectionControls(ring, rings.length) },
     T('{n} pictures', { n: ring.arr.length }),
-    card('Angle and direction', null, ringGeometryBody(ring), ring.pv),
+    ringTitleCard(ring),
+    cardFold(`ringgeom:${ring.id}`, 'Angle and direction', null, ringGeometryBody(ring), ring.pv),
     ringOrderCard(ring),
     ringCentreCard(ring),
     ...ringPhotoCards(ring),
   )));
 
-  if (!LOC('en').sections.journal) LOC('en').sections.journal = { title: 'Journal' };
-  if (!LOC('zh').sections.journal) LOC('zh').sections.journal = { title: '创作日志' };
-  const posts = SHARED().journal || [];
-  out.push(fold('Journal', { defaultOpen: true, key: 'journal' },
-    T('{n} posts', { n: posts.length }),
-    el('p', { className: 'hint' },
-      T('The newest post (by date) sits on top of the rings. Each post is a page of its own; to reach the others, link them from ring pictures with “Opens a journal post”.')),
-    sectionHeading('journal', 'making.journal'),
-    ...journalCards()));
-
+  out.push(journalWordsCard());
   return out;
 }
 

@@ -105,8 +105,7 @@
     },
     "$pressComment": "Section 05 is In the Making. The key, the page file (press.html) and the #press anchor keep their old names so existing links still resolve; only what readers see changed.",
     "press": {
-      "title": "In the Making",
-      "desc": "New songs and EPs in the making: demos, recording, arranging, inspiration and behind the scenes — and a first look before each release."
+      "title": "In the Making"
     },
     "coverage": {
       "title": "Press &amp; Mentions",
@@ -115,9 +114,6 @@
     "contact": {
       "title": "Get in touch",
       "desc": "For inquiries, licensing and collaboration."
-    },
-    "journal": {
-      "title": "Journal"
     }
   },
   "releases": {
@@ -583,7 +579,8 @@
           }
         },
         "recording-03": {
-          "caption": "Ut labore et dolore"
+          "caption": "Lorem ipsum: new song",
+          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
         },
         "recording-04": {
           "caption": "Magna aliqua",
@@ -597,24 +594,27 @@
           }
         },
         "recording-05": {
-          "caption": "Ut enim ad minim",
-          "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."
+          "caption": "Lorem ipsum dolor sit",
+          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.\n\nExcepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
         },
         "recording-06": {
-          "caption": "Quis nostrud"
+          "caption": "Ut labore et dolore",
+          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
         },
         "recording-07": {
-          "caption": "Exercitation ullamco",
-          "desc": "Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur."
+          "caption": "Consectetur adipiscing",
+          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
         },
         "recording-08": {
-          "caption": "Laboris nisi ut aliquip"
+          "caption": "Magna aliqua",
+          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\n\nUt enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.\n\nExcepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
         },
         "recording-09": {
-          "caption": "Ex ea commodo",
-          "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."
+          "caption": "Sed do eiusmod tempor",
+          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
         }
-      }
+      },
+      "title": "Now Recording"
     },
     "orbit": {
       "centreAlt": "",
@@ -705,91 +705,21 @@
         "other": "{n} clips"
       }
     },
-    "viewAll": "View all {n}",
     "showPhoto": "Show this photo",
     "playVideo": "Play video",
-    "playAudio": "Play"
+    "playAudio": "Play",
+    "journalOnly": "Journal",
+    "countdown": {
+      "label": "Revealed in",
+      "days": "days",
+      "hours": "hrs",
+      "minutes": "min",
+      "seconds": "sec"
+    },
+    "playTitle": "Play"
   },
   "journal": {
     "latest": "Latest",
-    "read": "Read",
-    "readFull": "Read the whole entry",
-    "back": "In the Making",
-    "newer": "Newer",
-    "older": "Older",
-    "pager": "More journal entries",
-    "siteName": "Tony D",
-    "posts": {
-      "entry-3": {
-        "title": "Lorem ipsum dolor sit",
-        "blocks": {
-          "b1": {
-            "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-          },
-          "b2": {
-            "caption": "Placeholder caption"
-          },
-          "b3": {
-            "text": "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.\n\nExcepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
-          },
-          "b4": {},
-          "b5": {}
-        }
-      },
-      "entry-2": {
-        "title": "Consectetur adipiscing",
-        "blocks": {
-          "b1": {
-            "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-          },
-          "b2": {}
-        }
-      },
-      "entry-1": {
-        "title": "Sed do eiusmod tempor",
-        "excerpt": "A hand-written excerpt, used instead of the first paragraph.",
-        "blocks": {
-          "b1": {
-            "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
-          },
-          "b2": {}
-        }
-      },
-      "entry-6": {
-        "title": "Lorem ipsum: new song",
-        "blocks": {
-          "b1": {
-            "caption": "Placeholder caption",
-            "links": []
-          },
-          "b2": {
-            "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
-          }
-        }
-      },
-      "entry-5": {
-        "title": "Ut labore et dolore",
-        "blocks": {
-          "b1": {
-            "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
-          },
-          "b2": {
-            "caption": "Placeholder caption"
-          }
-        }
-      },
-      "entry-4": {
-        "title": "Magna aliqua",
-        "blocks": {
-          "b1": {
-            "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
-          },
-          "b2": {
-            "text": "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.\n\nExcepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
-          }
-        }
-      }
-    },
-    "newSong": "New song"
+    "read": "Open"
   }
 }

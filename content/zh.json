@@ -105,8 +105,7 @@
     },
     "$pressComment": "第 05 部分现为「创作手记」。键名、页面文件 press.html 与 #press 锚点均保持原样，以免既有链接失效；改动仅限读者可见的文字。",
     "press": {
-      "title": "创作手记",
-      "desc": "新歌、EP、demo、录音、编曲、创作灵感和幕后花絮——以及新歌发布前的预告。"
+      "title": "创作手记"
     },
     "coverage": {
       "title": "媒体报道",
@@ -115,9 +114,6 @@
     "contact": {
       "title": "联系方式",
       "desc": "合作、授权及其他事宜请联系："
-    },
-    "journal": {
-      "title": "创作日志"
     }
   },
   "videoFlag": {
@@ -606,7 +602,8 @@
           }
         },
         "recording-03": {
-          "caption": "Ut labore et dolore"
+          "caption": "占位标题：新歌速递",
+          "desc": "占位文字：这里将介绍新歌的创作故事。占位文字：正式内容由 Tony 团队提供后替换。"
         },
         "recording-04": {
           "caption": "Magna aliqua",
@@ -620,24 +617,27 @@
           }
         },
         "recording-05": {
-          "caption": "Ut enim ad minim",
-          "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."
+          "caption": "占位标题：第三篇",
+          "desc": "占位文字：这里将是一段创作手记的正文，记录录音、编曲或灵感的过程。正式内容由 Tony 团队提供后替换。\n\n占位文字：第二段正文。\n\n占位文字：第三段正文。"
         },
         "recording-06": {
-          "caption": "Quis nostrud"
+          "caption": "占位标题：组图",
+          "desc": "占位文字：一组录音棚照片的说明。占位文字：正式内容由 Tony 团队提供后替换。"
         },
         "recording-07": {
-          "caption": "Exercitation ullamco",
-          "desc": "Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur."
+          "caption": "占位标题：第二篇",
+          "desc": "占位文字：这里将是一段创作手记的正文，记录录音、编曲或灵感的过程。正式内容由 Tony 团队提供后替换。"
         },
         "recording-08": {
-          "caption": "Laboris nisi ut aliquip"
+          "caption": "占位标题：纯文字",
+          "desc": "占位文字：一篇只有文字的创作手记。占位文字：正式内容由 Tony 团队提供后替换。\n\n第二段占位文字。"
         },
         "recording-09": {
-          "caption": "Ex ea commodo",
-          "desc": "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium."
+          "caption": "占位标题：第一篇",
+          "desc": "占位文字：这里将是一段创作手记的正文，记录录音、编曲或灵感的过程。正式内容由 Tony 团队提供后替换。"
         }
-      }
+      },
+      "title": "新歌录制中"
     },
     "orbit": {
       "centreAlt": "",
@@ -728,91 +728,21 @@
         "other": "{n} 段音频"
       }
     },
-    "viewAll": "查看全部 {n} 项",
     "showPhoto": "查看这张照片",
     "playVideo": "播放视频",
-    "playAudio": "播放"
+    "playAudio": "播放",
+    "journalOnly": "日志",
+    "countdown": {
+      "label": "距离揭晓",
+      "days": "天",
+      "hours": "时",
+      "minutes": "分",
+      "seconds": "秒"
+    },
+    "playTitle": "播放"
   },
   "journal": {
     "latest": "最新",
-    "read": "阅读",
-    "readFull": "阅读全文",
-    "back": "返回创作手记",
-    "newer": "较新",
-    "older": "较早",
-    "pager": "更多日志",
-    "siteName": "Tony D",
-    "posts": {
-      "entry-3": {
-        "title": "占位标题：第三篇",
-        "blocks": {
-          "b1": {
-            "text": "占位文字：这里将是一段创作手记的正文，记录录音、编曲或灵感的过程。正式内容由 Tony 团队提供后替换。"
-          },
-          "b2": {
-            "caption": "占位图片说明"
-          },
-          "b3": {
-            "text": "占位文字：第二段正文。\n\n占位文字：第三段正文。"
-          },
-          "b4": {},
-          "b5": {}
-        }
-      },
-      "entry-2": {
-        "title": "占位标题：第二篇",
-        "blocks": {
-          "b1": {
-            "text": "占位文字：这里将是一段创作手记的正文，记录录音、编曲或灵感的过程。正式内容由 Tony 团队提供后替换。"
-          },
-          "b2": {}
-        }
-      },
-      "entry-1": {
-        "title": "占位标题：第一篇",
-        "excerpt": "手写的摘要，代替正文第一段。",
-        "blocks": {
-          "b1": {
-            "text": "占位文字：这里将是一段创作手记的正文，记录录音、编曲或灵感的过程。正式内容由 Tony 团队提供后替换。"
-          },
-          "b2": {}
-        }
-      },
-      "entry-6": {
-        "title": "占位标题：新歌速递",
-        "blocks": {
-          "b1": {
-            "caption": "占位说明",
-            "links": []
-          },
-          "b2": {
-            "text": "占位文字：这里将介绍新歌的创作故事。占位文字：正式内容由 Tony 团队提供后替换。"
-          }
-        }
-      },
-      "entry-5": {
-        "title": "占位标题：组图",
-        "blocks": {
-          "b1": {
-            "text": "占位文字：一组录音棚照片的说明。占位文字：正式内容由 Tony 团队提供后替换。"
-          },
-          "b2": {
-            "caption": "占位说明"
-          }
-        }
-      },
-      "entry-4": {
-        "title": "占位标题：纯文字",
-        "blocks": {
-          "b1": {
-            "text": "占位文字：一篇只有文字的创作手记。占位文字：正式内容由 Tony 团队提供后替换。"
-          },
-          "b2": {
-            "text": "第二段占位文字。"
-          }
-        }
-      }
-    },
-    "newSong": "新歌速递"
+    "read": "查看"
   }
 }
