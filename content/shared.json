@@ -66,7 +66,8 @@
         },
         {
           "id": "recording-03",
-          "src": "img/placeholder/ring-03.webp"
+          "src": "img/placeholder/ring-03.webp",
+          "post": "entry-6"
         },
         {
           "id": "recording-04",
@@ -88,23 +89,28 @@
         },
         {
           "id": "recording-05",
-          "src": "img/placeholder/ring-05.webp"
+          "src": "img/placeholder/ring-05.webp",
+          "post": "entry-3"
         },
         {
           "id": "recording-06",
-          "src": "img/placeholder/ring-06.webp"
+          "src": "img/placeholder/ring-06.webp",
+          "post": "entry-5"
         },
         {
           "id": "recording-07",
-          "src": "img/placeholder/ring-07.webp"
+          "src": "img/placeholder/ring-07.webp",
+          "post": "entry-2"
         },
         {
           "id": "recording-08",
-          "src": "img/placeholder/ring-08.webp"
+          "src": "img/placeholder/ring-08.webp",
+          "post": "entry-4"
         },
         {
           "id": "recording-09",
-          "src": "img/placeholder/ring-09.webp"
+          "src": "img/placeholder/ring-09.webp",
+          "post": "entry-1"
         }
       ]
     },

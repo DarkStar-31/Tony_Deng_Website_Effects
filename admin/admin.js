@@ -1934,6 +1934,7 @@ function shapeOf(file) {
  * someone touches it, the old rule still answers, so nothing changes on its
  * own. Clicking it is what makes the choice explicit. */
 function opensInto(item, enC, zhC) {
+  if (item.post) return true;     // a ring picture linked to a journal post
   if ('opens' in item) return !!item.opens;
   return !!(enC.desc || zhC.desc || hasEntry(item));
 }
@@ -2780,11 +2781,14 @@ function ringPhotoCards(ring) {
       el('div', { className: 'vidrow__fields' },
         el('p', { className: 'hint' },
           T('Any shape works: the ring keeps each picture’s own proportions.')),
-        opensCheck(ph, enP, zhP, rerender),
+        ringPostPicker(ph, rerender),
+        // Linked to a post, the picture opens into the post and everything
+        // below would be ignored - so it is not offered (and not deleted).
+        ...(ph.post ? [] : [opensCheck(ph, enP, zhP, rerender)]),
         // Neither of these reaches the ring: the caption is the heading of
         // the card the picture opens into and the description is its body,
         // so with the box unticked there is nothing either could do.
-        ...(opensNow
+        ...(ph.post ? [] : opensNow
           ? [
             bi('Caption', 'caption', (l) => (l === 'en' ? enP : zhP),
                { hint: 'The heading of the card it opens into. Not shown on the ring itself.' }),
@@ -2808,6 +2812,34 @@ function ringPhotoCards(ring) {
       ph.src,
     );
   });
+}
+
+/* Which journal post a ring picture opens into, if any. With one chosen,
+ * the picture opens into a card made from the post - its date, kind, title,
+ * opening words, pictures and clips - with a button through to the whole
+ * post, and its kind is what the page's Filter sorts it by. */
+function ringPostPicker(ph, rerender) {
+  const posts = SHARED().journal || [];
+  const lang = UI.lang === 'zh' ? 'zh' : 'en';
+  const pick = el('select', {});
+  pick.append(el('option', { value: '' }, T('None — the picture keeps its own words')));
+  posts.forEach((post) => {
+    const name = plainWords(postWords(lang, post.id).title)
+      || plainWords(postWords(lang === 'en' ? 'zh' : 'en', post.id).title) || post.id;
+    const tail = [post.date, post.hidden ? T('unpublished') : ''].filter(Boolean).join(' · ');
+    const opt = el('option', { value: post.id }, tail ? `${name} (${tail})` : name);
+    if (ph.post === post.id) opt.selected = true;
+    pick.append(opt);
+  });
+  pick.addEventListener('change', () => {
+    if (pick.value) { ph.post = pick.value; delete ph.opens; } else delete ph.post;
+    markDirty();
+    rerender();
+  });
+  return field('Opens a journal post', pick, ph.post
+    ? 'The card shows the post’s date, title, opening words and pictures, with a button to read the rest. '
+      + 'An unpublished post, or one with no title in a language yet, is skipped there.'
+    : 'Pick a post and this picture opens into it.');
 }
 
 /* A ring picture's diary entry: what the card beside it shows when it is
@@ -2963,16 +2995,17 @@ function ringEntryFields(ring, ph, rerender) {
 
 /* The making-of journal (client issue 5). Posts live in shared.json →
  * journal, their words in each locale's journal.posts.<id>; build.py
- * documents the shape above render_journal_list. Each post becomes its own
- * page, journal-<id>.html, and a card in the list under the rings.
+ * documents the shape above journal_posts. Each post becomes its own page,
+ * journal-<id>.html. The newest sits on top of In the Making, and ring
+ * pictures open into the others (the "Opens a journal post" picker).
  *
  * A new post starts unpublished, so a half-written one can be saved as a
  * draft - even published - without appearing on the site. A post shows on a
  * language's page only once it has a title in that language. */
 const JOURNAL_DEFAULTS = {
-  en: { read: 'Read', back: 'All journal entries', newer: 'Newer', older: 'Older',
+  en: { latest: 'Latest', read: 'Read', readFull: 'Read the whole entry', back: 'In the Making', newer: 'Newer', older: 'Older',
         pager: 'More journal entries', siteName: 'Tony D', newSong: 'New song', posts: {} },
-  zh: { read: '阅读', back: '全部日志', newer: '较新', older: '较早',
+  zh: { latest: '最新', read: '阅读', readFull: '阅读全文', back: '返回创作手记', newer: '较新', older: '较早',
         pager: '更多日志', siteName: 'Tony D', newSong: '新歌速递', posts: {} },
 };
 
@@ -3221,9 +3254,11 @@ function journalCards() {
 
   const out = [
     card('Journal words', null, el('div', {},
-      el('p', { className: 'hint' }, T('The small words around the journal, on the list and on each post.')),
-      bi('“Read” on each card', 'read', (l) => journalWords(l), { rich: false }),
-      bi('Back to the list', 'back', (l) => journalWords(l), { rich: false }),
+      el('p', { className: 'hint' }, T('The small words around the journal, on In the Making and on each post.')),
+      bi('Above the newest post', 'latest', (l) => journalWords(l), { rich: false }),
+      bi('“Read” on the newest post', 'read', (l) => journalWords(l), { rich: false }),
+      bi('Button in a ring picture’s card', 'readFull', (l) => journalWords(l), { rich: false }),
+      bi('Back to In the Making', 'back', (l) => journalWords(l), { rich: false }),
       bi('Newer post', 'newer', (l) => journalWords(l), { rich: false }),
       bi('Older post', 'older', (l) => journalWords(l), { rich: false }),
       bi('Site name in the browser tab', 'siteName', (l) => journalWords(l), { rich: false }),
@@ -4223,7 +4258,7 @@ function renderMaking() {
   out.push(fold('Journal', { defaultOpen: true, key: 'journal' },
     T('{n} posts', { n: posts.length }),
     el('p', { className: 'hint' },
-      T('Posts under the rings, newest at the top. Each one is a page of its own; the list shows six, then “Load more”.')),
+      T('The newest post (by date) sits on top of the rings. Each post is a page of its own; to reach the others, link them from ring pictures with “Opens a journal post”.')),
     sectionHeading('journal', 'making.journal'),
     ...journalCards()));
 

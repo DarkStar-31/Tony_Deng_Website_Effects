@@ -1354,6 +1354,9 @@ html[lang^="zh"] .card__badge{ letter-spacing:.04em; text-transform:none; font-s
   margin-inline:calc(-1 * var(--pad));   /* full bleed: cards fly past the gutter */
 }
 .orbit.is-live{ height:300vh; }
+/* the In the Making filter: a ring with no match goes, and so does a card */
+.orbit[hidden],
+.orbit__card.is-out{ display:none; }
 .orbit__stage{
   position:sticky; top:var(--nav-h);
   height:min(80vh, 46rem);
@@ -1632,11 +1635,18 @@ html[lang^="zh"] .vfilter__btn{ font-size:.8rem; letter-spacing:.04em; text-tran
 }
 
 /* ================= JOURNAL =================
-   Under the rings on In the Making: a list of cards, each a link to the
-   post's own page (journal-<id>.html). Picture on the left, words on the
-   right; on a phone the picture goes on top. */
-.journal{ border-top:1px solid var(--line); }
-.journal__list{ display:grid; gap:1.1rem; max-width:64rem; }
+   The newest post sits on top of In the Making as one card, a link to the
+   post's own page (journal-<id>.html); the others open from ring pictures.
+   Picture on the left, words on the right; on a phone the picture goes on
+   top. */
+.latest{ max-width:64rem; margin-top:clamp(1.5rem,4vh,2.5rem); scroll-margin-top:calc(var(--nav-h) + 1.5rem); }
+.latest__kicker{
+  margin:0 0 .7rem;
+  font-size:.7rem; font-weight:600; letter-spacing:.18em; text-transform:uppercase; color:var(--magenta);
+}
+html[lang^="zh"] .latest__kicker{ font-size:.82rem; letter-spacing:.06em; }
+.jcard--latest{ grid-template-columns:minmax(0,22rem) minmax(0,1fr); padding:1.2rem; }
+.jcard--latest.jcard--text{ grid-template-columns:minmax(0,1fr); }
 .jcard{
   display:grid; grid-template-columns:minmax(0,15rem) minmax(0,1fr); gap:1.4rem;
   align-items:center; padding:1rem; border-radius:14px;
@@ -1670,10 +1680,11 @@ html[lang^="zh"] .vfilter__btn{ font-size:.8rem; letter-spacing:.04em; text-tran
 }
 html[lang^="zh"] .jcard__read{ font-size:.82rem; letter-spacing:.06em; }
 .jcard__read span{ color:var(--magenta); }
-.js .journal__list > [data-later]{ display:none; }
-.journal__list > [hidden]{ display:none; }
 @media (max-width:640px){
-  .jcard{ grid-template-columns:minmax(0,1fr); gap:1rem; }
+  .jcard,
+  .jcard--latest{ grid-template-columns:minmax(0,1fr); gap:1rem; }
+  /* wide, so the rings still start within a screen or so of the top */
+  .jcard--latest .jcard__pic{ aspect-ratio:16/9; }
 }
 
 /* ---- one post ---- */
@@ -2133,6 +2144,16 @@ html[lang^="zh"] .lens__kicker{ font-size:.8rem; letter-spacing:.06em; }
   transition:border-color .25s var(--ease);
 }
 .entry__links a:hover, .entry__links a:focus-visible{ border-color:var(--magenta); }
+
+/* a ring picture linked to a journal post: the way through to all of it */
+.entry__read{ margin:.4rem 0 .9rem; }
+.entry__read a{
+  display:inline-block; padding:.55rem 1rem; border-radius:999px;
+  background:var(--magenta); color:#fff; text-decoration:none;
+  font-size:.72rem; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+}
+html[lang^="zh"] .entry__read a{ font-size:.85rem; letter-spacing:.06em; }
+.entry__read a:focus-visible{ outline:2px solid var(--bone); outline-offset:2px; }
 
 /* The larger view (the corner button on a diary entry): the card takes
    most of the screen, the picture grows with it, and the words get a wider

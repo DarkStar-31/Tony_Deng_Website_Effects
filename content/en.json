@@ -719,8 +719,10 @@
     "playAudio": "Play"
   },
   "journal": {
+    "latest": "Latest",
     "read": "Read",
-    "back": "All journal entries",
+    "readFull": "Read the whole entry",
+    "back": "In the Making",
     "newer": "Newer",
     "older": "Older",
     "pager": "More journal entries",

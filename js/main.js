@@ -1486,7 +1486,7 @@ class Orbit {
      Past either end it lets go: down to whatever follows the last ring, up
      to the heading above the first. */
   step (dir) {
-    const rings = [...document.querySelectorAll('[data-orbit]')];
+    const rings = [...document.querySelectorAll('[data-orbit]')].filter((r) => !r.hidden);
     const here = rings.indexOf(this.root);
     const next = here < 0 ? null : rings[here + dir];
     const pin = parseFloat(getComputedStyle(this.stage).top) || 0;
@@ -2068,6 +2068,94 @@ function packVisuals (cells) {
 
 
 /* ---------------------------------------------------------
+   FindPanel — the Filter button and its panel
+
+   Search words and tag chips, shared by Visuals and In the Making. It only
+   keeps track of what is picked and says when that changes; the page that
+   owns it decides what a match means for its own pieces.
+   --------------------------------------------------------- */
+class FindPanel {
+  constructor (root, onChange) {
+    this.root = root;
+    this.picked = new Map();
+    this.query = '';
+    const btn = root.querySelector('.vfind__btn');
+    const panel = root.querySelector('.vfind__panel');
+    const count = root.querySelector('.vfind__n');
+    const clear = root.querySelector('.vfind__clear');
+    const search = root.querySelector('.vfind__search');
+
+    const show = (open) => {
+      panel.hidden = !open;
+      btn.setAttribute('aria-expanded', String(open));
+      if (open && matchMedia('(hover:hover)').matches) search.focus({ preventScroll: true });
+    };
+    btn.addEventListener('click', () => show(panel.hidden));
+    document.addEventListener('click', (e) => { if (!root.contains(e.target)) show(false); });
+    root.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !panel.hidden) { show(false); btn.focus(); }
+    });
+
+    const changed = () => {
+      const n = [...this.picked.values()].reduce((a, s) => a + s.size, 0) + (this.query ? 1 : 0);
+      count.hidden = !n;
+      count.textContent = n;
+      clear.hidden = !n;
+      onChange();
+    };
+    panel.addEventListener('click', (e) => {
+      const chip = e.target.closest('.vfind__chip');
+      if (!chip) return;
+      const on = chip.getAttribute('aria-pressed') !== 'true';
+      chip.setAttribute('aria-pressed', String(on));
+      const g = chip.dataset.group;
+      if (!this.picked.has(g)) this.picked.set(g, new Set());
+      this.picked.get(g)[on ? 'add' : 'delete'](chip.dataset.tag);
+      changed();
+    });
+    let timer = null;
+    search.addEventListener('input', () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => { this.query = search.value.trim().toLowerCase(); changed(); }, 180);
+    });
+    clear.addEventListener('click', () => {
+      this.picked.clear();
+      this.query = '';
+      search.value = '';
+      panel.querySelectorAll('.vfind__chip').forEach((c) => c.setAttribute('aria-pressed', 'false'));
+      changed();
+      search.focus({ preventScroll: true });
+    });
+  }
+
+  /* Within a category any picked tag will do (Studio OR Live); across
+     categories every one must be met (a studio photo AND a press one).
+     Search words must all appear somewhere in the title or tags. */
+  matches (tags, text) {
+    for (const want of this.picked.values()) {
+      if (want.size && ![...want].some((t) => tags.has(t))) return false;
+    }
+    if (this.query) {
+      for (const word of this.query.split(/\s+/)) {
+        if (word && !text.includes(word)) return false;
+      }
+    }
+    return true;
+  }
+}
+
+// "Nothing matches", placed after `after` and shown by whoever owns it
+function emptyNote (find, after) {
+  const p = document.createElement('p');
+  p.className = 'vempty';
+  p.hidden = true;
+  p.textContent = find.dataset.none || '';
+  after.after(p);
+  return p;
+}
+
+
+/* ---------------------------------------------------------
    VisualsFilter — All / Photos / Videos over the one grid
 
    Nothing is fetched or rebuilt: every cell is already on the page, and
@@ -2107,9 +2195,10 @@ class VisualsFilter {
     if (!this.cells.length) return;
 
     // tags picked in the Filter panel, by category, and the search words
-    this.picked = new Map();
-    this.query = '';
-    if (this.find) this.wireFind();
+    if (this.find) {
+      this.empty = emptyNote(this.find, this.grid);
+      this.find = new FindPanel(this.find, () => { this.limit = this.page; this.refilter(); });
+    }
 
     this.mode = 'all';
     this.busy = false;
@@ -2129,76 +2218,9 @@ class VisualsFilter {
     }
   }
 
-  /* Within a category any picked tag will do (Studio OR Live); across
-     categories every one must be met (a studio photo AND a press one).
-     Search words must all appear somewhere in the title or tags. */
   matches (cell) {
     if (this.mode !== 'all' && cell.kind !== this.mode) return false;
-    for (const tags of this.picked.values()) {
-      if (tags.size && ![...tags].some((t) => cell.tags.has(t))) return false;
-    }
-    if (this.query) {
-      for (const word of this.query.split(/\s+/)) {
-        if (word && !cell.text.includes(word)) return false;
-      }
-    }
-    return true;
-  }
-
-  wireFind () {
-    const btn = this.find.querySelector('.vfind__btn');
-    const panel = this.find.querySelector('.vfind__panel');
-    const count = this.find.querySelector('.vfind__n');
-    const clear = this.find.querySelector('.vfind__clear');
-    const search = this.find.querySelector('.vfind__search');
-    this.empty = document.createElement('p');
-    this.empty.className = 'vempty';
-    this.empty.hidden = true;
-    this.empty.textContent = this.find.dataset.none || '';
-    this.grid.after(this.empty);
-
-    const show = (open) => {
-      panel.hidden = !open;
-      btn.setAttribute('aria-expanded', String(open));
-      if (open && matchMedia('(hover:hover)').matches) search.focus({ preventScroll: true });
-    };
-    btn.addEventListener('click', () => show(panel.hidden));
-    document.addEventListener('click', (e) => { if (!this.find.contains(e.target)) show(false); });
-    this.find.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !panel.hidden) { show(false); btn.focus(); }
-    });
-
-    const changed = () => {
-      const n = [...this.picked.values()].reduce((a, s) => a + s.size, 0) + (this.query ? 1 : 0);
-      count.hidden = !n;
-      count.textContent = n;
-      clear.hidden = !n;
-      this.limit = this.page;
-      this.refilter();
-    };
-    panel.addEventListener('click', (e) => {
-      const chip = e.target.closest('.vfind__chip');
-      if (!chip) return;
-      const on = chip.getAttribute('aria-pressed') !== 'true';
-      chip.setAttribute('aria-pressed', String(on));
-      const g = chip.dataset.group;
-      if (!this.picked.has(g)) this.picked.set(g, new Set());
-      this.picked.get(g)[on ? 'add' : 'delete'](chip.dataset.tag);
-      changed();
-    });
-    let timer = null;
-    search.addEventListener('input', () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => { this.query = search.value.trim().toLowerCase(); changed(); }, 180);
-    });
-    clear.addEventListener('click', () => {
-      this.picked.clear();
-      this.query = '';
-      search.value = '';
-      panel.querySelectorAll('.vfind__chip').forEach((c) => c.setAttribute('aria-pressed', 'false'));
-      changed();
-      search.focus({ preventScroll: true });
-    });
+    return !this.find || this.find.matches(cell.tags, cell.text);
   }
 
   // the same two-beat move a mode change makes, for any change of filter
@@ -2309,36 +2331,48 @@ class VisualsFilter {
 
 
 /* ---------------------------------------------------------
-   Paged — "Load more" under a plain list (the journal)
+   MakingFilter — the Filter button on In the Making
 
-   build.py marks everything past the first page `data-later`; the
-   stylesheet hides those only under html.js. Here that becomes `hidden`,
-   and the button lets one more page in at a time. The Visuals grid has its
-   own version inside VisualsFilter, because there the page also has to
-   follow the filter and the grid has to re-pack.
+   Narrows every ring to the pictures that match - a kind of work picked as
+   a chip, or words from a title. The ones left close up and stay evenly
+   spaced, because the stylesheet spaces a ring by `--i` out of `--n` and
+   this only rewrites those two numbers. A ring with nothing left goes
+   altogether rather than turning round an empty middle.
    --------------------------------------------------------- */
-class Paged {
-  constructor (list) {
-    this.items = [...list.children];
-    this.more = list.parentElement.querySelector(':scope > .more');
-    if (!this.more) return;
-    this.page = parseInt(this.more.dataset.page, 10) || 6;
-    this.limit = this.page;
-    this.paint();
-    this.items.forEach((el) => el.removeAttribute('data-later'));
-    this.more.querySelector('button').addEventListener('click', () => {
-      const first = this.items[this.limit];
-      this.limit += this.page;
-      this.paint();
-      if (first && document.activeElement === this.more.querySelector('button')) {
-        first.focus({ preventScroll: true });
-      }
-    });
+class MakingFilter {
+  constructor () {
+    const el = document.querySelector('#press .vfind');
+    if (!el) return;
+    this.rings = [...document.querySelectorAll('[data-orbit]')].map((root) => ({
+      root,
+      scene: root.querySelector('.orbit__scene'),
+      cards: [...root.querySelectorAll('.orbit__card')].map((card) => ({
+        el: card,
+        tags: new Set(card.dataset.kind ? [card.dataset.kind] : []),
+        text: card.dataset.text || '',
+      })),
+    }));
+    if (!this.rings.length) return;
+    this.empty = emptyNote(el, this.rings[this.rings.length - 1].root);
+    this.find = new FindPanel(el, () => this.apply());
   }
 
-  paint () {
-    this.items.forEach((el, i) => { el.hidden = i >= this.limit; });
-    this.more.hidden = this.items.length <= this.limit;
+  apply () {
+    let total = 0;
+    for (const ring of this.rings) {
+      const on = ring.cards.filter((c) => this.find.matches(c.tags, c.text));
+      ring.cards.forEach((c) => c.el.classList.toggle('is-out', !on.includes(c)));
+      on.forEach((c, i) => c.el.style.setProperty('--i', i));
+      ring.scene.style.setProperty('--n', Math.max(on.length, 1));
+      ring.root.hidden = !on.length;
+      total += on.length;
+      if (!REDUCED) {
+        on.forEach((c) => c.el.animate({ opacity: [0, 1] }, { duration: 450, easing: 'ease-out' }));
+      }
+    }
+    this.empty.hidden = total > 0;
+    // the page just changed height under every ring: each re-reads where it is
+    dispatchEvent(new Event('resize'));
   }
 }
 
@@ -2375,7 +2409,7 @@ document.addEventListener('DOMContentLoaded', () => {
   new Lens();
   new ScrollSpy();
   new VisualsFilter(new VideoFacade());
-  document.querySelectorAll('[data-paged]').forEach((el) => new Paged(el));
+  new MakingFilter();
   document.querySelectorAll('.inks').forEach((el) => new InkLoop(el));
 
   const year = document.getElementById('year');

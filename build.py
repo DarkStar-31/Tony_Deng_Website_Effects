@@ -1066,34 +1066,8 @@ def render_visuals_filter(loc: dict, shared: dict) -> list[str]:
 
     out = ['<div class="vtools">']
     find = loc.get("visualsFind")
-    groups = tag_groups(loc, shared, used)
     if find and pieces:
-        tagname = loc["photoTags"]
-        out += [
-            f'  <div class="vfind" data-none="{attr(plain(find["none"]))}">',
-            '    <button class="vfind__btn" type="button" aria-expanded="false" aria-controls="vfindPanel">',
-            '      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>',
-            f'      <span>{find["button"]}</span><span class="vfind__n" hidden></span>',
-            "    </button>",
-            f'    <div class="vfind__panel" id="vfindPanel" hidden>',
-            f'      <input class="vfind__search" type="search" placeholder="{attr(find["search"])}"'
-            f' aria-label="{attr(find["search"])}">',
-        ]
-        for gid, name, tags in groups:
-            label = f' aria-label="{attr(plain(name))}"' if name else ""
-            out.append(f'      <div class="vfind__group" role="group"{label}>')
-            if name:
-                out.append(f'        <p class="vfind__name">{name}</p>')
-            out.append('        <div class="vfind__chips">')
-            out += [f'          <button class="vfind__chip" type="button" data-tag="{attr(t)}"'
-                    f' data-group="{attr(gid)}" aria-pressed="false">{tagname.get(t, t)}</button>'
-                    for t in tags]
-            out += ["        </div>", "      </div>"]
-        out += [
-            f'      <button class="vfind__clear" type="button" hidden>{find["clear"]}</button>',
-            "    </div>",
-            "  </div>",
-        ]
+        out += ["  " + l for l in render_find(find, tag_groups(loc, shared, used), loc["photoTags"])]
     # with only photos, or only videos, the switch would be three buttons
     # that all show the same grid
     if counts["photo"] and counts["video"]:
@@ -1105,6 +1079,41 @@ def render_visuals_filter(loc: dict, shared: dict) -> list[str]:
         out.append("  </div>")
     out.append("</div>")
     return out if len(out) > 2 else []
+
+
+def render_find(find: dict, groups: list, names: dict) -> list[str]:
+    """The Filter button and its panel: a search box and a row of chips per
+    category. Visuals and In the Making both use it; FindPanel in main.js
+    answers it, and the page that owns it decides what a match hides.
+
+    `groups` is [(category id, category name or "", [tag, ...])] and
+    `names` turns a tag into the word shown on its chip."""
+    out = [
+        f'<div class="vfind" data-none="{attr(plain(find["none"]))}">',
+        '  <button class="vfind__btn" type="button" aria-expanded="false" aria-controls="vfindPanel">',
+        '    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>',
+        f'    <span>{find["button"]}</span><span class="vfind__n" hidden></span>',
+        "  </button>",
+        '  <div class="vfind__panel" id="vfindPanel" hidden>',
+        f'    <input class="vfind__search" type="search" placeholder="{attr(find["search"])}"'
+        f' aria-label="{attr(find["search"])}">',
+    ]
+    for gid, name, tags in groups:
+        label = f' aria-label="{attr(plain(name))}"' if name else ""
+        out.append(f'    <div class="vfind__group" role="group"{label}>')
+        if name:
+            out.append(f'      <p class="vfind__name">{name}</p>')
+        out.append('      <div class="vfind__chips">')
+        out += [f'        <button class="vfind__chip" type="button" data-tag="{attr(t)}"'
+                f' data-group="{attr(gid)}" aria-pressed="false">{names.get(t, t)}</button>'
+                for t in tags]
+        out += ["      </div>", "    </div>"]
+    out += [
+        f'    <button class="vfind__clear" type="button" hidden>{find["clear"]}</button>',
+        "  </div>",
+        "</div>",
+    ]
+    return out
 
 
 def search_text(*parts: str) -> str:
@@ -1672,6 +1681,58 @@ def ring_centre(loc: dict, shared: dict, ring: dict, words: dict) -> tuple:
     return None, ""
 
 
+def ring_post(loc: dict, shared: dict, ring: dict, photo: dict) -> dict | None:
+    """The journal post a ring picture opens into, if it has one.
+
+    `post` on a ring picture names a journal post by id. A name that is not
+    in the journal at all stops the build - that is a typo, and it would
+    otherwise show up only as a picture that quietly stopped opening. A post
+    that is unpublished, or has no title in this language yet, is simply not
+    there: the picture falls back to whatever it carries of its own."""
+    pid = photo.get("post")
+    if not pid:
+        return None
+    if not any(x.get("id") == pid for x in shared.get("journal", [])):
+        raise SystemExit(f'rings[{ring["id"]}] photo {photo["id"]}: no journal post {pid!r}')
+    post = next((x for x in journal_posts(shared) if x["id"] == pid), None)
+    if post and journal_words(loc, post).get("title"):
+        return post
+    return None
+
+
+def post_media(post: dict) -> list[dict]:
+    """A post's pictures, videos and clips, in the shape a diary entry's
+    `media` takes, so the card a ring picture opens into can show them."""
+    out = []
+    for b in post.get("blocks", []):
+        kind = b.get("type")
+        if kind == "image" and b.get("src"):
+            out.append({"type": "image", "src": b["src"]})
+        elif kind == "gallery":
+            out += [{"type": "image", "src": i["src"]} for i in b.get("images", []) if i.get("src")]
+        elif kind == "video" and b.get("src"):
+            out.append({"type": "video", "src": b["src"], "poster": b.get("poster", "")})
+        elif kind == "video" and b.get("video"):
+            out.append({"type": "video", "video": b["video"]})
+        elif kind == "song" and b.get("audio"):
+            out.append({"type": "audio", "src": b["audio"]})
+    return out
+
+
+def post_lens(loc: dict, shared: dict, tid: str, photo: dict, post: dict) -> list[str]:
+    """The card a ring picture opens into when it is linked to a journal
+    post: the post's date, kind, title and opening words, its pictures and
+    clips in the strip, and a way through to the whole post."""
+    words = journal_words(loc, post)
+    stand_in = {"id": photo["id"], "src": photo["src"], "date": post.get("date", ""),
+                "kind": post.get("kind", ""), "media": post_media(post)}
+    top, after, tail = entry_parts(loc, shared, {k: v for k, v in stand_in.items() if v}, {})
+    read = loc["journal"].get("readFull") or loc["journal"]["read"]
+    tail = tail + [f'<p class="entry__read"><a href="{journal_file(post)}">{read}'
+                   '<span aria-hidden="true"> &rarr;</span></a></p>']
+    return lens_template(tid, "", words["title"], journal_excerpt(loc, post, words), (top, after, tail))
+
+
 def render_ring(loc: dict, shared: dict, ring: dict) -> list[str]:
     """One ring of pictures turning round a still centre.
 
@@ -1712,23 +1773,40 @@ def render_ring(loc: dict, shared: dict, ring: dict) -> list[str]:
         desc = c.get("desc", "").strip()
         caption = c.get("caption", "")
         img = f'{p}{photo["src"]}'
+        post = ring_post(loc, shared, ring, photo)
+        kind = post.get("kind") if post else photo.get("kind")
+        # what the In the Making filter reads: the kind is the chip, and the
+        # search box looks through the title, the project and the kind's name
+        data = f' data-kind="{attr(kind)}"' if kind else ""
+        if post:
+            title = journal_words(loc, post)["title"]
+            text = search_text(title, loc["making"]["kinds"].get(kind, ""))
+        else:
+            title = caption
+            text = search_text(caption, c.get("project", ""), loc["making"]["kinds"].get(kind or "", ""))
+        if text:
+            data += f' data-text="{attr(text)}"'
         # A picture carrying an entry opens, since there is something to
-        # show - unless the admin's "opens" box was unticked on purpose.
+        # show - unless the admin's "opens" box was unticked on purpose. One
+        # linked to a journal post always opens: the post is the point of it.
         entry = has_entry(photo)
-        opens = bool(photo["opens"]) if "opens" in photo else (entry or bool(desc))
+        opens = bool(post) or (bool(photo["opens"]) if "opens" in photo else (entry or bool(desc)))
         if opens:
             tid = f'lens-{photo["id"]}'
-            label = f'{loc["lens"]["open"]}: {plain(caption)}'
+            label = f'{loc["lens"]["open"]}: {plain(title)}'
             out.append(
                 f'        <img class="orbit__card" style="--i:{i}" src="{img}" alt="{attr(label)}"'
-                f' role="button" tabindex="0" aria-haspopup="dialog" data-lens="{attr(tid)}" decoding="async">'
+                f' role="button" tabindex="0" aria-haspopup="dialog" data-lens="{attr(tid)}"{data} decoding="async">'
             )
-            parts = entry_parts(loc, shared, photo, c) if entry else None
-            templates += lens_template(tid, "", caption, desc, parts)
+            if post:
+                templates += post_lens(loc, shared, tid, photo, post)
+            else:
+                parts = entry_parts(loc, shared, photo, c) if entry else None
+                templates += lens_template(tid, "", caption, desc, parts)
         else:
             out.append(
                 f'        <img class="orbit__card" style="--i:{i}" src="{img}"'
-                ' alt="" aria-hidden="true" decoding="async">'
+                f' alt="" aria-hidden="true"{data} decoding="async">'
             )
 
     # Outside the stage on purpose: the stage carries a perspective, which
@@ -1755,11 +1833,18 @@ def render_making(loc: dict, shared: dict) -> list[str]:
 
     There is no fixed number of rings: the section is whatever `rings` in
     shared.json holds, in that order.
+
+    The journal lives with the rings rather than under them: the newest post
+    sits on top as one large card, and the rest are reached through the ring
+    pictures linked to them (`post` on a ring picture) and the newer/older
+    links on each post's own page. Beside the heading, a Filter button
+    narrows the rings to a kind of work, or to words in a title.
     """
     out = [
         "<!-- ================= 05 IN THE MAKING ================= -->",
         '<section class="section section--lead" id="press">',
-    ] + section_head(loc, "press") + [""]
+    ] + section_head(loc, "press", aside=render_making_filter(loc, shared) or None) + [""]
+    out += render_journal_latest(loc, shared)
     for ring in shared.get("rings", []):
         # A ring with no pictures is not a ring: once the script runs it is
         # three screens of nothing to scroll past, and the arrows would count
@@ -1771,15 +1856,69 @@ def render_making(loc: dict, shared: dict) -> list[str]:
     if out[-1] == "":
         out.pop()
     out.append("</section>")
-    out += render_journal_list(loc, shared)
+    return out
+
+
+def render_making_filter(loc: dict, shared: dict) -> list[str]:
+    """Filter for In the Making: the same button and panel as Visuals, with
+    the kinds of work as its chips (Recording, Arranging, ...) - only the
+    kinds some ring picture actually carries, in the order making.kinds
+    lists them. MakingFilter in main.js hides the pictures that do not
+    match and closes up the gaps on each ring."""
+    find = loc.get("visualsFind")
+    if not find:
+        return []
+    kinds = loc["making"]["kinds"]
+    used = set()
+    any_card = False
+    for ring in shared.get("rings", []):
+        for photo in ring.get("photos", []):
+            any_card = True
+            post = ring_post(loc, shared, ring, photo)
+            k = post.get("kind") if post else photo.get("kind")
+            if k:
+                used.add(k)
+    if not any_card:
+        return []
+    groups = [("kind", "", [k for k in kinds if k in used])] if used else []
+    return ['<div class="vtools">'] + ["  " + l for l in render_find(find, groups, kinds)] + ["</div>"]
+
+
+def latest_post(loc: dict, shared: dict) -> dict | None:
+    """The newest post on this language's page, by its date. Posts with no
+    date count as oldest; between two of the same date, the one higher in
+    the admin's list wins."""
+    posts = [x for x in journal_posts(shared) if journal_words(loc, x).get("title")]
+    if not posts:
+        return None
+    return max(enumerate(posts), key=lambda ix: (ix[1].get("date", ""), -ix[0]))[1]
+
+
+def render_journal_latest(loc: dict, shared: dict) -> list[str]:
+    """The newest journal post, as one wide card above the rings. It keeps
+    the `#journal` anchor the old list had, so the way back from a post
+    still lands here."""
+    post = latest_post(loc, shared)
+    if not post or not loc.get("journal"):
+        return []
+    j = loc["journal"]
+    out = [
+        "  <!-- the newest journal post; the card is a link to its own page -->",
+        '  <div class="latest reveal" id="journal">',
+    ]
+    if j.get("latest"):
+        out.append(f'    <p class="latest__kicker">{j["latest"]}</p>')
+    out += ["    " + l for l in journal_card(loc, shared, post, "jcard--latest")]
+    out += ["  </div>", ""]
     return out
 
 
 # ---------------------------------------------------------------- journal
 #
 # The making-of journal (client issue 5): posts with a title, a date and a
-# cover, and a body built from blocks that can be put in any order. The list
-# sits under the rings on In the Making, newest first by default, and each
+# cover, and a body built from blocks that can be put in any order. The
+# newest sits on top of In the Making, ring pictures can open into the
+# others (`post` on a ring picture - see ring_post), and each
 # post is a page of its own - journal-<id>.html - so a post can be linked to,
 # shared on WeChat, and found by a search engine, which a pop-up could not.
 #
@@ -1813,7 +1952,6 @@ def render_making(loc: dict, shared: dict) -> list[str]:
 # A post is on a language's page only once it has a title in that language,
 # so one written in Chinese first simply is not on the English page yet.
 
-JOURNAL_PAGE = 6              # posts in the list before "Load more"
 JOURNAL_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,60}")
 
 
@@ -1891,47 +2029,28 @@ def journal_meta(loc: dict, post: dict) -> list[str]:
     return out
 
 
-def render_journal_list(loc: dict, shared: dict) -> list[str]:
-    posts = [x for x in journal_posts(shared) if journal_words(loc, x).get("title")]
-    if not posts or not loc.get("journal"):
-        return []
+def journal_card(loc: dict, shared: dict, post: dict, extra: str = "") -> list[str]:
+    """One post as a card that links to its page: cover, date and kind,
+    title, opening words. A text-only post gets a card of words rather than
+    an empty frame."""
     p = loc["assetPrefix"]
-    j = loc["journal"]
-    out = [
-        "",
-        "<!-- the making-of journal: each card is a link to the post's own page -->",
-        '<section class="section journal" id="journal">',
-    ] + section_head(loc, "journal") + [
-        "",
-        '  <div class="journal__list" data-paged>',
+    words = journal_words(loc, post)
+    cover = journal_cover(shared, post)
+    excerpt = journal_excerpt(loc, post, words)
+    cls = " ".join(x for x in ("jcard", "" if cover else "jcard--text", extra) if x)
+    out = [f'<a class="{cls}" href="{journal_file(post)}">']
+    if cover:
+        out.append(f'  <span class="jcard__pic"><img src="{p}{attr(cover)}" alt="" loading="lazy" decoding="async"></span>')
+    out.append('  <span class="jcard__body">')
+    out += ["    " + l.replace("<p ", "<span ").replace("</p>", "</span>") for l in journal_meta(loc, post)]
+    out.append(f'    <span class="jcard__title">{words["title"]}</span>')
+    if excerpt:
+        out.append(f'    <span class="jcard__excerpt">{excerpt}</span>')
+    out += [
+        f'    <span class="jcard__read">{loc["journal"]["read"]}<span aria-hidden="true"> &rarr;</span></span>',
+        "  </span>",
+        "</a>",
     ]
-    for n, post in enumerate(posts):
-        words = journal_words(loc, post)
-        later = " data-later" if n >= JOURNAL_PAGE else ""
-        cover = journal_cover(shared, post)
-        excerpt = journal_excerpt(loc, post, words)
-        # a text-only post gets a card of words rather than an empty frame
-        out.append(f'    <a class="jcard{"" if cover else " jcard--text"} reveal" href="{journal_file(post)}"{later}>')
-        if cover:
-            out.append(f'      <span class="jcard__pic"><img src="{p}{attr(cover)}" alt="" loading="lazy" decoding="async"></span>')
-        out.append('      <span class="jcard__body">')
-        out += ["        " + l.replace("<p ", "<span ").replace("</p>", "</span>") for l in journal_meta(loc, post)]
-        out.append(f'        <span class="jcard__title">{words["title"]}</span>')
-        if excerpt:
-            out.append(f'        <span class="jcard__excerpt">{excerpt}</span>')
-        out += [
-            f'        <span class="jcard__read">{j["read"]}<span aria-hidden="true"> &rarr;</span></span>',
-            "      </span>",
-            "    </a>",
-        ]
-    out.append("  </div>")
-    if len(posts) > JOURNAL_PAGE:
-        out += [
-            f'  <p class="more" data-page="{JOURNAL_PAGE}">',
-            f'    <button class="more__btn" type="button">{loc.get("loadMore", "Load more")}</button>',
-            "  </p>",
-        ]
-    out.append("</section>")
     return out
 
 

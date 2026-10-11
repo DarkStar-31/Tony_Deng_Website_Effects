@@ -634,12 +634,21 @@ const UI_STRINGS = {
   // ----------------------------------------------------- journal (10-09)
   'Journal': '创作日志',
   '{n} posts': '{n} 篇',
-  'Posts under the rings, newest at the top. Each one is a page of its own; the list shows six, then “Load more”.':
-    '放在圆环下面的日志，最新的在最上面。每篇都有自己的页面；列表先显示六篇，然后是“加载更多”。',
+  'The newest post (by date) sits on top of the rings. Each post is a page of its own; to reach the others, link them from ring pictures with “Opens a journal post”.':
+    '最新的一篇（按日期）放在圆环上方。每篇都有自己的页面；其他日志请在圆环图片里用“打开一篇日志”连接。',
   'Journal words': '日志里的小字',
-  'The small words around the journal, on the list and on each post.': '日志列表和每篇日志页面上的小字。',
-  '“Read” on each card': '每张卡片上的“阅读”',
-  'Back to the list': '返回列表',
+  'The small words around the journal, on In the Making and on each post.': '创作手记页和每篇日志页面上的小字。',
+  'Above the newest post': '最新日志上方',
+  '“Read” on the newest post': '最新日志上的“阅读”',
+  'Button in a ring picture’s card': '圆环图片卡片里的按钮',
+  'Back to In the Making': '返回创作手记',
+  // ------------------------------------------- ring picture -> journal (10-11)
+  'None — the picture keeps its own words': '不连接——图片使用自己的文字',
+  'unpublished': '未发布',
+  'Opens a journal post': '打开一篇日志',
+  'The card shows the post’s date, title, opening words and pictures, with a button to read the rest. An unpublished post, or one with no title in a language yet, is skipped there.':
+    '卡片显示这篇日志的日期、标题、开头和图片，并有一个按钮阅读全文。未发布的日志，或某个语言还没有标题的日志，在那个语言里不会显示。',
+  'Pick a post and this picture opens into it.': '选一篇日志，点这张图片就会打开它。',
   'Newer post': '较新的一篇',
   'Older post': '较早的一篇',
   'Site name in the browser tab': '浏览器标签里的站名',
