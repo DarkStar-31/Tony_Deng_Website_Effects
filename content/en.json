@@ -413,7 +413,7 @@
       "replyLabel": "Email or phone number",
       "replyHint": "Your copy, and any reply, goes here. It is never shown on the site.",
       "send": "Send",
-      "cancel": "Cancel",
+      "cancel": "Cancel [AUDIT TEST]",
       "close": "Close",
       "sending": "Sending…",
       "sent": "Sent. A copy is on its way to {to}, and you’ll hear there if Tony replies.",
