@@ -555,6 +555,10 @@ input[lang="zh-Hans"], textarea[lang="zh-Hans"] { font-family: "PingFang SC", "M
 
 /* ---------------------------------------------------------------- sign in */
 
+/* Signed out, the preview rail is empty but still held its grid column,
+   so the card centred in what was left and sat right of the page's middle. */
+.layout:has(.login) { display: block; }
+.layout:has(.login) .preview { display: none; }
 .login { max-width: 380px; margin: 48px auto; }
 .login .card__body { display: grid; gap: 12px; }
 .login .btn { justify-self: start; }
