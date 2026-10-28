@@ -474,7 +474,7 @@
   "$photos": "Captions for shared.photos, by id. `desc` is optional: with one, the photo opens into the detail view; blank lines split it into paragraphs.",
   "photos": {
     "photo-04": {
-      "caption": "Sed do eiusmod"
+      "caption": ""
     },
     "photo-05": {
       "caption": ""
@@ -483,8 +483,7 @@
       "caption": ""
     },
     "photo-07": {
-      "caption": "Magna aliqua",
-      "desc": "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.\n\nNeque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit."
+      "caption": ""
     },
     "photo-09": {
       "caption": ""
@@ -578,8 +577,8 @@
           "caption": ""
         },
         "orbit-centre": {
-          "caption": "Lorem ipsum: new song",
-          "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+          "caption": "New song",
+          "desc": "New music on the way. Stay tuned.",
           "media": {
             "m1": {}
           }

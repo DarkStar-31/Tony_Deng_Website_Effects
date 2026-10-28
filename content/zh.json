@@ -497,7 +497,7 @@
   "$photos": "Captions for shared.photos, by id. `desc` is optional: with one, the photo opens into the detail view; blank lines split it into paragraphs.",
   "photos": {
     "photo-04": {
-      "caption": "Sed do eiusmod"
+      "caption": ""
     },
     "photo-05": {
       "caption": ""
@@ -506,8 +506,7 @@
       "caption": ""
     },
     "photo-07": {
-      "caption": "Magna aliqua",
-      "desc": "Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.\n\nNeque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit."
+      "caption": ""
     },
     "photo-09": {
       "caption": ""
@@ -601,8 +600,8 @@
           "caption": ""
         },
         "orbit-centre": {
-          "caption": "占位标题：新歌速递",
-          "desc": "占位文字：这里将介绍新歌的创作故事。占位文字：正式内容由 Tony 团队提供后替换。",
+          "caption": "新歌速递",
+          "desc": "新歌正在录制中，敬请期待。",
           "media": {
             "m1": {}
           }
