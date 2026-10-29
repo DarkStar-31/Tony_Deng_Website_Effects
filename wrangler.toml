@@ -34,7 +34,8 @@ directory = "./dist"
 binding = "ASSETS"
 # /audio/* and /video/* so seeking works (the Worker answers byte ranges),
 # /reveal/* so a countdown's picture is served only after its moment.
-run_worker_first = ["/api/admin/*", "/audio/*", "/video/*", "/reveal/*"]
+# /api/message is the public "Message Tony" form.
+run_worker_first = ["/api/admin/*", "/api/message", "/audio/*", "/video/*", "/reveal/*"]
 
 [vars]
 # This copy of the admin must never write to the live repository - it is
@@ -44,10 +45,22 @@ GITHUB_REPO = "DarkStar-31/Tony_Deng_Website_Effects"
 LIVE_BRANCH = "main"
 DRAFT_BRANCH = "draft"
 
-# Two secrets, never in this file. Set them in the Cloudflare dashboard:
+# Secrets, never in this file. Set them in the Cloudflare dashboard:
 # this Worker -> Settings -> Variables and Secrets -> Add -> type Secret.
 #   GITHUB_TOKEN    fine-grained PAT, only this repo, Contents: read & write
-#   ADMIN_PASSWORD  the password for /admin; changing it signs everyone out
+#   ADMIN_PASSWORD  the owner password: TonyDeng signs in with it, removing
+#                   TonyDeng asks for it, and changing it signs everyone out
+#   BREVO_API_KEY   sends the admin's and the message form's emails
+#   MAIL_FROM       the sender address verified in Brevo
 # Secrets survive deploys; plain variables added in the dashboard do not,
 # which is why the ones above live here. Both repos are public, so the
 # password must never be written into this file.
+
+# Sign-ins, the "where messages go" setting and the message inbox. Without
+# this binding the admin keeps the single ADMIN_PASSWORD and messages can
+# only be emailed. To switch it on: Cloudflare dashboard -> Storage &
+# Databases -> KV -> Create, name it tony-admin, then put its ID below and
+# remove the #s. The ID is not a secret.
+# [[kv_namespaces]]
+# binding = "ACCOUNTS"
+# id = ""

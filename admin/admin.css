@@ -46,7 +46,19 @@ body {
 
 .bar__left { display: flex; align-items: baseline; gap: 10px; }
 .bar__mark { font-weight: 700; letter-spacing: .12em; font-size: 14px; }
-.bar__sub { color: var(--dim); font-size: 13px; }
+/* "site admin" is the way to the Site admin page */
+.bar__sub {
+  padding: 3px 8px;
+  margin: -3px 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: none;
+  color: var(--dim);
+  font: 400 13px/1.4 var(--f-sans);
+  cursor: pointer;
+}
+.bar__sub:hover:not(:disabled), .bar__sub[aria-pressed="true"] { border-color: var(--line); color: var(--bone); }
+.bar__sub:disabled { cursor: default; }
 .bar__status { flex: 1; text-align: center; color: var(--dim); font-size: 13px; }
 .bar__status b { color: var(--bone); font-weight: 600; }
 .bar__status .warn { color: var(--warn); }
@@ -336,7 +348,7 @@ body {
 .f > span .tag--en { color: #8FB8FF; }
 .f > span .tag--zh { color: #FFB38F; }
 
-input[type="text"], input[type="date"], textarea, select {
+input[type="text"], input[type="date"], input[type="password"], input[type="email"], textarea, select {
   width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--line);
@@ -345,7 +357,7 @@ input[type="text"], input[type="date"], textarea, select {
   color: var(--bone);
   font: 400 14px/1.5 var(--f-sans);
 }
-input[type="text"]:focus, textarea:focus, select:focus {
+input[type="text"]:focus, input[type="password"]:focus, input[type="email"]:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--magenta);
 }
@@ -564,6 +576,59 @@ input[lang="zh-Hans"], textarea[lang="zh-Hans"] { font-family: "PingFang SC", "M
 .login .btn { justify-self: start; }
 .login__error:empty { display: none; }
 .login__error { color: #FF6B93; }
+.login__error.is-good { color: var(--acid); }
+.login__foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.linkbtn {
+  padding: 0; border: 0; background: none;
+  color: var(--dim); font: 400 13px var(--f-sans);
+  text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+}
+.linkbtn:hover { color: var(--bone); }
+
+/* ------------------------------------------------------------- site admin */
+
+body.is-siteadmin .preview { display: none; }
+body.is-siteadmin .layout { display: block; }
+body.is-siteadmin .wrap { max-width: 900px; margin-inline: auto; }
+.tabs__back { justify-self: start; }
+.sitead__h { margin: 4px 0 18px; font-size: 20px; letter-spacing: .02em; }
+.sitead__rule { height: 1px; margin: 16px 0; background: var(--line); }
+.row__end { flex: 0 0 auto !important; display: flex; align-items: flex-end; padding-bottom: 1px; }
+.row:has(> .row__end) { align-items: flex-end; }
+
+.pill {
+  display: inline-block; padding: 1px 7px; border: 1px solid var(--line); border-radius: 999px;
+  color: var(--dim); font-size: 11px; font-weight: 600; letter-spacing: .03em;
+}
+.pill--warn { color: var(--warn); border-color: rgba(245, 166, 35, .4); }
+
+.people { display: grid; gap: 2px; }
+.people__row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 10px; border-radius: 6px; background: var(--ink);
+}
+.people__who { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.people__who > span:not(.pill) { color: var(--dim); font-size: 13px; }
+.people__do { display: flex; gap: 6px; flex: 0 0 auto; }
+
+.ownerkey { max-width: 420px; padding: 0; color: var(--bone); }
+.ownerkey::backdrop { background: rgba(0, 0, 0, .6); }
+.ownerkey .card__body { display: grid; gap: 12px; }
+
+.inbox { display: grid; gap: 0; }
+.msgitem { padding: 14px 0; border-top: 1px solid var(--line); display: grid; gap: 8px; }
+.msgitem:first-child { border-top: 0; padding-top: 0; }
+.msgitem__head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.msgitem__head a { color: var(--dim); font-size: 13px; }
+.msgitem__when { color: var(--dim); font-size: 12px; margin-left: auto; }
+.msgitem__text { margin: 0; white-space: pre-wrap; }
+.msgitem__reply {
+  margin: 0; padding: 6px 10px; border-left: 2px solid var(--magenta);
+  color: var(--dim); font-size: 13px; white-space: pre-wrap;
+}
+.msgitem__reply span { color: var(--bone); font-weight: 600; }
+.msgitem textarea { min-height: 60px; }
+.msgitem__do { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 /* ------------------------------------------------------------- preview rail
 
