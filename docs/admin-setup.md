@@ -1,6 +1,6 @@
 # Setting up the admin
 
-The admin at `/admin/` lets anyone with the password edit every word, image
+The admin at `/admin/` lets anyone with a sign-in edit every word, image
 and video on the site from a browser. They don't need a GitHub account or git.
 This guide covers the one-time setup and then the full edit, save and publish
 flow you use to check that it works.
@@ -83,7 +83,7 @@ Cloudflare dashboard → **Workers & Pages** → the Worker → **Settings** →
 | Name | Value |
 |---|---|
 | `GITHUB_TOKEN` | the token from step 2 |
-| `ADMIN_PASSWORD` | the shared admin password. Make it long. |
+| `ADMIN_PASSWORD` | the owner password. Make it long. |
 
 Click **Deploy** when it asks. Secrets survive later deploys, so this is
 once only. Never write the password into a file. Both repositories are
@@ -91,11 +91,51 @@ public.
 
 Changing `ADMIN_PASSWORD` later signs everyone out.
 
+## 3b. Separate sign-ins (the ACCOUNTS store)
+
+Until this is done there is one password, `ADMIN_PASSWORD`. Afterwards each
+person has their own username and password, managed from **site admin** in
+the top-left corner of the admin.
+
+1. Cloudflare dashboard → **Storage & Databases** → **KV** → **Create**.
+   Call it `tony-admin`.
+2. Copy its **ID** into the `[[kv_namespaces]]` block at the bottom of
+   `wrangler.toml` and remove the `#`s. The ID is not secret.
+3. Push. The next deploy switches it on.
+
+The first account is **TonyDeng**, and its password is `ADMIN_PASSWORD`.
+TonyDeng can change it to something easy to remember from **site admin**,
+and `ADMIN_PASSWORD` keeps working for TonyDeng as the way back in. Removing
+TonyDeng asks for `ADMIN_PASSWORD`; removing anyone else asks for an
+"are you sure?". New people start on `1234567890` and must choose their own
+password the first time they sign in.
+
+## 3c. Email (password links and "Message Tony")
+
+1. Make a free account at **brevo.com**. Under **Senders, domains & dedicated
+   IPs → Senders**, add and verify the address mail should come from.
+2. **SMTP & API → API keys** → generate a key.
+3. Add two more secrets to the Worker, as in step 3:
+
+| Name | Value |
+|---|---|
+| `BREVO_API_KEY` | the key from Brevo |
+| `MAIL_FROM` | the verified sender address |
+
+Then in the admin set **Where messages go** (on the Contact & footer tab,
+or on the site admin page). Every message is emailed there with the
+sender as the reply address, so pressing Reply answers them directly. People
+who leave a phone number are answered from the inbox on the site admin
+page, which opens the replier's own phone to text them.
+
+Without a domain of its own, the site sends from a free address, so the
+first emails may land in spam: mark them "not spam" once.
+
 ## 4. Check the full flow
 
 Do this once after setup, and again whenever something seems wrong.
 
-1. Open `https://<worker address>/admin/` and sign in with the password.
+1. Open `https://<worker address>/admin/` and sign in (TonyDeng and `ADMIN_PASSWORD` the first time).
 2. The bar at the top should say **signed in · live site is up to date**.
    If it says *Not connected* or shows a red message, go to Troubleshooting.
 3. Pick something easy to spot, e.g. **Tony D** tab → a line of hero text.
@@ -158,8 +198,10 @@ These are left out on purpose, because each needs someone with git:
 
 ## Later: a domain and Cloudflare Access
 
-One shared password is the weak point: anyone who finds `/admin/` can try to
-guess it, and anyone who has it can publish. Once the site has its own
-domain, the planned upgrade is per-person sign-in through Cloudflare Access,
-with publishing limited to named people. The earlier version of this file
-(in git history, before October 2026) has those steps.
+With separate sign-ins (step 3b) each person has their own password, and a
+removed person is signed out at once. What is still missing: everyone who can
+sign in can publish, and the sign-in page is open to anyone who finds
+`/admin/` (eight wrong tries locks that username for 15 minutes). Once the
+site has its own domain, Cloudflare Access can go in front of `/admin/` as
+well. The earlier version of this file (in git history, before October 2026)
+has those steps.

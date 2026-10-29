@@ -2290,11 +2290,13 @@ def render_message_dialog(form: dict, shared: dict) -> list[str]:
 
     It posts JSON to `shared["messageEndpoint"]`. What happens after that -
     who reads it, how the copy and Tony's reply reach the sender - is the
-    Worker's job and is not built yet; `tools/devserver.py` stands in for it
-    locally. The strings JS writes (sending, sent, errors) ride in on data-
+    Worker's job (handleMessage in workers/admin/src/index.js);
+    `tools/devserver.py` stands in for it locally. The strings JS writes (sending, sent, errors) ride in on data-
     attributes so they follow the page's language like everything else.
     """
     strings = {k: form[k] for k in ("sending", "sent", "error", "needMessage", "needReply")}
+    # a phone number gets no copy - only email can send one
+    strings["sentPhone"] = form.get("sentPhone", form["sent"])
     return [
         "",
         '  <dialog class="msg" id="msgDialog" aria-labelledby="msgTitle">',

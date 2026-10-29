@@ -37,6 +37,8 @@ const state = {
   // which fold's preview the rail is showing, if not the tab's own
   section: null,
   status: null,
+  // who is signed in (GET /me)
+  me: null,
 };
 
 const SHARED = () => state.files['content/shared.json'];
@@ -110,10 +112,11 @@ function markDirty() {
 function toast(message, kind, detail) {
   const node = document.getElementById('toast');
   node.className = 'toast' + (kind ? ` toast--${kind}` : '');
-  node.replaceChildren(
+  // replaceChildren() would print a null as the word "null"
+  node.replaceChildren(...[
     el('div', {}, message),
     detail ? el('p', { className: 'toast__detail' }, detail) : null,
-  );
+  ].filter(Boolean));
   node.hidden = false;
   clearTimeout(toast._t);
   toast._t = setTimeout(() => { node.hidden = true; }, kind === 'bad' ? 9000 : 4000);
@@ -1824,8 +1827,7 @@ function renderContact() {
       // no vars passed, so T() leaves this one's {to} and {email} alone -
       // they are placeholders the site fills in, not ones this file fills in
       el('p', { className: 'hint', html:
-        T('The window the "Message Tony" button opens. Sending is not connected online yet, so on the '
-          + 'deployed site it shows the error line; the local preview accepts messages. '
+        T('The window the "Message Tony" button opens. Where the messages go is set in the card below. '
           + '<code>{to}</code> and <code>{email}</code> are filled in for you — leave them in.') }),
       bi('Button', 'open', form),
       bi('Window title', 'title', form),
@@ -1840,10 +1842,12 @@ function renderContact() {
       bi('Close button (screen readers)', 'close', form),
       bi('While sending', 'sending', form),
       bi('After sending', 'sent', form, { multiline: true, rows: 2 }),
+      bi('After sending (phone number)', 'sentPhone', form, { multiline: true, rows: 2 }),
       bi('If it fails', 'error', form, { multiline: true, rows: 2 }),
       bi('No message written', 'needMessage', form),
       bi('No email or phone', 'needReply', form),
     )));
+    out.push(messageToCardAsync());
   }
 
   langOrder().forEach((lang) => {
@@ -4314,6 +4318,7 @@ function renderPanel() {
 function renderChrome() {
   const set = (id, text) => { document.getElementById(id).textContent = text; };
   set('barSub', T('site admin'));
+  document.getElementById('barSub').title = T('Who can sign in, your password, and messages');
   set('reloadBtn', T('Reload'));
   set('saveBtn', T('Save draft'));
   set('publishBtn', T('Publish'));
@@ -4343,15 +4348,18 @@ function setUiLang(lang) {
   UI.lang = lang;
   saveUiLang(lang);
   renderChrome();
-  if (state.files) {
+  if (state.files && !siteAdminOpen()) {
     renderTabs();
     renderPanel();
   } else if (document.querySelector('.login')) {
     // Before signing in there is no content to re-render, but there is a
     // form - and it was being left in the language it was built in, so the
     // toolbar went Chinese over an English sign-in box.
-    showLogin(loginMessage);
+    if (loginForm === 'forgot') showForgot();
+    else if (loginForm === 'password') showNewPassword({ mustChange: state.me && state.me.mustChange });
+    else showLogin(loginMessage);
   }
+  if (siteAdminOpen()) showSiteAdmin();
   renderStatus();
 }
 
@@ -4471,6 +4479,7 @@ document.getElementById('saveBtn').addEventListener('click', save);
 document.getElementById('publishBtn').addEventListener('click', publish);
 document.getElementById('reloadBtn').addEventListener('click', async () => {
   if (state.dirty && !confirm(T('Reload and discard your unsaved changes?'))) return;
+  closeSiteAdmin(false);
   await load();
   toast(T('Reloaded from the draft branch'));
 });
@@ -4481,36 +4490,30 @@ document.getElementById('reloadBtn').addEventListener('click', async () => {
  * language. Ours are passed as English source strings and translated here;
  * anything from the server falls through T() unchanged. */
 let loginMessage = '';
+// which of the signed-out forms is showing, for setUiLang to rebuild
+let loginForm = 'login';
+// the password just typed, so "choose a new password" need not ask for it again
+let lastPassword = '';
 
-function showLogin(message) {
-  loginMessage = message || '';
-  const password = el('input', { type: 'password', autocomplete: 'current-password', required: true });
+/* The forms shown before the content: sign in, forgot password, choose a
+ * new password. They all sit in the same .login card in the panel. */
+function signedOutCard(title, body, onSubmit) {
   const error = el('p', { className: 'hint login__error' }, loginMessage ? T(loginMessage) : '');
-  const submit = el('button', { className: 'btn btn--go', type: 'submit' }, T('Sign in'));
-
   const form = el('form', { className: 'card login' },
-    el('div', { className: 'card__head' }, el('span', { className: 'card__title' }, T('Sign in'))),
-    el('div', { className: 'card__body' },
-      field('Password', password),
-      error,
-      submit,
-    ),
+    el('div', { className: 'card__head' }, el('span', { className: 'card__title' }, T(title))),
+    el('div', { className: 'card__body' }, ...body, error),
   );
-
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const submit = form.querySelector('[type=submit]');
     submit.disabled = true;
     error.textContent = '';
     try {
-      await api('/login', {
-        method: 'POST',
-        body: JSON.stringify({ password: password.value }),
-      });
-      await start();
+      await onSubmit(error);
     } catch (err) {
-      error.textContent = err.message;
+      error.textContent = T(err.message) + (err.detail ? ' ' + T(err.detail) : '');
+    } finally {
       submit.disabled = false;
-      password.select();
     }
   });
 
@@ -4521,16 +4524,106 @@ function showLogin(message) {
   document.getElementById('publishBtn').disabled = true;
   document.getElementById('publishHint').hidden = true;
   document.getElementById('logoutBtn').hidden = true;
-  password.focus();
+  document.getElementById('barSub').disabled = true;
+  form.querySelector('input').focus();
+  return form;
+}
+
+function showLogin(message) {
+  loginMessage = message || '';
+  loginForm = 'login';
+  const login = el('input', { type: 'text', autocomplete: 'username', autocapitalize: 'off', spellcheck: 'false' });
+  const password = el('input', { type: 'password', autocomplete: 'current-password', required: true });
+  const forgot = el('button', { className: 'linkbtn', type: 'button', onclick: () => showForgot() },
+    T('Forgot password?'));
+
+  signedOutCard('Sign in', [
+    field('Username or email', login),
+    field('Password', password),
+    el('div', { className: 'login__foot' },
+      el('button', { className: 'btn btn--go', type: 'submit' }, T('Sign in')), forgot),
+  ], async () => {
+    try {
+      await api('/login', {
+        method: 'POST',
+        body: JSON.stringify({ login: login.value.trim(), password: password.value }),
+      });
+    } catch (err) {
+      password.select();
+      throw err;
+    }
+    lastPassword = password.value;
+    loginMessage = '';
+    await start();
+  });
+}
+
+function showForgot() {
+  loginForm = 'forgot';
+  loginMessage = '';
+  const who = el('input', { type: 'text', autocomplete: 'username', required: true });
+  signedOutCard('Forgot password?', [
+    el('p', { className: 'hint' }, T('If your account has an email address, a link to choose a new password is sent to it. '
+      + 'TonyDeng can always sign in with the owner password instead.')),
+    field('Username or email', who),
+    el('div', { className: 'login__foot' },
+      el('button', { className: 'btn btn--go', type: 'submit' }, T('Send the link')),
+      el('button', { className: 'linkbtn', type: 'button', onclick: () => showLogin() }, T('Back to sign in'))),
+  ], async (error) => {
+    const res = await api('/forgot', { method: 'POST', body: JSON.stringify({ who: who.value.trim() }) });
+    error.classList.add('is-good');
+    error.textContent = res.mail
+      ? T('If that account has an email address, the link is on its way. It works for one hour.')
+      : T('Email is not set up on this site yet, so no link can be sent. Ask someone signed in to reset your password.');
+  });
+}
+
+/* A new password, from a link (`#reset=<token>`) or because the account is
+ * still on the starting one. */
+function showNewPassword({ token, mustChange } = {}) {
+  loginForm = 'password';
+  const current = el('input', { type: 'password', autocomplete: 'current-password', value: lastPassword });
+  const next = el('input', { type: 'password', autocomplete: 'new-password', required: true, minlength: 6 });
+  const again = el('input', { type: 'password', autocomplete: 'new-password', required: true });
+
+  signedOutCard('Choose a new password', [
+    mustChange ? el('p', { className: 'hint' },
+      T('You signed in with the starting password. Choose your own before carrying on.')) : null,
+    token || lastPassword ? null : field('Current password', current),
+    field('New password', next, 'At least 6 characters.'),
+    field('New password again', again),
+    el('div', { className: 'login__foot' },
+      el('button', { className: 'btn btn--go', type: 'submit' }, T('Save password')),
+      mustChange ? el('button', { className: 'linkbtn', type: 'button', onclick: signOut }, T('Sign out')) : null),
+  ].filter(Boolean), async () => {
+    if (next.value !== again.value) throw new Error(T('The two new passwords are different'));
+    if (token) {
+      await api('/reset', { method: 'POST', body: JSON.stringify({ token, next: next.value }) });
+      history.replaceState(null, '', location.pathname);
+    } else {
+      await api('/password', { method: 'POST', body: JSON.stringify({ current: current.value, next: next.value }) });
+    }
+    lastPassword = '';
+    toast(T('Password saved'), 'good');
+    await start();
+  });
 }
 
 async function start() {
   renderChrome();
   wirePreviewHover();
   wirePreviewEditing();
+
+  const reset = /^#reset=([A-Za-z0-9_-]+)$/.exec(location.hash);
+  if (reset) return showNewPassword({ token: reset[1] });
+
   try {
+    state.me = await api('/me');
+    if (state.me.mustChange) return showNewPassword({ mustChange: true });
     await load();
     document.getElementById('logoutBtn').hidden = false;
+    document.getElementById('barSub').disabled = false;
+    if (location.hash === '#inbox') showSiteAdmin('inbox');
   } catch (err) {
     if (err.status === 401) return showLogin(err.detail);
     document.getElementById('panel').replaceChildren(
@@ -4542,12 +4635,311 @@ async function start() {
   }
 }
 
-document.getElementById('logoutBtn').addEventListener('click', async () => {
+async function signOut() {
   if (state.dirty && !confirm(T('Sign out and discard your unsaved changes?'))) return;
   try { await api('/logout', { method: 'POST' }); } catch { /* signed out either way */ }
   state.dirty = false;
   state.status = null;
+  state.me = null;
+  closeSiteAdmin(false);
   showLogin('Signed out.');
+}
+
+document.getElementById('logoutBtn').addEventListener('click', signOut);
+
+// ---------------------------------------------------------------- site admin
+
+/* The page behind "site admin" in the top-left corner: who can sign in,
+ * your own password, and the messages sent from the site. None of it is
+ * content - it is saved the moment you press its button, not by Save
+ * draft, and never goes near GitHub. It covers the content tabs rather than
+ * replacing them, so unsaved edits are still there on the way back. */
+
+function siteAdminOpen() {
+  return document.body.classList.contains('is-siteadmin');
+}
+
+function closeSiteAdmin(rerender = true) {
+  if (!siteAdminOpen()) return;
+  document.body.classList.remove('is-siteadmin');
+  document.getElementById('barSub').setAttribute('aria-pressed', 'false');
+  if (location.hash === '#inbox') history.replaceState(null, '', location.pathname);
+  if (rerender && state.files) { renderTabs(); renderPanel(); }
+}
+
+async function showSiteAdmin(focus) {
+  document.body.classList.add('is-siteadmin');
+  document.getElementById('barSub').setAttribute('aria-pressed', 'true');
+  document.getElementById('tabs').replaceChildren(
+    el('button', { className: 'tabs__back', type: 'button', onclick: () => closeSiteAdmin() },
+      '← ' + T('Back to editing')),
+  );
+  const panel = document.getElementById('panel');
+  panel.replaceChildren(el('p', { className: 'loading' }, T('Loading…')));
+
+  let users, settings, inbox;
+  try {
+    [state.me, users, settings] = await Promise.all([api('/me'), api('/users'), api('/settings')]);
+    inbox = await api('/messages');
+  } catch (err) {
+    if (err.status === 401) return showLogin(err.detail);
+    panel.replaceChildren(
+      el('h2', { className: 'sitead__h' }, T('Site admin')),
+      err.status === 501
+        ? intro(T('Separate sign-ins are not switched on yet: the site still has the one owner password. '
+            + 'Someone with the Cloudflare dashboard needs to create the ACCOUNTS store - the steps are '
+            + 'at the bottom of wrangler.toml.'))
+        : intro(T(err.message) + (err.detail ? ' — ' + T(err.detail) : '')),
+    );
+    return;
+  }
+  if (!siteAdminOpen()) return;   // closed while it was loading
+
+  const rerender = () => showSiteAdmin();
+  panel.replaceChildren(
+    el('h2', { className: 'sitead__h' }, T('Site admin')),
+    accountCard(state.me, users.mail, rerender),
+    peopleCard(users, rerender),
+    inboxCard(inbox, settings, rerender),
+  );
+  if (!users.mail) {
+    panel.insertBefore(intro(T('Email is not set up yet, so nothing on this page can send mail: no password links, '
+      + 'and messages from the site wait in the inbox below instead of arriving by email.')), panel.children[1]);
+  }
+  if (focus === 'inbox') panel.querySelector('.inbox')?.scrollIntoView();
+}
+
+document.getElementById('barSub').addEventListener('click', () => {
+  if (siteAdminOpen()) closeSiteAdmin();
+  else showSiteAdmin();
 });
+
+/* Runs a request from a site-admin button: the button greys out while it
+ * runs, and whatever goes wrong is said in a toast. */
+async function siteAdminDo(btn, fn) {
+  btn.disabled = true;
+  try {
+    return await fn();
+  } catch (err) {
+    toast(T(err.message), 'bad', err.detail && T(err.detail));
+    return undefined;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function accountCard(me, mail, rerender) {
+  const email = el('input', { type: 'email', value: me.email || '', autocomplete: 'email' });
+  const saveEmail = el('button', { className: 'btn btn--small', type: 'button' }, T('Save email'));
+  saveEmail.addEventListener('click', () => siteAdminDo(saveEmail, async () => {
+    await api('/me/email', { method: 'POST', body: JSON.stringify({ email: email.value.trim() }) });
+    toast(T('Email saved'), 'good');
+    rerender();
+  }));
+
+  const current = el('input', { type: 'password', autocomplete: 'current-password' });
+  const next = el('input', { type: 'password', autocomplete: 'new-password' });
+  const again = el('input', { type: 'password', autocomplete: 'new-password' });
+  const savePw = el('button', { className: 'btn btn--small', type: 'button' }, T('Change password'));
+  savePw.addEventListener('click', () => siteAdminDo(savePw, async () => {
+    if (next.value !== again.value) throw new Error('The two new passwords are different');
+    await api('/password', { method: 'POST', body: JSON.stringify({ current: current.value, next: next.value }) });
+    toast(T('Password saved'), 'good', T('Anywhere else you were signed in is now signed out.'));
+    current.value = next.value = again.value = '';
+  }));
+
+  return card(el('span', {}, T('Your account'), el('small', {}, me.login)), null, el('div', {},
+    row(field('Email', email, mail
+      ? 'Where “Forgot password?” sends your link.'
+      : 'Where “Forgot password?” will send your link, once email is set up.'),
+      el('div', { className: 'row__end' }, saveEmail)),
+    el('div', { className: 'sitead__rule' }),
+    row(
+      field(me.owner ? 'Current password (or the owner password)' : 'Current password', current),
+      field('New password', next, 'At least 6 characters.'),
+      field('New password again', again),
+      el('div', { className: 'row__end' }, savePw),
+    ),
+  ));
+}
+
+function peopleCard({ users, mail }, rerender) {
+  const list = el('div', { className: 'people' }, ...users.map((u) => {
+    const remove = el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button' }, T('Remove'));
+    remove.addEventListener('click', () => removePerson(u, remove, rerender));
+    const reset = u.owner ? null : el('button', { className: 'btn btn--small btn--ghost', type: 'button',
+      title: T('Puts them back on 1234567890; they choose a new one when they next sign in.') },
+      T('Reset password'));
+    reset?.addEventListener('click', () => {
+      if (!confirm(T('Put {login} back on the starting password, 1234567890?', { login: u.login }))) return;
+      siteAdminDo(reset, async () => {
+        await api('/users/reset', { method: 'POST', body: JSON.stringify({ login: u.login }) });
+        toast(T('{login} is back on the starting password', { login: u.login }), 'good');
+        rerender();
+      });
+    });
+    return el('div', { className: 'people__row' },
+      el('div', { className: 'people__who' },
+        el('b', {}, u.login),
+        u.email && u.email !== u.login ? el('span', {}, u.email) : null,
+        u.owner ? el('span', { className: 'pill' }, T('owner')) : null,
+        u.mustChange ? el('span', { className: 'pill pill--warn' }, T('still on the starting password')) : null,
+        state.me && u.login.toLowerCase() === state.me.login.toLowerCase() ? el('span', { className: 'pill' }, T('you')) : null),
+      el('div', { className: 'people__do' }, reset, remove));
+  }));
+
+  const login = el('input', { type: 'text', autocapitalize: 'off', spellcheck: 'false', placeholder: 'e.g. ZhangWei' });
+  const email = el('input', { type: 'email', placeholder: 'name@example.com' });
+  const add = el('button', { className: 'btn btn--small btn--go', type: 'button' }, T('Add'));
+  add.addEventListener('click', () => siteAdminDo(add, async () => {
+    const res = await api('/users', { method: 'POST',
+      body: JSON.stringify({ login: login.value.trim(), email: email.value.trim() }) });
+    toast(T('{login} can sign in now', { login: res.user.login }), 'good',
+      res.emailed ? T('They have been emailed their sign-in and a link to set a password.')
+        : T('Tell them: their password is 1234567890 until they choose their own.'));
+    rerender();
+  }));
+
+  return card('People who can sign in', null, el('div', {},
+    list,
+    el('div', { className: 'sitead__rule' }),
+    row(field('Username', login), field('Email', email, 'Optional, but without one they cannot get password links.'),
+      el('div', { className: 'row__end' }, add)),
+    el('p', { className: 'hint' }, T('New people start on the password 1234567890 and are asked to choose their own the first time they sign in. '
+      + 'They can sign in with the username or the email.')),
+    mail ? null : el('p', { className: 'hint' }, T('Email is not set up, so nobody is sent anything yet.')),
+  ));
+}
+
+/* Anyone but TonyDeng: an "are you sure". TonyDeng: the owner password, in a
+ * proper password box rather than prompt(), which would show it as typed. */
+function removePerson(u, btn, rerender) {
+  const go = (ownerKey) => siteAdminDo(btn, async () => {
+    const res = await api('/users/delete', { method: 'POST', body: JSON.stringify({ login: u.login, ownerKey }) });
+    toast(T('{login} removed', { login: u.login }), 'good');
+    if (res.self) return showLogin('Your account was removed.');
+    rerender();
+    return res;
+  });
+
+  if (!u.owner) {
+    if (confirm(T('Remove {login}? They will not be able to sign in any more.', { login: u.login }))) go();
+    return;
+  }
+
+  const key = el('input', { type: 'password', autocomplete: 'off', required: true });
+  const error = el('p', { className: 'hint login__error' });
+  const dialog = el('dialog', { className: 'card ownerkey' },
+    el('form', { method: 'dialog' },
+      el('div', { className: 'card__head' }, el('span', { className: 'card__title' }, T('Remove TonyDeng?'))),
+      el('div', { className: 'card__body' },
+        el('p', { className: 'hint' }, T('This is the owner account. To remove it, type the owner password - the long one '
+          + 'set in Cloudflare, not TonyDeng’s own.')),
+        field('Owner password', key),
+        error,
+        el('div', { className: 'login__foot' },
+          el('button', { className: 'btn btn--danger', type: 'submit', value: 'go' }, T('Remove TonyDeng')),
+          el('button', { className: 'btn btn--ghost', type: 'button', onclick: () => dialog.close() }, T('Cancel'))))));
+  dialog.querySelector('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    error.textContent = '';
+    const res = await go(key.value);
+    if (res) dialog.close();
+    else { error.textContent = T('That is not the owner password'); key.select(); }
+  });
+  dialog.addEventListener('close', () => dialog.remove());
+  document.body.append(dialog);
+  dialog.showModal();
+}
+
+// ---------------------------------------------------------------- inbox
+
+function inboxCard({ messages, more, mail }, settings, rerender) {
+  const when = (iso) => new Date(iso).toLocaleString(UI.lang === 'zh' ? 'zh-CN' : undefined,
+    { dateStyle: 'medium', timeStyle: 'short' });
+
+  const items = messages.map((m) => {
+    const text = el('textarea', { rows: 3, placeholder: T('Your reply') });
+    const isPhone = m.kind === 'phone';
+    const send = el('button', { className: 'btn btn--small btn--go', type: 'button', disabled: !isPhone && !mail },
+      T(isPhone ? 'Text this reply' : 'Send reply by email'));
+    send.addEventListener('click', () => siteAdminDo(send, async () => {
+      if (!text.value.trim()) throw new Error('Write a reply first');
+      // the phone's own messaging app does the sending; this only notes it
+      if (isPhone) location.href = smsLink(m.replyTo, text.value.trim());
+      await api('/messages/reply', { method: 'POST', body: JSON.stringify({ id: m.id, text: text.value }) });
+      toast(T(isPhone ? 'Reply noted - send it from your messaging app' : 'Reply sent to {to}', { to: m.replyTo }), 'good');
+      rerender();
+    }));
+    const del = el('button', { className: 'btn btn--small btn--ghost btn--danger', type: 'button' }, T('Delete'));
+    del.addEventListener('click', () => {
+      if (!confirm(T('Delete this message?'))) return;
+      siteAdminDo(del, async () => {
+        await api('/messages/delete', { method: 'POST', body: JSON.stringify({ id: m.id }) });
+        rerender();
+      });
+    });
+
+    return el('div', { className: 'msgitem' + (m.replies.length ? ' is-replied' : '') },
+      el('div', { className: 'msgitem__head' },
+        el('b', {}, m.name || m.replyTo),
+        el('a', { href: isPhone ? `tel:${m.replyTo.replace(/[^\d+]/g, '')}` : `mailto:${m.replyTo}` }, m.replyTo),
+        el('span', { className: 'msgitem__when' }, when(m.at)),
+        m.replies.length ? el('span', { className: 'pill' }, T('replied')) : null),
+      el('p', { className: 'msgitem__text' }, m.message),
+      ...m.replies.map((r) => el('p', { className: 'msgitem__reply' },
+        el('span', {}, T('{by}, {when}, by {via}:', { by: r.by, when: when(r.at), via: T(r.via) })), ' ', r.text)),
+      text,
+      el('div', { className: 'msgitem__do' }, send, del,
+        isPhone ? el('span', { className: 'hint' }, T('Opens your phone’s messages with the reply filled in.')) : null),
+    );
+  });
+
+  return el('div', { className: 'inbox' },
+    messageToCard(settings, rerender),
+    card(el('span', {}, T('Messages'), el('small', {}, String(messages.length) + (more ? '+' : ''))), null,
+      el('div', {}, items.length ? items : el('p', { className: 'hint' }, T('No messages yet.')))),
+  );
+}
+
+function smsLink(number, body) {
+  // iOS reads `&body=`, Android `?body=`; `?` works on both today
+  return `sms:${number.replace(/[^\d+]/g, '')}?body=${encodeURIComponent(body)}`;
+}
+
+/* Where "Message Tony" sends. Also on the Contact & footer tab, which is
+ * where you would go looking for it. */
+function messageToCard(settings, rerender) {
+  const to = el('input', { type: 'email', value: settings.messageTo || '', placeholder: 'name@example.com' });
+  const save = el('button', { className: 'btn btn--small', type: 'button' }, T('Save'));
+  save.addEventListener('click', () => siteAdminDo(save, async () => {
+    await api('/settings', { method: 'PUT', body: JSON.stringify({ messageTo: to.value.trim() }) });
+    toast(T('Saved'), 'good', T('New messages go to {to}.', { to: to.value.trim() || T('the inbox only') }));
+    if (rerender) rerender();
+  }));
+  return card('Where messages go', null, el('div', {},
+    row(field('Email messages to', to), el('div', { className: 'row__end' }, save)),
+    el('p', { className: 'hint' }, T('Every “Message Tony” message is emailed here, with the sender as the reply address - '
+      + 'press Reply in that mailbox and it goes straight back to them. Messages are also kept in the inbox on the '
+      + 'Site admin page, which is where to answer someone who left a phone number. This saves at once; it is not '
+      + 'part of Save draft.')),
+    settings.mail ? null : el('p', { className: 'hint login__error' }, T('Email is not set up yet, so for now messages only reach the inbox.')),
+  ), 'contact.email');
+}
+
+/* The same card on the Contact & footer tab. It loads on its own, so the
+ * tab still renders straight away - and still works where accounts are off. */
+function messageToCardAsync() {
+  const slot = el('div', {});
+  api('/settings').then((settings) => {
+    if (!settings.accounts) {
+      slot.replaceChildren(card('Where messages go', null, el('p', { className: 'hint' },
+        T('Switched off until separate sign-ins are set up (the ACCOUNTS store in wrangler.toml).'))));
+      return;
+    }
+    slot.replaceChildren(messageToCard(settings));
+  }).catch(() => slot.replaceChildren());
+  return slot;
+}
 
 start();

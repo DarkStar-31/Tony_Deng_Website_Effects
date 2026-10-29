@@ -106,6 +106,17 @@ class Handler(SimpleHTTPRequestHandler):
                     "unpublished": [],
                 })
 
+            # one person, no accounts: the Site admin page says so, as the
+            # Worker does before its ACCOUNTS store exists
+            if route == "me":
+                return self.send_json({"login": FAKE_USER, "email": "", "owner": True,
+                                       "mustChange": False, "accounts": False, "mail": False})
+            if route == "settings":
+                return self.send_json({"accounts": False, "mail": False})
+            if route in ("users", "messages"):
+                return self.send_json({"error": "Accounts are not switched on yet",
+                                       "detail": "Not in the local preview."}, 501)
+
             if route == "content":
                 files = {}
                 for rel in CONTENT_FILES:

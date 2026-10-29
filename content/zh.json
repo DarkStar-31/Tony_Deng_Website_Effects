@@ -433,6 +433,7 @@
       "close": "关闭",
       "sending": "发送中…",
       "sent": "已发送。留言副本将发送至 {to}，Tony 回复时也会发到这里。",
+      "sentPhone": "已发送。Tony 回复时会发短信到 {to}。",
       "error": "发送失败，请稍后重试，或发邮件至 {email}。",
       "needMessage": "请先填写留言内容。",
       "needReply": "请填写邮箱或手机号，以便接收留言副本。"

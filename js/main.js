@@ -1000,7 +1000,7 @@ class MessageDialog {
       const body = await res.json().catch(() => ({}));
       if (!res.ok || !body.ok) throw new Error(body.error || res.status);
       this.form.classList.add('is-sent');
-      this.say(this.T.sent.replace('{to}', replyTo));
+      this.say((email ? this.T.sent : this.T.sentPhone || this.T.sent).replace('{to}', replyTo));
       this.dialog.querySelector('.msg__actions [data-msg-close]').focus();
     } catch {
       this.say(this.T.error.replace('{email}', this.form.dataset.email), true);

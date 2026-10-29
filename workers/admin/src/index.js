@@ -7,11 +7,11 @@
  * admin work on a bare *.workers.dev address, where a separate Worker route
  * is impossible.
  *
- * Authentication is one shared password, kept in a Worker secret and
- * answered with a signed, HttpOnly session cookie. It is a stopgap until the
- * site has its own domain and can go behind Cloudflare Access — Access on
- * workers.dev would lock the public site as well. Everyone who knows the
- * password can edit and publish; there is no per-person identity.
+ * Everyone signs in with their own username (or email) and password, kept
+ * in the ACCOUNTS KV namespace, and is answered with a signed, HttpOnly
+ * session cookie - see "accounts" below. Everyone signed in can edit and
+ * publish. Cloudflare Access would be stronger, but on workers.dev it would
+ * lock the public site as well; it can come once the site has a domain.
  *
  * The browser never talks to GitHub. It posts JSON here, and this Worker
  * commits with a token it holds server-side — which is what makes the admin
@@ -24,7 +24,11 @@
  *   LIVE_BRANCH     main
  *   DRAFT_BRANCH    draft
  *   GITHUB_TOKEN    secret — fine-grained PAT, Contents: read & write
- *   ADMIN_PASSWORD  secret — the one password for /admin
+ *   ADMIN_PASSWORD  secret — the owner password: TonyDeng's way in, and what
+ *                   removing TonyDeng asks for
+ *   ACCOUNTS        KV namespace — sign-ins, settings, the message inbox
+ *   BREVO_API_KEY   secret — sends the emails (see "mail")
+ *   MAIL_FROM       secret — the address they are sent from
  */
 
 const CONTENT_FILES = ['content/shared.json', 'content/en.json', 'content/zh.json'];
@@ -105,30 +109,194 @@ async function sameText(env, a, b) {
   return diff === 0;
 }
 
-const ADMIN = { email: 'admin', canPublish: true };
-
 function sessionCookie(value, maxAge) {
   return `${COOKIE}=${value}; Path=/api/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
 }
 
-async function handleLogin(request, env) {
-  const { password } = await request.json().catch(() => ({}));
+// ------------------------------------------------------------ accounts
 
-  if (!(await sameText(env, String(password || ''), requireSecret(env, 'ADMIN_PASSWORD')))) {
-    // Slows guessing down a little. It is per request, not per attacker, so
-    // it is no substitute for a long password.
-    await new Promise((r) => setTimeout(r, 1000));
-    throw new HttpError(401, 'Wrong password');
+/* One sign-in per person, kept in the ACCOUNTS KV namespace (wrangler.toml).
+ *
+ *   user:<login, lower case>   { login, email, salt, hash, mustChange, ver, created, owner? }
+ *   email:<address>            <login key>, so people can sign in with either
+ *   reset:<token>              <login key>, a password link, gone after an hour
+ *   fail:<who>                 failed sign-ins, forgotten after 15 minutes
+ *
+ * TonyDeng is the owner account. Until it has a password of its own it signs
+ * in with ADMIN_PASSWORD, and ADMIN_PASSWORD always still works for it - so
+ * the long password is the way back in if Tony forgets his own. Deleting
+ * TonyDeng takes ADMIN_PASSWORD too, and leaves `{ deleted: true }` behind so
+ * the account does not quietly come back.
+ *
+ * With no ACCOUNTS binding the admin falls back to the old single password,
+ * signed in as TonyDeng, so a deploy before the namespace exists still works.
+ *
+ * `ver` goes up when a password changes and is carried in the session
+ * cookie, so a new password signs that person out everywhere else. A
+ * deleted account's cookie stops working on its next request. */
+
+const OWNER = 'tonydeng';
+const DEFAULT_PASSWORD = '1234567890';
+const MIN_PASSWORD = 6;
+const PBKDF2_ROUNDS = 100000; // the most Workers allow
+const MAX_FAILS = 8;
+
+const userKey = (login) => `user:${String(login).trim().toLowerCase()}`;
+const emailKey = (email) => `email:${String(email).trim().toLowerCase()}`;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+async function hashPassword(password, salt) {
+  const key = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', hash: 'SHA-256', salt: b64urlToBytes(salt), iterations: PBKDF2_ROUNDS }, key, 256,
+  );
+  return bytesToB64url(bits);
+}
+
+function randomToken(bytes = 24) {
+  return bytesToB64url(crypto.getRandomValues(new Uint8Array(bytes)));
+}
+
+async function withPassword(user, password, mustChange) {
+  const salt = randomToken(16);
+  return {
+    ...user,
+    salt,
+    hash: await hashPassword(password, salt),
+    mustChange,
+    ver: (user.ver || 0) + 1,
+  };
+}
+
+/** The account stored under `key`, the owner before it has a record, or null. */
+async function getUser(env, key) {
+  const rec = await env.ACCOUNTS.get(key, 'json');
+  if (rec === null && key === userKey(OWNER)) {
+    return { login: 'TonyDeng', email: '', owner: true, ver: 0, mustChange: false, created: null };
+  }
+  return rec && !rec.deleted ? rec : null;
+}
+
+async function putUser(env, user) {
+  await env.ACCOUNTS.put(userKey(user.login), JSON.stringify(user));
+}
+
+/** Find an account by username or by email address. */
+async function findUser(env, who) {
+  who = String(who || '').trim();
+  if (!who) return null;
+  if (who.includes('@')) {
+    const key = await env.ACCOUNTS.get(emailKey(who));
+    if (key) return getUser(env, key);
+  }
+  return getUser(env, userKey(who));
+}
+
+async function listUsers(env) {
+  const out = [];
+  let cursor;
+  do {
+    const page = await env.ACCOUNTS.list({ prefix: 'user:', cursor });
+    for (const { name } of page.keys) {
+      const user = await getUser(env, name);
+      if (user) out.push(user);
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  if (!out.some((u) => u.owner) && (await getUser(env, userKey(OWNER)))) {
+    out.unshift(await getUser(env, userKey(OWNER)));
+  }
+  return out.sort((a, b) => (b.owner ? 1 : 0) - (a.owner ? 1 : 0)
+    || String(a.created || '').localeCompare(String(b.created || '')));
+}
+
+/** What the browser is told about an account - never the hash. */
+function publicUser(user) {
+  return {
+    login: user.login,
+    email: user.email || '',
+    owner: !!user.owner,
+    mustChange: !!user.mustChange,
+    created: user.created || null,
+  };
+}
+
+async function isOwnerKey(env, text) {
+  return sameText(env, String(text || ''), requireSecret(env, 'ADMIN_PASSWORD'));
+}
+
+async function checkPassword(env, user, password) {
+  if (user.owner && (await isOwnerKey(env, password))) return true;
+  if (!user.hash) return false;
+  return sameText(env, await hashPassword(String(password || ''), user.salt), user.hash);
+}
+
+function checkNewPassword(next) {
+  next = String(next || '');
+  if (next.length < MIN_PASSWORD) {
+    throw new HttpError(400, `Use at least ${MIN_PASSWORD} characters`);
+  }
+  if (next === DEFAULT_PASSWORD) throw new HttpError(400, 'Choose something other than the starting password');
+  return next;
+}
+
+/* The name a commit is signed with. The repository is public, so a login
+ * that is an email address must not end up in its history whole. */
+function commitName(login) {
+  return String(login).split('@')[0].replace(/[^A-Za-z0-9._-]/g, '') || 'admin';
+}
+
+function sessionUser(user) {
+  return {
+    email: commitName(user.login),
+    login: user.login,
+    owner: !!user.owner,
+    mustChange: !!user.mustChange,
+    canPublish: true,
+  };
+}
+
+async function handleLogin(request, env) {
+  const { login, password } = await request.json().catch(() => ({}));
+
+  let user = null;
+  if (env.ACCOUNTS) {
+    const who = String(login || '').trim().toLowerCase() || OWNER;
+    const failKey = `fail:${who}`;
+    const fails = Number(await env.ACCOUNTS.get(failKey)) || 0;
+    if (fails >= MAX_FAILS) {
+      throw new HttpError(429, 'Too many tries', 'Wait 15 minutes, or use “Forgot password?”.');
+    }
+    user = await findUser(env, who);
+    if (!user || !(await checkPassword(env, user, password))) {
+      await env.ACCOUNTS.put(failKey, String(fails + 1), { expirationTtl: 900 });
+      user = null;
+    } else if (fails) {
+      await env.ACCOUNTS.delete(failKey);
+    }
+  } else if (await isOwnerKey(env, password)) {
+    user = { login: 'TonyDeng', owner: true, ver: 0 };
   }
 
-  const payload = bytesToB64url(enc.encode(JSON.stringify({
-    exp: Math.floor(Date.now() / 1000) + SESSION_SECONDS,
-  })));
-  const token = `${payload}.${bytesToB64url(await hmac(env, payload))}`;
+  if (!user) {
+    // Slows guessing down a little; the fail count above is the real limit.
+    await new Promise((r) => setTimeout(r, 1000));
+    throw new HttpError(401, 'Wrong username or password');
+  }
 
-  const res = json({ ok: true, ...ADMIN });
+  const token = await signSession(env, user);
+  const res = json({ ok: true, ...sessionUser(user) });
   res.headers.append('Set-Cookie', sessionCookie(token, SESSION_SECONDS));
   return res;
+}
+
+async function signSession(env, user) {
+  const payload = bytesToB64url(enc.encode(JSON.stringify({
+    u: user.login.toLowerCase(),
+    v: user.ver || 0,
+    exp: Math.floor(Date.now() / 1000) + SESSION_SECONDS,
+  })));
+  return `${payload}.${bytesToB64url(await hmac(env, payload))}`;
 }
 
 function handleLogout() {
@@ -137,7 +305,11 @@ function handleLogout() {
   return res;
 }
 
-async function authenticate(request, env) {
+/* Someone signed in with the starting password may only choose a new one
+ * (and sign out) until they have. */
+const BEFORE_NEW_PASSWORD = ['/me', '/password', '/logout'];
+
+async function authenticate(request, env, path) {
   const token = (request.headers.get('Cookie') || '').match(/(?:^|;\s*)tony_admin=([^;]+)/)?.[1];
   if (!token) throw new HttpError(401, 'Not signed in');
 
@@ -156,7 +328,239 @@ async function authenticate(request, env) {
     throw new HttpError(401, 'Not signed in', 'Your session expired — sign in again.');
   }
 
-  return ADMIN;
+  if (!env.ACCOUNTS) return sessionUser({ login: 'TonyDeng', owner: true });
+
+  // a cookie from before accounts existed belonged to the one password
+  const user = await getUser(env, userKey(data.u || OWNER));
+  if (!user || (user.ver || 0) !== (data.v || 0)) {
+    throw new HttpError(401, 'Not signed in', 'Your password changed or the account was removed — sign in again.');
+  }
+  if (user.mustChange && !BEFORE_NEW_PASSWORD.includes(path)) {
+    throw new HttpError(403, 'Choose a new password first');
+  }
+  return sessionUser(user);
+}
+
+function needAccounts(env) {
+  if (!env.ACCOUNTS) {
+    throw new HttpError(501, 'Accounts are not switched on yet',
+      'The ACCOUNTS KV namespace is not bound to this Worker — see wrangler.toml.');
+  }
+}
+
+async function handleMe(env, user) {
+  if (!env.ACCOUNTS) return json({ ...publicUser(user), accounts: false, mail: mailReady(env) });
+  const rec = await getUser(env, userKey(user.login));
+  return json({ ...publicUser(rec), accounts: true, mail: mailReady(env) });
+}
+
+async function handleUsers(env) {
+  needAccounts(env);
+  return json({ users: (await listUsers(env)).map(publicUser), mail: mailReady(env) });
+}
+
+async function handleAddUser(request, env, me, origin) {
+  needAccounts(env);
+  const body = await request.json().catch(() => ({}));
+  let login = String(body.login || '').trim();
+  let email = String(body.email || '').trim();
+  if (!login && EMAIL_RE.test(email)) login = email;
+  if (EMAIL_RE.test(login) && !email) email = login;
+
+  if (!/^[A-Za-z0-9._@+-]{2,80}$/.test(login)) {
+    throw new HttpError(400, 'Give a username (letters, numbers, . _ -) or an email address');
+  }
+  if (email && !EMAIL_RE.test(email)) throw new HttpError(400, 'That email address does not look right');
+  if (await env.ACCOUNTS.get(userKey(login))) {
+    const old = await env.ACCOUNTS.get(userKey(login), 'json');
+    if (!old.deleted) throw new HttpError(409, `There is already an account called ${login}`);
+  }
+  if (login.toLowerCase() === OWNER && (await getUser(env, userKey(OWNER)))) {
+    throw new HttpError(409, 'There is already an account called TonyDeng');
+  }
+  if (email && (await env.ACCOUNTS.get(emailKey(email)))) {
+    throw new HttpError(409, `${email} already belongs to an account`);
+  }
+
+  const user = await withPassword({
+    login,
+    email,
+    owner: login.toLowerCase() === OWNER,
+    created: new Date().toISOString(),
+    addedBy: me.login,
+    ver: 0,
+  }, DEFAULT_PASSWORD, true);
+  await putUser(env, user);
+  if (email) await env.ACCOUNTS.put(emailKey(email), userKey(login));
+
+  let emailed = false;
+  if (email && mailReady(env)) {
+    const link = await resetLink(env, user, origin, 7 * 24 * 3600);
+    await sendMail(env, {
+      to: email,
+      subject: 'Your sign-in for the Tony D site admin',
+      text: [
+        `${me.login} has given you access to the Tony D site admin.`,
+        '',
+        `Username: ${login}`,
+        `Starting password: ${DEFAULT_PASSWORD}`,
+        '',
+        'You will be asked to choose your own password the first time you sign in.',
+        'Or set it now with this link (it works for 7 days):',
+        link,
+        '',
+        `${origin}/admin/`,
+      ].join('\n'),
+    });
+    emailed = true;
+  }
+  return json({ ok: true, user: publicUser(user), emailed });
+}
+
+async function handleDeleteUser(request, env, me) {
+  needAccounts(env);
+  const { login, ownerKey } = await request.json().catch(() => ({}));
+  const user = await getUser(env, userKey(login || ''));
+  if (!user) throw new HttpError(404, 'No such account');
+
+  if (user.owner && !(await isOwnerKey(env, ownerKey))) {
+    await new Promise((r) => setTimeout(r, 1000));
+    throw new HttpError(403, 'That is not the owner password',
+      'Removing TonyDeng takes the long ADMIN_PASSWORD, not TonyDeng’s own password.');
+  }
+  if ((await listUsers(env)).length <= 1) {
+    throw new HttpError(400, 'This is the last account', 'Add another one first, or nobody could sign in.');
+  }
+
+  if (user.owner) await env.ACCOUNTS.put(userKey(user.login), JSON.stringify({ deleted: true }));
+  else await env.ACCOUNTS.delete(userKey(user.login));
+  if (user.email) await env.ACCOUNTS.delete(emailKey(user.email));
+
+  return json({ ok: true, self: user.login.toLowerCase() === me.login.toLowerCase() });
+}
+
+/* Put someone back on the starting password - for an account with no email
+ * to send a link to. Not the owner: that one has ADMIN_PASSWORD instead. */
+async function handleResetUser(request, env) {
+  needAccounts(env);
+  const { login } = await request.json().catch(() => ({}));
+  const user = await getUser(env, userKey(login || ''));
+  if (!user) throw new HttpError(404, 'No such account');
+  if (user.owner) throw new HttpError(400, 'TonyDeng can always sign in with the owner password');
+  await putUser(env, await withPassword(user, DEFAULT_PASSWORD, true));
+  return json({ ok: true });
+}
+
+async function handleSetEmail(request, env, me) {
+  needAccounts(env);
+  const { email: raw } = await request.json().catch(() => ({}));
+  const email = String(raw || '').trim();
+  if (email && !EMAIL_RE.test(email)) throw new HttpError(400, 'That email address does not look right');
+
+  const user = await getUser(env, userKey(me.login));
+  if (email && email.toLowerCase() !== (user.email || '').toLowerCase()) {
+    const taken = await env.ACCOUNTS.get(emailKey(email));
+    if (taken && taken !== userKey(user.login)) throw new HttpError(409, `${email} already belongs to an account`);
+  }
+  if (user.email) await env.ACCOUNTS.delete(emailKey(user.email));
+  if (email) await env.ACCOUNTS.put(emailKey(email), userKey(user.login));
+  await putUser(env, { ...user, email });
+  return json({ ok: true, email });
+}
+
+async function handlePassword(request, env, me) {
+  needAccounts(env);
+  const { current, next } = await request.json().catch(() => ({}));
+  const user = await getUser(env, userKey(me.login));
+  if (!(await checkPassword(env, user, current))) {
+    await new Promise((r) => setTimeout(r, 1000));
+    throw new HttpError(403, 'Your current password is not right');
+  }
+  const updated = await withPassword(user, checkNewPassword(next), false);
+  await putUser(env, updated);
+
+  // this browser stays signed in; every other one is signed out
+  const res = json({ ok: true });
+  res.headers.append('Set-Cookie', sessionCookie(await signSession(env, updated), SESSION_SECONDS));
+  return res;
+}
+
+async function resetLink(env, user, origin, ttl = 3600) {
+  const token = randomToken();
+  await env.ACCOUNTS.put(`reset:${token}`, userKey(user.login), { expirationTtl: ttl });
+  return `${origin}/admin/#reset=${token}`;
+}
+
+/* "Forgot password?". The answer is the same whether or not the account
+ * exists, so the form cannot be used to find out who has one. */
+async function handleForgot(request, env, origin) {
+  needAccounts(env);
+  const { who } = await request.json().catch(() => ({}));
+  const user = await findUser(env, who);
+  if (user && user.email && mailReady(env)) {
+    await sendMail(env, {
+      to: user.email,
+      subject: 'Reset your Tony D site admin password',
+      text: [
+        `Someone asked to reset the password for ${user.login}.`,
+        '',
+        'Choose a new one here (the link works for one hour):',
+        await resetLink(env, user, origin),
+        '',
+        'If it was not you, ignore this email - nothing has changed.',
+      ].join('\n'),
+    });
+  }
+  return json({ ok: true, mail: mailReady(env) });
+}
+
+async function handleReset(request, env) {
+  needAccounts(env);
+  const { token, next } = await request.json().catch(() => ({}));
+  const key = token && (await env.ACCOUNTS.get(`reset:${token}`));
+  const user = key && (await getUser(env, key));
+  if (!user) throw new HttpError(400, 'That link has expired', 'Ask for a new one with “Forgot password?”.');
+  const updated = await withPassword(user, checkNewPassword(next), false);
+  await putUser(env, updated);
+  await env.ACCOUNTS.delete(`reset:${token}`);
+  await env.ACCOUNTS.delete(`fail:${user.login.toLowerCase()}`);
+
+  const res = json({ ok: true, login: user.login });
+  res.headers.append('Set-Cookie', sessionCookie(await signSession(env, updated), SESSION_SECONDS));
+  return res;
+}
+
+// ------------------------------------------------------------ mail
+
+/* Mail goes out through Brevo's API (brevo.com, free for 300 a day). It is
+ * used because it can send to anyone from a single verified address; the
+ * others want a domain of our own, which the site does not have yet.
+ *
+ *   BREVO_API_KEY   secret - Brevo → SMTP & API → API keys
+ *   MAIL_FROM       secret - the sender address verified in Brevo
+ *
+ * Both are secrets rather than [vars] only because the repository is public
+ * and MAIL_FROM is a real person's address. */
+function mailReady(env) {
+  return !!(env.BREVO_API_KEY && env.MAIL_FROM);
+}
+
+async function sendMail(env, { to, subject, text, replyTo, fromName = 'Tony D site' }) {
+  if (!mailReady(env)) throw new HttpError(503, 'Email is not set up', 'BREVO_API_KEY and MAIL_FROM secrets.');
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: { 'api-key': env.BREVO_API_KEY, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({
+      sender: { email: env.MAIL_FROM, name: fromName },
+      to: [{ email: to }],
+      ...(replyTo ? { replyTo: { email: replyTo } } : {}),
+      subject,
+      textContent: text,
+    }),
+  });
+  if (!res.ok) {
+    throw new HttpError(502, 'The email did not send', `Brevo said ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  }
 }
 
 // ------------------------------------------------------------ GitHub
@@ -572,6 +976,175 @@ async function handlePublish(env, user) {
   return json({ ok: true, commit: merge.sha });
 }
 
+// ------------------------------------------------------------ messages
+
+/* "Message Tony" (js/main.js MessageDialog posts here, /api/message).
+ *
+ * Each message is emailed to the address set in the admin (settings, below)
+ * with the sender as Reply-To, so pressing Reply in that mailbox answers the
+ * sender directly. The sender gets a copy when they left an email address.
+ *
+ * Email cannot do anything with a phone number, and a reply typed in the
+ * mailbox never comes back through here - there is no domain to receive
+ * mail on. So every message is also kept in the admin's inbox, where a reply
+ * to an email address is sent from here and a reply to a phone number opens
+ * the replier's own phone to text it. Kept for a year:
+ *
+ *   msg:<newest first>-<random>   { id, at, name, replyTo, kind, message, lang, page, replies }
+ *   settings                      { messageTo }
+ *   rate:<ip>                     messages from one address this hour */
+
+const MESSAGE_TTL = 365 * 24 * 3600;
+// generous: in China many people can share one address
+const MESSAGES_PER_HOUR = 10;
+
+async function getSettings(env) {
+  return (env.ACCOUNTS && (await env.ACCOUNTS.get('settings', 'json'))) || {};
+}
+
+async function handleGetSettings(env) {
+  return json({ ...(await getSettings(env)), mail: mailReady(env), accounts: !!env.ACCOUNTS });
+}
+
+async function handlePutSettings(request, env) {
+  needAccounts(env);
+  const { messageTo: raw } = await request.json().catch(() => ({}));
+  const messageTo = String(raw || '').trim();
+  if (messageTo && !EMAIL_RE.test(messageTo)) throw new HttpError(400, 'That email address does not look right');
+  const settings = { ...(await getSettings(env)), messageTo };
+  await env.ACCOUNTS.put('settings', JSON.stringify(settings));
+  return json({ ok: true, ...settings });
+}
+
+function contactKind(replyTo) {
+  if (EMAIL_RE.test(replyTo)) return 'email';
+  if (/^\+?[\d\s().-]+$/.test(replyTo) && replyTo.replace(/\D/g, '').length >= 6) return 'phone';
+  return null;
+}
+
+async function handleMessage(request, env, url) {
+  const body = await request.json().catch(() => ({}));
+  // the hidden field: a person never fills it in, so pretend it worked
+  if (body.website) return json({ ok: true });
+
+  const message = String(body.message || '').trim().slice(0, 2000);
+  const replyTo = String(body.replyTo || '').trim().slice(0, 120);
+  const name = String(body.name || '').trim().slice(0, 80);
+  const kind = contactKind(replyTo);
+  if (!message) throw new HttpError(400, 'Write a message first');
+  if (!kind) throw new HttpError(400, 'Enter an email address or a phone number');
+
+  const settings = await getSettings(env);
+  const emailTo = mailReady(env) && settings.messageTo;
+  // nowhere for it to go: say so, so the page shows its error line and the
+  // sender uses the email address it gives instead of trusting a "Sent"
+  if (!env.ACCOUNTS && !emailTo) throw new HttpError(503, 'Messages are not set up');
+
+  if (env.ACCOUNTS) {
+    const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+    const sent = Number(await env.ACCOUNTS.get(`rate:${ip}`)) || 0;
+    if (sent >= MESSAGES_PER_HOUR) throw new HttpError(429, 'Too many messages - try again later');
+    await env.ACCOUNTS.put(`rate:${ip}`, String(sent + 1), { expirationTtl: 3600 });
+  }
+
+  const at = new Date().toISOString();
+  const id = `${String(1e13 - Date.now()).padStart(13, '0')}-${randomToken(4)}`;
+  const record = {
+    id, at, name, replyTo, kind, message,
+    lang: String(body.lang || '').slice(0, 10),
+    page: String(body.page || '').slice(0, 200),
+    replies: [],
+  };
+  if (env.ACCOUNTS) await env.ACCOUNTS.put(`msg:${id}`, JSON.stringify(record), { expirationTtl: MESSAGE_TTL });
+
+  const who = name ? `${name} (${replyTo})` : replyTo;
+  if (emailTo) {
+    // kept in the inbox already, so a mail failure is not the sender's problem
+    const send = env.ACCOUNTS ? (m) => sendMail(env, m).catch(() => {}) : (m) => sendMail(env, m);
+    await send({
+      to: emailTo,
+      replyTo: kind === 'email' ? replyTo : undefined,
+      fromName: name || 'Tony D site',
+      subject: `Message from ${who} - Tony D site`,
+      text: [
+        message,
+        '',
+        '---',
+        `From: ${who}`,
+        `Sent: ${at} from ${record.page || 'the site'}`,
+        '',
+        kind === 'email'
+          ? 'Press Reply to answer - it goes straight to them.'
+          : `They left a phone number, not an email. Text or call ${replyTo}, or reply from the admin inbox:`,
+        `${url.origin}/admin/#inbox`,
+      ].join('\n'),
+    });
+  }
+  // their copy; best effort - the message itself has already arrived
+  if (kind === 'email' && mailReady(env)) {
+    try {
+      await sendMail(env, {
+        to: replyTo,
+        replyTo: settings.messageTo || undefined,
+        subject: 'Your message to Tony D',
+        text: [
+          record.lang.startsWith('zh') ? '你的留言已送达，回复会发到这个邮箱。' : 'Your message has been sent. Any reply will come to this address.',
+          '',
+          message,
+        ].join('\n'),
+      });
+    } catch { /* the message went; only the copy did not */ }
+  }
+  return json({ ok: true, kind });
+}
+
+async function handleMessages(env) {
+  needAccounts(env);
+  const page = await env.ACCOUNTS.list({ prefix: 'msg:', limit: 100 });
+  const messages = (await Promise.all(page.keys.map(({ name }) => env.ACCOUNTS.get(name, 'json')))).filter(Boolean);
+  return json({ messages, more: !page.list_complete, mail: mailReady(env) });
+}
+
+async function getMessage(env, id) {
+  if (!/^[0-9]{13}-[A-Za-z0-9_-]+$/.test(String(id || ''))) throw new HttpError(400, 'Bad message id');
+  const record = await env.ACCOUNTS.get(`msg:${id}`, 'json');
+  if (!record) throw new HttpError(404, 'That message is gone');
+  return record;
+}
+
+/* A reply from the inbox. To an email address it is sent from here; to a
+ * phone number it is only noted down, and the page opens the replier's own
+ * messaging app with the words filled in. */
+async function handleReply(request, env, me) {
+  needAccounts(env);
+  const { id, text: raw } = await request.json().catch(() => ({}));
+  const record = await getMessage(env, id);
+  const text = String(raw || '').trim().slice(0, 4000);
+  if (!text) throw new HttpError(400, 'Write a reply first');
+
+  if (record.kind === 'email') {
+    const settings = await getSettings(env);
+    await sendMail(env, {
+      to: record.replyTo,
+      replyTo: settings.messageTo || undefined,
+      fromName: 'Tony D',
+      subject: 'Re: your message to Tony D',
+      text: [text, '', '---', `${record.name || record.replyTo} wrote:`, ...record.message.split('\n').map((l) => `> ${l}`)].join('\n'),
+    });
+  }
+  record.replies.push({ at: new Date().toISOString(), by: me.login, text, via: record.kind === 'email' ? 'email' : 'text' });
+  await env.ACCOUNTS.put(`msg:${record.id}`, JSON.stringify(record), { expirationTtl: MESSAGE_TTL });
+  return json({ ok: true, message: record });
+}
+
+async function handleDeleteMessage(request, env) {
+  needAccounts(env);
+  const { id } = await request.json().catch(() => ({}));
+  await getMessage(env, id);
+  await env.ACCOUNTS.delete(`msg:${id}`);
+  return json({ ok: true });
+}
+
 // ------------------------------------------------------------ router
 
 // ------------------------------------------------------------ media
@@ -625,12 +1198,27 @@ async function serveReveal(request, env, url) {
   return new Response(file.body, { status: 200, headers });
 }
 
+/* The public message route, with the admin's error handling but none of its
+ * sign-in. Same-origin only: the form is on this site and nowhere else. */
+async function routeMessage(request, env, url) {
+  try {
+    if (request.method !== 'POST') throw new HttpError(405, 'POST only');
+    const origin = request.headers.get('Origin');
+    if (origin && origin !== url.origin) throw new HttpError(403, 'Cross-site request refused');
+    return await handleMessage(request, env, url);
+  } catch (err) {
+    if (err instanceof HttpError) return json({ error: err.message, detail: err.detail }, err.status);
+    return json({ error: 'Unexpected error', detail: String(err && err.message) }, 500);
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
     if (url.pathname.startsWith('/reveal/')) return serveReveal(request, env, url);
     if (/^\/(audio|video)\//.test(url.pathname)) return serveMedia(request, env);
+    if (url.pathname === '/api/message') return routeMessage(request, env, url);
     // wrangler.toml only runs this script for the paths above and
     // /api/admin/*, but if that pattern ever widens the site must still be
     // served.
@@ -648,8 +1236,23 @@ export default {
 
       if (request.method === 'POST' && path === '/login') return await handleLogin(request, env);
       if (request.method === 'POST' && path === '/logout') return handleLogout();
+      if (request.method === 'POST' && path === '/forgot') return await handleForgot(request, env, url.origin);
+      if (request.method === 'POST' && path === '/reset') return await handleReset(request, env);
 
-      const user = await authenticate(request, env);
+      const user = await authenticate(request, env, path);
+
+      if (request.method === 'GET' && path === '/me') return await handleMe(env, user);
+      if (request.method === 'POST' && path === '/password') return await handlePassword(request, env, user);
+      if (request.method === 'POST' && path === '/me/email') return await handleSetEmail(request, env, user);
+      if (request.method === 'GET' && path === '/users') return await handleUsers(env);
+      if (request.method === 'POST' && path === '/users') return await handleAddUser(request, env, user, url.origin);
+      if (request.method === 'POST' && path === '/users/delete') return await handleDeleteUser(request, env, user);
+      if (request.method === 'POST' && path === '/users/reset') return await handleResetUser(request, env);
+      if (request.method === 'GET' && path === '/settings') return await handleGetSettings(env);
+      if (request.method === 'PUT' && path === '/settings') return await handlePutSettings(request, env);
+      if (request.method === 'GET' && path === '/messages') return await handleMessages(env);
+      if (request.method === 'POST' && path === '/messages/reply') return await handleReply(request, env, user);
+      if (request.method === 'POST' && path === '/messages/delete') return await handleDeleteMessage(request, env);
 
       // `return await`, not `return`: a bare returned promise would reject
       // outside this try, and the error would reach the browser as a bare 500.
